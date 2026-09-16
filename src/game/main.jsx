@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import AmbientCursor from '../components/AmbientCursor.jsx';
+import { DetailIntro, PageHeader } from '../components/PageChrome.jsx';
 import { addRandomTile, canMove, move, newGame } from './engine.js';
 import config from '../config.json';
 import '../styles.css';
@@ -101,48 +102,16 @@ function Game2048() {
   };
 
   return (
-    <main className="game-shell">
-      <section className="game-card">
-        <div className="game-copy">
-          <a className="back-link" href="/">
-            <span aria-hidden="true">←</span>
-            <span>Back home</span>
-          </a>
-
-          <h1>2048</h1>
-
-          <p>
-            Join matching tiles. Reach 2048, or keep going until the board runs out
-            of space.
-          </p>
-
-          <div className="score-row">
-            <div className="score-box">
-              <div className="score-label">score</div>
-              <div className="score-value">{score}</div>
-            </div>
-            <div className="score-box">
-              <div className="score-label">best</div>
-              <div className="score-value">{best}</div>
-            </div>
-          </div>
-
-          <div className="game-actions">
-            <button className="btn primary" type="button" onClick={reset}>
-              new game
-            </button>
-            <a className="btn" href="/">
-              exit
-            </a>
-          </div>
-
-          <div className="game-note">
-            ARROWS / WASD
-            <br />
-            SWIPE ON TOUCH DEVICES
-          </div>
+    <main className="detail-shell arcade-game-shell">
+      <PageHeader section="arcade" page="2048" />
+      <DetailIntro backHref="/arcade/" backLabel="Arcade" eyebrow="09 / local arcade" title="2048" description="Join matching tiles. Reach 2048, or keep going until the board runs out of space.">
+        <div className="game-summary">
+          <div className="score-row"><div className="score-box"><div className="score-label">score</div><div className="score-value">{score}</div></div><div className="score-box"><div className="score-label">best</div><div className="score-value">{best}</div></div></div>
+          <div className="game-actions"><button className="btn primary" type="button" onClick={reset}>new game</button><a className="btn" href="/arcade/">exit</a></div>
+          <div className="game-note">ARROWS / WASD · SWIPE ON TOUCH DEVICES</div>
         </div>
-
+      </DetailIntro>
+      <section className="game-shell">
         <div className="game-panel-wrap">
           <div
             className="game-panel"

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import AmbientCursor from '../components/AmbientCursor.jsx';
+import { DetailIntro, PageHeader } from '../components/PageChrome.jsx';
 import config from '../config.json';
 import '../styles.css';
 
@@ -160,35 +161,16 @@ function Snake() {
   const occupied = new Map(snake.map((cell, index) => [`${cell.x}-${cell.y}`, index]));
 
   return (
-    <main className="game-shell">
-      <section className="game-card">
-        <div className="game-copy">
-          <a className="back-link" href="/">
-            <span aria-hidden="true">←</span>
-            <span>Back home</span>
-          </a>
-          <h1>Snake</h1>
-          <p>Collect the glowing cells. Avoid the walls and your own trail.</p>
-
-          <div className="score-row">
-            <div className="score-box">
-              <div className="score-label">score</div>
-              <div className="score-value">{score}</div>
-            </div>
-            <div className="score-box">
-              <div className="score-label">best</div>
-              <div className="score-value">{best}</div>
-            </div>
-          </div>
-
-          <div className="game-actions">
-            <button className="btn primary" type="button" onClick={reset}>new game</button>
-            <a className="btn" href="/">exit</a>
-          </div>
-
-          <div className="game-note">ARROWS / WASD<br />DIRECTION PAD ON TOUCH DEVICES</div>
+    <main className="detail-shell arcade-game-shell">
+      <PageHeader section="arcade" page="snake" />
+      <DetailIntro backHref="/arcade/" backLabel="Arcade" eyebrow="08 / local arcade" title="Snake" description="Collect the glowing cells. Avoid the walls and your own trail.">
+        <div className="game-summary">
+          <div className="score-row"><div className="score-box"><div className="score-label">score</div><div className="score-value">{score}</div></div><div className="score-box"><div className="score-label">best</div><div className="score-value">{best}</div></div></div>
+          <div className="game-actions"><button className="btn primary" type="button" onClick={reset}>new game</button><a className="btn" href="/arcade/">exit</a></div>
+          <div className="game-note">ARROWS / WASD · DIRECTION PAD ON TOUCH DEVICES</div>
         </div>
-
+      </DetailIntro>
+      <section className="game-shell">
         <div className="game-panel-wrap">
           <div className="game-panel snake-panel" aria-label="Snake game board">
             <div className="snake-board">

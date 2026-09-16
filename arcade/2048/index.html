@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Join matching tiles and reach 2048." />
+    <meta name="referrer" content="no-referrer" />
+    <title>2048 — DGS</title>
+    <link rel="stylesheet" href="/vendor-2048.css" />
+  </head>
+  <body>
+    <main class="v2048-page">
+      <header class="v2048-topbar">
+        <a class="v2048-brand" href="/" aria-label="DGS home">
+          <i class="v2048-mark" aria-hidden="true"></i>
+          <span>DGS / PLAYGROUND</span>
+        </a>
+        <div class="v2048-status"><i aria-hidden="true"></i><span>GAME ONLINE</span></div>
+      </header>
+
+      <section class="v2048-intro" aria-labelledby="game-title">
+        <a class="v2048-back" href="/arcade/" aria-label="Back to arcade"><span>←</span><span>arcade</span></a>
+        <div class="v2048-copy">
+          <div class="v2048-eyebrow">number puzzle</div>
+          <h1 id="game-title">2048</h1>
+          <p>Join matching tiles. Reach 2048, or keep going until the board runs out of space.</p>
+        </div>
+        <div class="v2048-summary">
+          <div class="v2048-scores" aria-label="Game scores">
+            <div class="v2048-score"><span>score</span><strong id="score">0</strong></div>
+            <div class="v2048-score"><span>best</span><strong id="best">0</strong></div>
+          </div>
+          <div class="v2048-actions">
+            <button class="v2048-btn primary" id="newBtn" type="button">new game</button>
+            <button class="v2048-btn" id="shareBtn" type="button">share</button>
+            <a class="v2048-btn" href="/arcade/">exit</a>
+          </div>
+          <div class="v2048-note">arrow keys / W A S D / swipe</div>
+        </div>
+      </section>
+
+      <section class="v2048-stage" aria-label="2048 play area">
+        <div id="board" aria-label="2048 game board"></div>
+      </section>
+    </main>
+
+    <div id="msg" role="dialog" aria-modal="true" aria-labelledby="msgTitle">
+      <h2 id="msgTitle"></h2>
+      <p id="msgSub"></p>
+      <button class="v2048-btn primary" type="button" onclick="startGame()">play again</button>
+    </div>
+    <script src="/vendor-2048.js"></script>
+  </body>
+</html>

@@ -22,6 +22,21 @@ function LaunchCard({ eyebrow, title, description, href, external = false }) {
 }
 
 function HomeContent() {
+  const cards = [
+    {
+      eyebrow: '01 / arcade',
+      title: 'Arcade',
+      description: 'Browser-native classics, collected in one quiet arcade.',
+      href: '/arcade/',
+    },
+    {
+      eyebrow: '02 / utilities',
+      title: 'Utilities',
+      description: 'Small, private tools that run entirely in your browser.',
+      href: '/utilities/',
+    },
+  ];
+
   return (
     <div className="site-shell">
       <div className="grid-noise" aria-hidden="true" />
@@ -61,7 +76,7 @@ function HomeContent() {
           </div>
 
           <div className="launch-grid">
-            {config.home.cards.map((card) => (
+            {cards.map((card) => (
               <LaunchCard key={card.href} {...card} />
             ))}
           </div>
