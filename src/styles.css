@@ -339,14 +339,28 @@ a {
 .back-link {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  color: var(--muted);
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(8, 15, 11, .7);
+  color: var(--text);
   font-family: "DM Mono", monospace;
   font-size: 12px;
+  transition: border-color .2s ease, background .2s ease, transform .2s ease;
 }
 
 .back-link:hover {
   color: var(--accent);
+  border-color: var(--line-strong);
+  background: rgba(13, 24, 17, .92);
+  transform: translateX(-2px);
+}
+
+.back-link span:first-child {
+  font-size: 18px;
+  line-height: 1;
 }
 
 .score-row {

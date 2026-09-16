@@ -104,7 +104,8 @@ function Game2048() {
       <section className="game-card">
         <div className="game-copy">
           <a className="back-link" href="/">
-            ← home
+            <span aria-hidden="true">←</span>
+            <span>Back home</span>
           </a>
 
           <h1>2048</h1>

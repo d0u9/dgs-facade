@@ -63,12 +63,22 @@ function Snake() {
   const queuedDirection = useRef('right');
 
   const chooseDirection = useCallback((next) => {
+    if (gameOver) {
+      direction.current = 'right';
+      queuedDirection.current = next === 'left' ? 'right' : next;
+      setSnake(STARTING_SNAKE);
+      setFood(createFood(STARTING_SNAKE));
+      setScore(0);
+      setGameOver(false);
+      setRunning(true);
+      return;
+    }
     const current = DIRECTIONS[direction.current];
     const candidate = DIRECTIONS[next];
     if (current.x + candidate.x === 0 && current.y + candidate.y === 0) return;
     queuedDirection.current = next;
     setRunning(true);
-  }, []);
+  }, [gameOver]);
 
   const reset = useCallback(() => {
     direction.current = 'right';
@@ -77,19 +87,27 @@ function Snake() {
     setFood(createFood(STARTING_SNAKE));
     setScore(0);
     setGameOver(false);
-    setRunning(true);
+    setRunning(false);
   }, []);
+
+  const start = useCallback(() => {
+    reset();
+    setRunning(true);
+  }, [reset]);
 
   useEffect(() => {
     const onKeyDown = (event) => {
       const next = KEY_MAP[event.key];
-      if (!next || gameOver) return;
-      event.preventDefault();
-      chooseDirection(next);
+      if (next) {
+        event.preventDefault();
+        chooseDirection(next);
+        return;
+      }
+      if (!running || gameOver) start();
     };
     window.addEventListener('keydown', onKeyDown, { passive: false });
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [chooseDirection, gameOver]);
+  }, [chooseDirection, gameOver, running, start]);
 
   useEffect(() => {
     if (!running || gameOver) return undefined;
@@ -144,7 +162,10 @@ function Snake() {
     <main className="game-shell">
       <section className="game-card">
         <div className="game-copy">
-          <a className="back-link" href="/">← home</a>
+          <a className="back-link" href="/">
+            <span aria-hidden="true">←</span>
+            <span>Back home</span>
+          </a>
           <h1>Snake</h1>
           <p>Collect the glowing cells. Avoid the walls and your own trail.</p>
 
@@ -186,10 +207,10 @@ function Snake() {
             </div>
 
             {!running && !gameOver && (
-              <div className="game-overlay"><div className="overlay-card"><strong>Ready?</strong><span>Choose a direction</span><button className="btn primary" type="button" onClick={reset}>start</button></div></div>
+              <div className="game-overlay"><div className="overlay-card"><strong>Ready?</strong><span>Press any key to start</span></div></div>
             )}
             {gameOver && (
-              <div className="game-overlay"><div className="overlay-card"><strong>Game over.</strong><span>Score {score}</span><button className="btn primary" type="button" onClick={reset}>play again</button></div></div>
+              <div className="game-overlay"><div className="overlay-card"><strong>Game over.</strong><span>Score {score} · press any key</span></div></div>
             )}
           </div>
 
