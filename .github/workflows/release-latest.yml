@@ -1,0 +1,74 @@
+name: Build latest static site
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-latest
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build static site
+        run: pnpm build
+
+      - name: Package static site
+        run: |
+          tar -C dist -czf dgs-facade.tar.gz .
+          sha256sum dgs-facade.tar.gz > dgs-facade.tar.gz.sha256
+
+      - name: Publish rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view latest >/dev/null 2>&1; then
+            gh api "repos/${GITHUB_REPOSITORY}/releases/tags/latest" \
+              --jq '.assets[].id' \
+              | while read -r asset_id; do
+                  gh api \
+                    --method DELETE \
+                    "repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}"
+                done
+            gh release upload latest \
+              dgs-facade.tar.gz \
+              dgs-facade.tar.gz.sha256 \
+              --clobber
+            gh api \
+              --method PATCH \
+              "repos/${GITHUB_REPOSITORY}/git/refs/tags/latest" \
+              -f sha="${GITHUB_SHA}" \
+              -F force=true
+          else
+            gh release create latest \
+              dgs-facade.tar.gz \
+              dgs-facade.tar.gz.sha256 \
+              --target "${GITHUB_SHA}" \
+              --title "Latest static build" \
+              --notes "Automatically replaced after every push to master."
+          fi
