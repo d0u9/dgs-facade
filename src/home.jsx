@@ -1,6 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import GlowCursor from './components/GlowCursor.jsx';
+import AmbientCursor from './components/AmbientCursor.jsx';
 import config from './config.json';
 import './styles.css';
 
@@ -78,33 +78,9 @@ function HomeContent() {
 
 function Home() {
   return (
-    <div
-      className="glow-stage"
-      style={{ position: 'relative', width: '100%', minHeight: '100vh', background: '#050610' }}
-    >
-      <GlowCursor
-        color="#67E8F9"
-        secondaryColor="#A78BFA"
-        trailLength={40}
-        trailWidth={8}
-        trailTaper={0.8}
-        followSpeed={0.16}
-        glowIntensity={1.9}
-        glowSpread={1.2}
-        hotspot={0.65}
-        brightness={1.25}
-        opacity={1}
-        pulseSpeed={1.1}
-        noiseStrength={0.035}
-        idleFade
-        idleTimeout={700}
-        fadeDuration={900}
-        blendMode="screen"
-        style={{ minHeight: '100vh', height: 'auto' }}
-      >
-        <HomeContent />
-      </GlowCursor>
-    </div>
+    <AmbientCursor>
+      <HomeContent />
+    </AmbientCursor>
   );
 }
 

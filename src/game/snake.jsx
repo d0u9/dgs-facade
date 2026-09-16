@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import AmbientCursor from '../components/AmbientCursor.jsx';
 import config from '../config.json';
 import '../styles.css';
 
@@ -227,5 +228,9 @@ function Snake() {
 }
 
 createRoot(document.getElementById('root')).render(
-  <React.StrictMode><Snake /></React.StrictMode>,
+  <React.StrictMode>
+    <AmbientCursor>
+      <Snake />
+    </AmbientCursor>
+  </React.StrictMode>,
 );

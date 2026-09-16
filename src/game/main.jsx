@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import AmbientCursor from '../components/AmbientCursor.jsx';
 import { addRandomTile, canMove, move, newGame } from './engine.js';
 import config from '../config.json';
 import '../styles.css';
@@ -181,6 +182,8 @@ function Game2048() {
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <Game2048 />
+    <AmbientCursor>
+      <Game2048 />
+    </AmbientCursor>
   </React.StrictMode>,
 );

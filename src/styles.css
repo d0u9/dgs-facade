@@ -59,6 +59,13 @@ a {
   color: #07100b;
 }
 
+.glow-stage {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
 .mono {
   font-family: "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
@@ -672,6 +679,10 @@ a {
     scroll-behavior: auto !important;
     transition-duration: 0.001ms !important;
     animation-duration: 0.001ms !important;
+  }
+
+  .glow-cursor__canvas {
+    display: none;
   }
 
 }
