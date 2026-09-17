@@ -33,6 +33,8 @@ export default defineConfig({
         arcade2048: resolve(import.meta.dirname, 'arcade/2048/index.html'),
         utilities: resolve(import.meta.dirname, 'utilities/index.html'),
         base64: resolve(import.meta.dirname, 'utilities/base64/index.html'),
+        filediff: resolve(import.meta.dirname, 'utilities/filediff/index.html'),
+        jsonformat: resolve(import.meta.dirname, 'utilities/jsonformat/index.html'),
         hextris: resolve(import.meta.dirname, 'game/hextris/index.html'),
         minesweeper: resolve(import.meta.dirname, 'game/minesweeper/index.html'),
         dino: resolve(import.meta.dirname, 'game/dino/index.html'),
