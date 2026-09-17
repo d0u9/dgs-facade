@@ -485,6 +485,8 @@ a {
 .diff-gutter-added { background: rgba(141, 243, 185, .16); color: var(--accent); }
 .diff-cell-added { background: rgba(141, 243, 185, .1); }
 .diff-cell-empty { background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .02) 0 8px, transparent 8px 16px); }
+.diff-char-removed { background: rgba(255, 155, 155, .4); color: var(--danger); border-radius: 3px; box-shadow: 0 0 0 1px rgba(255, 155, 155, .25); }
+.diff-char-added { background: rgba(141, 243, 185, .4); color: var(--accent); border-radius: 3px; box-shadow: 0 0 0 1px rgba(141, 243, 185, .25); }
 
 .json-tree { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 10px 14px; font-family: var(--code-font-family); font-size: var(--code-font-size); line-height: 1.7; color: var(--code-text); }
 .json-row { display: flex; align-items: flex-start; gap: 2px; white-space: pre-wrap; word-break: break-word; }

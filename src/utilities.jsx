@@ -88,6 +88,30 @@ function diffLines(a, b) {
   return ops;
 }
 
+function buildInlineRuns(ops, keepTypes) {
+  const runs = [];
+  let buf = '', bufType = null;
+  for (const op of ops) {
+    if (!keepTypes.includes(op.type)) continue;
+    if (op.type !== bufType) { if (buf) runs.push({ type: bufType, text: buf }); buf = ''; bufType = op.type; }
+    buf += op.text;
+  }
+  if (buf) runs.push({ type: bufType, text: buf });
+  return runs;
+}
+
+// For a changed line pair, diff at the character level so a single-character
+// edit (e.g. a comma to a period) is visible instead of just a full-line
+// highlight that reads identical to any other change.
+function charDiffLine(leftText, rightText) {
+  if (leftText.length * rightText.length > 20_000) return null;
+  const ops = diffLines(Array.from(leftText), Array.from(rightText));
+  return {
+    left: buildInlineRuns(ops, ['context', 'remove']),
+    right: buildInlineRuns(ops, ['context', 'add'])
+  };
+}
+
 function buildSplitRows(ops) {
   const rows = [];
   let leftNo = 0, rightNo = 0, i = 0;
@@ -107,12 +131,14 @@ function buildSplitRows(ops) {
     for (let k = 0; k < max; k++) {
       const leftText = k < removes.length ? removes[k] : null;
       const rightText = k < adds.length ? adds[k] : null;
+      const type = leftText != null && rightText != null ? 'change' : leftText != null ? 'remove' : 'add';
       rows.push({
-        type: leftText != null && rightText != null ? 'change' : leftText != null ? 'remove' : 'add',
+        type,
         leftNo: leftText != null ? ++leftNo : null,
         leftText,
         rightNo: rightText != null ? ++rightNo : null,
-        rightText
+        rightText,
+        inline: type === 'change' ? charDiffLine(leftText, rightText) : null
       });
     }
   }
@@ -154,9 +180,13 @@ function FileDiffTool() {
             <div className="diff-split-head diff-split-head-right">changed</div>
             {rows.map((row, index) => <React.Fragment key={index}>
               <span className={`diff-gutter diff-gutter-left ${row.type==='remove'||row.type==='change'?'diff-gutter-removed':''}`}>{row.leftNo ?? ''}</span>
-              <span className={`diff-cell diff-cell-left ${row.leftText==null?'diff-cell-empty':row.type==='remove'||row.type==='change'?'diff-cell-removed':''}`}>{row.leftText}</span>
+              <span className={`diff-cell diff-cell-left ${row.leftText==null?'diff-cell-empty':row.type==='remove'||row.type==='change'?'diff-cell-removed':''}`}>{
+                row.inline ? row.inline.left.map((run, i) => run.type==='remove' ? <mark key={i} className="diff-char-removed">{run.text}</mark> : <React.Fragment key={i}>{run.text}</React.Fragment>) : row.leftText
+              }</span>
               <span className={`diff-gutter diff-gutter-right ${row.type==='add'||row.type==='change'?'diff-gutter-added':''}`}>{row.rightNo ?? ''}</span>
-              <span className={`diff-cell diff-cell-right ${row.rightText==null?'diff-cell-empty':row.type==='add'||row.type==='change'?'diff-cell-added':''}`}>{row.rightText}</span>
+              <span className={`diff-cell diff-cell-right ${row.rightText==null?'diff-cell-empty':row.type==='add'||row.type==='change'?'diff-cell-added':''}`}>{
+                row.inline ? row.inline.right.map((run, i) => run.type==='add' ? <mark key={i} className="diff-char-added">{run.text}</mark> : <React.Fragment key={i}>{run.text}</React.Fragment>) : row.rightText
+              }</span>
             </React.Fragment>)}
           </div>}
     </div></section>
