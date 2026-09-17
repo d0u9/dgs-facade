@@ -133,6 +133,15 @@ function Block(fallingLane, color, iter, distFromHex, settled) {
 			ctx.fillStyle = this.color;
 		}
 
+		// Neon-tube glow: a soft blur in the block's own color behind the fill,
+		// like a lit glass tube. Only on the real (non-deleted, non-demo-tinted)
+		// fill, and cleared right after so it doesn't bleed into the white tint
+		// flash drawn below.
+		if (!this.deleted) {
+			ctx.shadowColor = ctx.fillStyle;
+			ctx.shadowBlur = 10 * settings.scale;
+		}
+
 		ctx.globalAlpha = this.opacity;
 		var baseX = trueCanvas.width / 2 + Math.sin((this.angle) * (Math.PI / 180)) * (this.distFromHex + this.height / 2) + gdx;
 		var baseY = trueCanvas.height / 2 - Math.cos((this.angle) * (Math.PI / 180)) * (this.distFromHex + this.height / 2) + gdy;
@@ -144,6 +153,7 @@ function Block(fallingLane, color, iter, distFromHex, settled) {
 		//ctx.lineTo(baseX + p1.x, baseY + p1.y);
 		ctx.closePath();
 		ctx.fill();
+		ctx.shadowBlur = 0;
 
 		if (this.tint) {
 			if (this.opacity < 1) {

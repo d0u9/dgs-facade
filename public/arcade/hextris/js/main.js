@@ -65,17 +65,15 @@ function resumeGame() {
 	$('#restartBtn').hide();
 	importing = 0;
 	startTime = Date.now();
-	setTimeout(function() {
-		if ((gameState == 1 || gameState == 2) && !$('#helpScreen').is(':visible')) {
-			$('#openSideBar').fadeOut(150, "linear");
-		}
-	}, 7000);
+	// The help icon (#openSideBar) used to overlap the canvas and auto-hide
+	// itself during play so it wouldn't block tap-to-rotate. It now lives in
+	// the external control strip (site integration layout) and stays visible
+	// permanently, so that fade-out timer is gone.
 
 	checkVisualElements(0);
 }
 
 function checkVisualElements(arg) {
-	if (arg && $('#openSideBar').is(":visible")) $('#openSideBar').fadeOut(150, "linear");
 	if (!$('#pauseBtn').is(':visible')) $('#pauseBtn').fadeIn(150, "linear");
 	$('#fork-ribbon').fadeOut(150);
 	if (!$('#restartBtn').is(':visible')) $('#restartBtn').fadeOut(150, "linear");
@@ -96,12 +94,6 @@ function init(b) {
 			$('#helpScreen').fadeOut(150, "linear");
 		}
 
-		setTimeout(function() {
-            if (gameState == 1) {
-			    $('#openSideBar').fadeOut(150, "linear");
-            }
-			infobuttonfading = false;
-		}, 7000);
 		clearSaveState();
 		checkVisualElements(1);
 	}
@@ -362,7 +354,7 @@ function showHelp() {
 		}
 	}
 
-	$("#inst_main_body").html("<div id = 'instructions_head'>HOW TO PLAY</div><p>The goal of Hextris is to stop blocks from leaving the inside of the outer hexagon.</p><p>" + (settings.platform != 'mobile' ? 'Press the right and left arrow keys' : 'Tap the left and right sides of the screen') + " to rotate the Hexagon." + (settings.platform != 'mobile' ? ' Press the down arrow to speed up the block falling': '') + " </p><p>Clear blocks and get points by making 3 or more blocks of the same shade touch.</p><p>Time left before your combo streak disappears is indicated by <span style='color:#39ff88;'>the glowing lines on the outer hexagon</span>.</p> <hr> <p id = 'afterhr'></p> By <a href='http://loganengstrom.com' target='_blank'>Logan Engstrom</a> & <a href='http://github.com/garrettdreyfus' target='_blank'>Garrett Finucane</a><br>Find Hextris on <a href = 'https://itunes.apple.com/us/app/id903769553?mt=8' target='_blank'>iOS</a> & <a href ='https://play.google.com/store/apps/details?id=com.hextris.hextris' target='_blank'>Android</a><br>More @ the <a href ='http://hextris.github.io/' target='_blank'>Hextris Website</a>");
+	$("#inst_main_body").html("<div id = 'instructions_head'>HOW TO PLAY</div><p>The goal of Hextris is to stop blocks from leaving the inside of the outer hexagon.</p><p>" + (settings.platform != 'mobile' ? 'Press the right and left arrow keys' : 'Tap the left and right sides of the screen') + " to rotate the Hexagon." + (settings.platform != 'mobile' ? ' Press the down arrow to speed up the block falling': '') + " </p><p>Clear blocks and get points by making 3 or more blocks of the same shade touch.</p><p>Time left before your combo streak disappears is indicated by <span style='color:#25f4ee;'>the glowing lines on the outer hexagon</span>.</p> <hr> <p id = 'afterhr'></p> By <a href='http://loganengstrom.com' target='_blank'>Logan Engstrom</a> & <a href='http://github.com/garrettdreyfus' target='_blank'>Garrett Finucane</a><br>Find Hextris on <a href = 'https://itunes.apple.com/us/app/id903769553?mt=8' target='_blank'>iOS</a> & <a href ='https://play.google.com/store/apps/details?id=com.hextris.hextris' target='_blank'>Android</a><br>More @ the <a href ='http://hextris.github.io/' target='_blank'>Hextris Website</a>");
 	if (gameState == 1) {
 		pause();
 	}

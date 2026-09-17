@@ -58,6 +58,9 @@ function drawSide(vertexes){
 		ctx.strokeStyle = MainHex.lastColorScored;
 	}
 	ctx.lineWidth =4*settings.scale;
+	// Neon tube glow on the combo streak line itself.
+	ctx.shadowColor = ctx.strokeStyle;
+	ctx.shadowBlur = 8 * settings.scale;
 		ctx.moveTo(vertexes[0][0][0],vertexes[0][0][1]);
 	ctx.lineTo(vertexes[0][1][0],vertexes[0][1][1]);
 		for(var i=1;i<vertexes.length;i++){
@@ -67,5 +70,6 @@ function drawSide(vertexes){
 	ctx.closePath();
 	ctx.fill();
 	ctx.stroke();
+	ctx.shadowBlur = 0;
 
 }

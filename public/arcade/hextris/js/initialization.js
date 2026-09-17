@@ -5,33 +5,37 @@ function initialize(a) {
 	window.rush = 1;
 	window.lastTime = Date.now();
 	window.iframHasLoaded = false;
-	// Keep the four game states distinguishable while staying inside one
-	// dark + neon-green visual system.
-	window.colors = ["#39ff88", "#19d66f", "#0baa57", "#72ffb0"];
+	// Cyberpunk neon set: cyan/magenta/yellow/purple. Four distinct hues
+	// instead of four lightness steps of one green — chosen so no pair
+	// relies on a red/green distinction (the axis common colorblind types
+	// can't reliably tell apart); each block color differs in hue and in
+	// how much blue/yellow it carries, which stays legible for protanopia,
+	// deuteranopia, and tritanopia alike.
+	window.colors = ["#25f4ee", "#fe2c55", "#fff01f", "#b026ff"];
 	window.hexColorsToTintedColors = {
-		"#39ff88": "rgb(148,255,190)",
-		"#19d66f": "rgb(112,236,160)",
-		"#0baa57": "rgb(86,207,132)",
-		"#72ffb0": "rgb(183,255,211)"
+		"#25f4ee": "rgb(168,251,248)",
+		"#fe2c55": "rgb(255,171,187)",
+		"#fff01f": "rgb(255,249,165)",
+		"#b026ff": "rgb(223,168,255)"
 	};
 
 	window.rgbToHex = {
-		"rgb(57,255,136)": "#39ff88",
-		"rgb(25,214,111)": "#19d66f",
-		"rgb(11,170,87)": "#0baa57",
-		"rgb(114,255,176)": "#72ffb0"
+		"rgb(37,244,238)": "#25f4ee",
+		"rgb(254,44,85)": "#fe2c55",
+		"rgb(255,240,31)": "#fff01f",
+		"rgb(176,38,255)": "#b026ff"
 	};
 
 	window.rgbColorsToTintedColors = {
-		"rgb(57,255,136)": "rgb(148,255,190)",
-		"rgb(25,214,111)": "rgb(112,236,160)",
-		"rgb(11,170,87)": "rgb(86,207,132)",
-		"rgb(114,255,176)": "rgb(183,255,211)"
+		"rgb(37,244,238)": "rgb(168,251,248)",
+		"rgb(254,44,85)": "rgb(255,171,187)",
+		"rgb(255,240,31)": "rgb(255,249,165)",
+		"rgb(176,38,255)": "rgb(223,168,255)"
 	};
 
-	window.hexagonBackgroundColor = 'rgb(5, 8, 6)';
-	window.hexagonBackgroundColorClear = 'rgba(5, 8, 6, 0.55)';
-	window.centerBlue = 'rgb(57,255,136)';
+	window.hexagonBackgroundColor = 'rgb(6, 7, 16)';
+	window.hexagonBackgroundColorClear = 'rgba(6, 7, 16, 0.55)';
+	window.centerBlue = 'rgb(37,244,238)';
 	window.angularVelocityConst = 4;
 	window.scoreOpacity = 0;
 	window.textOpacity = 0;
@@ -234,9 +238,8 @@ function startBtnHandler() {
 
 	if (!canRestart) return false;
 
-	if ($('#openSideBar').is(':visible')) {
-		$('#openSideBar').fadeOut(150, "linear");
-	}
+	// #openSideBar (help) now lives permanently in the external control strip
+	// (site integration layout) instead of fading in/out over the canvas.
 
 	if (importing == 1) {
 		init(1);
@@ -261,21 +264,12 @@ function handleClick(e) {
 }
 
 function handleTapBefore(e) {
-	var x = e.changedTouches[0].clientX;
-	var y = e.changedTouches[0].clientY;
-
-	if (x < 120 && y < 83 && $('.helpText').is(':visible')) {
-		showHelp();
-		return;
-	}
+	// The help icon used to sit in this top-left viewport corner before the
+	// first game start; it now lives in the external control strip (site
+	// integration layout) with its own click handler, so this dead zone
+	// (and its reliance on raw, unscoped viewport coordinates) is removed.
 }
 
 function handleClickBefore(e) {
-	var x = e.clientX;
-	var y = e.clientY;
-
-	if (x < 120 && y < 83 && $('.helpText').is(':visible')) {
-		showHelp();
-		return;
-	}
+	// See handleTapBefore above.
 }

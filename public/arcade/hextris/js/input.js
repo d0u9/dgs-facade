@@ -124,28 +124,41 @@ function addKeyListeners() {
 		return false;
 	});
 
+	// #openSideBar (help) previously had no click handler of its own: it sat
+	// directly on the canvas and only worked because clicks on it bubbled up
+	// to document.body's handleClick/handleTap, which treated the top-left
+	// corner of the stage as a fixed hit zone for showHelp(). Now that it's a
+	// real button in the external control strip, it needs its own binding.
+	$("#openSideBar").on('touchstart mousedown', function() {
+		showHelp();
+		return false;
+	});
+
+	// #colorBlindBtn isn't in this site's markup, so this handler never fires —
+	// kept in sync with initialization.js's palette anyway in case it's ever
+	// wired back up.
 	$("#colorBlindBtn").on('touchstart mousedown', function() {
-	window.colors = ["#39ff88", "#19d66f", "#0baa57", "#72ffb0"];
+	window.colors = ["#25f4ee", "#fe2c55", "#fff01f", "#b026ff"];
 
 	window.hexColorsToTintedColors = {
-		"#39ff88": "rgb(148,255,190)",
-		"#19d66f": "rgb(112,236,160)",
-		"#0baa57": "rgb(86,207,132)",
-		"#72ffb0": "rgb(183,255,211)"
+		"#25f4ee": "rgb(168,251,248)",
+		"#fe2c55": "rgb(255,171,187)",
+		"#fff01f": "rgb(255,249,165)",
+		"#b026ff": "rgb(223,168,255)"
 	};
 
 	window.rgbToHex = {
-		"rgb(57,255,136)": "#39ff88",
-		"rgb(25,214,111)": "#19d66f",
-		"rgb(11,170,87)": "#0baa57",
-		"rgb(114,255,176)": "#72ffb0"
+		"rgb(37,244,238)": "#25f4ee",
+		"rgb(254,44,85)": "#fe2c55",
+		"rgb(255,240,31)": "#fff01f",
+		"rgb(176,38,255)": "#b026ff"
 	};
 
 	window.rgbColorsToTintedColors = {
-		"rgb(57,255,136)": "rgb(148,255,190)",
-		"rgb(25,214,111)": "rgb(112,236,160)",
-		"rgb(11,170,87)": "rgb(86,207,132)",
-		"rgb(114,255,176)": "rgb(183,255,211)"
+		"rgb(37,244,238)": "rgb(168,251,248)",
+		"rgb(254,44,85)": "rgb(255,171,187)",
+		"rgb(255,240,31)": "rgb(255,249,165)",
+		"rgb(176,38,255)": "rgb(223,168,255)"
 	};
 	});
 
@@ -210,10 +223,10 @@ function handleClickTap(x,y) {
 	x -= stageRect.left;
 	y -= stageRect.top;
 	if (x < 0 || y < 0 || x > stageRect.width || y > stageRect.height) return;
-	if (x < 120 && y < 83 && $('.helpText').is(':visible')) {
-		showHelp();
-		return;
-	}
+	// The help icon used to sit inside this top-left corner of the canvas, so taps
+	// there were routed to showHelp(). It now lives in the external control strip
+	// (site integration layout) with its own click handler, so this dead zone is
+	// removed and the corner behaves like the rest of the play surface.
 	var radius = settings.hexWidth ;
 	var halfRadius = radius/2;
 	var triHeight = radius *(Math.sqrt(3)/2);

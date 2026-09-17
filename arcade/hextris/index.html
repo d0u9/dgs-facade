@@ -7,15 +7,29 @@
 <body>
 <main class="hextris-page">
   <header class="hextris-topbar"><a class="hextris-brand" href="/arcade/"><i class="hextris-mark"></i><span>d0u9 / arcade / hextris</span></a><div class="hextris-status"><i></i><span>local only</span></div></header>
-  <section class="hextris-intro"><a class="hextris-back" href="/arcade/"><span>←</span><span>Arcade</span></a><div class="hextris-copy"><div class="hextris-eyebrow">01 / open source arcade</div><h1>Hextris</h1><p>Rotate the hexagon. Match three colors before the stack reaches the edge.</p></div><div class="hextris-actions"><a class="hextris-exit" href="/arcade/">exit</a><span class="hextris-keys">← → / A D · SPACE</span></div></section>
-  <section class="hextris-game-shell"><div id="hextris-stage">
-    <canvas id="canvas"></canvas><div id="overlay" class="faded overlay"></div><div id="startBtn"></div><div id="helpScreen" class="unselectable"><div id="inst_main_body"></div></div>
-    <img id="openSideBar" class="helpText" src="/arcade/hextris/images/btn_help.svg" alt="Help"><img id="pauseBtn" src="/arcade/hextris/images/btn_pause.svg" alt="Pause"><img id="restartBtn" src="/arcade/hextris/images/btn_restart.svg" alt="Restart">
-    <div id="highScoreInGameText"><div id="highScoreInGameTextHeader">HIGH SCORE</div><div id="currentHighScore">0</div></div>
-    <div id="gameoverscreen"><div id="container"><div id="gameOverBox" class="GOTitle">GAME OVER</div><div id="cScore">0</div><div id="highScoresTitle" class="GOTitle">HIGH SCORES</div><div class="score"><span class="scoreNum">1.</span> <div id="1place" style="display:inline">0</div></div><div class="score"><span class="scoreNum">2.</span> <div id="2place" style="display:inline">0</div></div><div class="score"><span class="scoreNum">3.</span> <div id="3place" style="display:inline">0</div></div></div><div id="bottomContainer"><img id="restart" src="/arcade/hextris/images/btn_restart.svg" height="57" alt="Restart"><div id="socialShare"></div><div id="buttonCont"></div></div></div>
-  </div></section>
+  <section class="hextris-intro"><a class="hextris-back" href="/arcade/"><span>←</span><span>Arcade</span></a><div class="hextris-copy"><div class="hextris-eyebrow">01 / open source arcade</div><h1>Hextris</h1><p>Rotate the hexagon. Match three colors before the stack reaches the edge.</p></div><div class="hextris-actions"><a class="hextris-exit" href="/arcade/">exit</a><span class="hextris-keys">← → / A D · SPACE</span></div><div class="hextris-scroll-cue" aria-hidden="true"><span>scroll down to play</span><span>↓</span></div></section>
+  <section class="hextris-game-shell">
+    <div class="hextris-toolbar">
+      <div class="hextris-controls">
+        <button id="openSideBar" class="helpText" type="button" src="/arcade/hextris/images/btn_help.svg" aria-label="Help"></button>
+        <button id="pauseBtn" type="button" src="/arcade/hextris/images/btn_pause.svg" aria-label="Pause"></button>
+        <button id="restartBtn" type="button" src="/arcade/hextris/images/btn_restart.svg" aria-label="Restart"></button>
+      </div>
+      <div class="hextris-stage-hud" aria-label="Current game status">
+        <div><span>score</span><strong id="hextrisScoreValue">0</strong></div>
+        <div><span>best</span><strong id="hextrisBestValue">0</strong></div>
+        <div><span>state</span><strong id="hextrisStateValue">ready</strong></div>
+      </div>
+    </div>
+    <div id="hextris-stage">
+      <canvas id="canvas"></canvas><div id="overlay" class="faded overlay"></div><div id="startBtn"></div><div id="helpScreen" class="unselectable"><div id="inst_main_body"></div></div>
+      <div id="highScoreInGameText"><div id="highScoreInGameTextHeader">HIGH SCORE</div><div id="currentHighScore">0</div></div>
+      <div id="gameoverscreen"><div id="container"><div id="gameOverBox" class="GOTitle">GAME OVER</div><div id="cScore">0</div><div id="highScoresTitle" class="GOTitle">HIGH SCORES</div><div class="score"><span class="scoreNum">1.</span> <div id="1place" style="display:inline">0</div></div><div class="score"><span class="scoreNum">2.</span> <div id="2place" style="display:inline">0</div></div><div class="score"><span class="scoreNum">3.</span> <div id="3place" style="display:inline">0</div></div></div><div id="bottomContainer"><img id="restart" src="/arcade/hextris/images/btn_restart.svg" height="57" alt="Restart"><div id="socialShare"></div><div id="buttonCont"></div></div></div>
+    </div>
+  </section>
 </main>
 <script src="/arcade/hextris/vendor/hammer.min.js"></script><script src="/arcade/hextris/vendor/js.cookie.js"></script><script src="/arcade/hextris/vendor/jsonfn.min.js"></script><script src="/arcade/hextris/vendor/keypress.min.js"></script><script src="/arcade/hextris/vendor/jquery.js"></script>
 <script src="/arcade/hextris/js/save-state.js"></script><script src="/arcade/hextris/js/view.js"></script><script src="/arcade/hextris/js/wavegen.js"></script><script src="/arcade/hextris/js/math.js"></script><script src="/arcade/hextris/js/Block.js"></script><script src="/arcade/hextris/js/Hex.js"></script><script src="/arcade/hextris/js/Text.js"></script><script src="/arcade/hextris/js/comboTimer.js"></script><script src="/arcade/hextris/js/checking.js"></script><script src="/arcade/hextris/js/update.js"></script><script src="/arcade/hextris/js/render.js"></script><script src="/arcade/hextris/js/input.js"></script><script src="/arcade/hextris/js/main.js"></script><script src="/arcade/hextris/js/initialization.js"></script><script src="/arcade/hextris/vendor/sweet-alert.min.js"></script>
+<script src="/hextris-status-adapter.js"></script>
 </body>
 </html>

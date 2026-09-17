@@ -1,7 +1,10 @@
 function render() {
-	var grey = '#173d27';
+	// This is the dark hexagon "track" the blocks sit against — it isn't part
+	// of the block color array, but it used to be a dark green regardless, so
+	// it stayed visible as green gaps behind the new neon palette.
+	var grey = '#0a0b1a';
 	if (gameState === 0) {
-		grey = "rgb(31, 82, 52)";
+		grey = "rgb(24, 26, 54)";
 	}
 	
 	ctx.clearRect(0, 0, trueCanvas.width, trueCanvas.height);
@@ -83,13 +86,13 @@ function renderBeginningText() {
         score_text = 'Match 3+ blocks to score!'
         fontSize = 27
     }
-	renderText((trueCanvas.width)/2 + 2 * settings.scale,upperheight-0*settings.scale, fontSize, '#8df3b9', input_text);
-	renderText((trueCanvas.width)/2 + 2 * settings.scale,upperheight+33*settings.scale, fontSize, '#8df3b9', action_text);
+	renderText((trueCanvas.width)/2 + 2 * settings.scale,upperheight-0*settings.scale, fontSize, '#25f4ee', input_text);
+	renderText((trueCanvas.width)/2 + 2 * settings.scale,upperheight+33*settings.scale, fontSize, '#25f4ee', action_text);
     if (!mob) {
 	    drawKey("",(trueCanvas.width)/2 + 2 * settings.scale-2.5,upperheight+38*settings.scale);
     }
 
-	renderText((trueCanvas.width)/2 + 2 * settings.scale,lowerheight,fontSize, '#8df3b9', score_text);
+	renderText((trueCanvas.width)/2 + 2 * settings.scale,lowerheight,fontSize, '#25f4ee', score_text);
 }
 
 function drawKey(key, x, y) {

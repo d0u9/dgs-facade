@@ -1,7 +1,7 @@
 function Hex(sideLength) {
 	this.playThrough = 0;
-	this.fillColor = [57,255,136];
-	this.tempColor = [57,255,136];
+	this.fillColor = [37,244,238];
+	this.tempColor = [37,244,238];
 	this.angularVelocity = 0;
 	this.position = 0;
 	this.dy = 0;
@@ -161,7 +161,10 @@ function Hex(sideLength) {
 			this.angle += this.angularVelocity;
 		}
  
+		ctx.shadowColor = centerBlue;
+		ctx.shadowBlur = 12 * settings.scale;
 		drawPolygon(this.x + gdx, this.y + gdy + this.dy, this.sides, this.sideLength, this.angle, centerBlue, 0, 'rgba(0,0,0,0)');
+		ctx.shadowBlur = 0;
 	};
 }
 
