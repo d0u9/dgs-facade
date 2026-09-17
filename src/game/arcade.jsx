@@ -50,7 +50,7 @@ function DinoGuide() {
   return <main className="detail-shell">
     <PageHeader section="arcade" page="dino" status="Chrome built-in" />
     <DetailIntro backHref="/arcade/" backLabel="Arcade" eyebrow="05 / Chrome internal" title="Chrome Dino" description={<>Chrome blocks normal webpages from opening internal <span className="mono">chrome://</span> addresses. Copy the address below, then paste it into Chrome.</>} />
-    <section className="workspace-stage"><div className="dino-launch-card"><label className="mono" htmlFor="dino-url">Chrome address</label><div className="dino-url-row"><input id="dino-url" value="chrome://dino/" readOnly onFocus={(event) => event.target.select()}/><button className="btn primary" onClick={copy}>{copied ? 'copied' : 'copy address'}</button></div><p className="mono">{copied ? 'Copied — paste it into the address bar and press Enter.' : 'Copy the address, then paste it into the address bar.'}</p></div></section>
+    <section className="workspace-stage"><div className="workspace-stage-status mono" aria-label="Current tool status"><span>Chrome internal</span><span>{copied ? 'address copied' : 'ready'}</span></div><div className="dino-launch-card"><label className="mono" htmlFor="dino-url">Chrome address</label><div className="dino-url-row"><input id="dino-url" value="chrome://dino/" readOnly onFocus={(event) => event.target.select()}/><button className="btn primary" onClick={copy}>{copied ? 'copied' : 'copy address'}</button></div><p className="mono">{copied ? 'Copied — paste it into the address bar and press Enter.' : 'Copy the address, then paste it into the address bar.'}</p></div></section>
   </main>;
 }
 
@@ -71,11 +71,11 @@ function useBest(slug) {
 
 function GameFrame({ meta, score, best, reset, children, note }) {
   return <main className="detail-shell arcade-game-shell"><PageHeader section="arcade" page={meta.title.toLowerCase()} />
-    <DetailIntro backHref="/arcade/" backLabel="Arcade" eyebrow={`${meta.code} / local arcade`} title={meta.title} description={meta.blurb}>
+    <DetailIntro backHref="/arcade/" backLabel="Arcade" eyebrow={`${meta.code} / local arcade`} title={meta.title} description={meta.blurb} scrollLabel="scroll down to play">
       <div className="game-summary"><div className="score-row"><div className="score-box"><div className="score-label">score</div><div className="score-value">{score}</div></div><div className="score-box"><div className="score-label">best</div><div className="score-value">{best}</div></div></div>
       <div className="game-actions"><button className="btn primary" onClick={reset}>new game</button><a className="btn" href="/arcade/">exit</a></div><div className="game-note">{note || meta.keys}</div></div>
     </DetailIntro>
-    <section className="game-shell"><div className="game-panel-wrap">{children}</div></section>
+    <section className={`game-shell game-shell-${meta.slug}`}><div className="game-stage-hud" aria-label="Current game scores"><div><span>score</span><strong>{score}</strong></div><div><span>best</span><strong>{best}</strong></div></div><div className="game-panel-wrap">{children}</div></section>
   </main>;
 }
 

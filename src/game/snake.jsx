@@ -63,6 +63,7 @@ function Snake() {
   const [gameOver, setGameOver] = useState(false);
   const direction = useRef('right');
   const queuedDirection = useRef('right');
+  const touchStart = useRef(null);
 
   const chooseDirection = useCallback((next) => {
     if (gameOver) {
@@ -159,20 +160,34 @@ function Snake() {
   }, [food, gameOver, running]);
 
   const occupied = new Map(snake.map((cell, index) => [`${cell.x}-${cell.y}`, index]));
+  const beginSwipe = (event) => {
+    const touch = event.touches[0];
+    touchStart.current = { x: touch.clientX, y: touch.clientY };
+  };
+  const endSwipe = (event) => {
+    if (!touchStart.current) return;
+    const touch = event.changedTouches[0];
+    const dx = touch.clientX - touchStart.current.x;
+    const dy = touch.clientY - touchStart.current.y;
+    touchStart.current = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    chooseDirection(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+  };
 
   return (
     <main className="detail-shell arcade-game-shell">
       <PageHeader section="arcade" page="snake" />
-      <DetailIntro backHref="/arcade/" backLabel="Arcade" eyebrow="08 / local arcade" title="Snake" description="Collect the glowing cells. Avoid the walls and your own trail.">
+      <DetailIntro backHref="/arcade/" backLabel="Arcade" eyebrow="08 / local arcade" title="Snake" description="Collect the glowing cells. Avoid the walls and your own trail." scrollLabel="scroll down to play">
         <div className="game-summary">
           <div className="score-row"><div className="score-box"><div className="score-label">score</div><div className="score-value">{score}</div></div><div className="score-box"><div className="score-label">best</div><div className="score-value">{best}</div></div></div>
           <div className="game-actions"><button className="btn primary" type="button" onClick={reset}>new game</button><a className="btn" href="/arcade/">exit</a></div>
-          <div className="game-note">ARROWS / WASD · DIRECTION PAD ON TOUCH DEVICES</div>
+          <div className="game-note">ARROWS / WASD · SWIPE OR DIRECTION PAD ON TOUCH DEVICES</div>
         </div>
       </DetailIntro>
       <section className="game-shell">
+        <div className="game-stage-hud" aria-label="Current game scores"><div><span>score</span><strong>{score}</strong></div><div><span>best</span><strong>{best}</strong></div></div>
         <div className="game-panel-wrap">
-          <div className="game-panel snake-panel" aria-label="Snake game board">
+          <div className="game-panel snake-panel" aria-label="Snake game board" onTouchStart={beginSwipe} onTouchEnd={endSwipe} onTouchCancel={() => { touchStart.current = null; }}>
             <div className="snake-board">
               {Array.from({ length: SIZE * SIZE }, (_, index) => {
                 const x = index % SIZE;
