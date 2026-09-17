@@ -60,6 +60,9 @@ New pages and components should follow the shared
 modern 1990s-terminal feel with a near-black and fluorescent-green palette,
 while keeping interaction and status cues color-blind accessible.
 
+Deferred work and implementation notes are tracked in the project
+[TODO](docs/todo.md).
+
 ## Build
 
 ```bash
