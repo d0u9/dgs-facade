@@ -6,17 +6,17 @@ export default function AmbientCursor({ children }) {
       <GlowCursor
         color="#67E8F9"
         secondaryColor="#A78BFA"
-        trailLength={26}
-        trailWidth={5}
-        trailTaper={0.9}
-        followSpeed={0.18}
-        glowIntensity={1.15}
-        glowSpread={0.75}
-        hotspot={0.35}
-        brightness={0.8}
-        opacity={0.48}
-        pulseSpeed={0.65}
-        noiseStrength={0.012}
+        trailLength={38}
+        trailWidth={8}
+        trailTaper={0.96}
+        followSpeed={0.17}
+        glowIntensity={1.7}
+        glowSpread={1}
+        hotspot={0.58}
+        brightness={1.08}
+        opacity={0.7}
+        pulseSpeed={0.85}
+        noiseStrength={0.016}
         idleFade
         idleTimeout={480}
         fadeDuration={650}

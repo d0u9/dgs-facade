@@ -53,6 +53,13 @@ footer, or game score-storage keys. For example:
 
 Keep all existing keys when editing the real file, then rebuild the site.
 
+## Design
+
+New pages and components should follow the shared
+[design guidelines](docs/design-guidelines.md). The visual language combines a
+modern 1990s-terminal feel with a near-black and fluorescent-green palette,
+while keeping interaction and status cues color-blind accessible.
+
 ## Build
 
 ```bash
