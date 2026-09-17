@@ -122,7 +122,7 @@ function Battleship() {
       return nextPlayer;
     }), 450);
   };
-  return <GameFrame meta={meta} score={score} best={best} reset={reset} note="CLICK / TAP ENEMY WATERS TO FIRE"><div className="game-panel battle-panel"><div className="battle-status mono"><span className={`turn-light ${turn}`}/>{message}</div><div className="battle-fields"><BattleGrid board={enemy} enemy onFire={fire}/><BattleGrid board={player}/></div><div className="battle-labels mono"><span>enemy waters</span><span>your fleet</span></div>{status !== 'playing' && <div className="game-overlay"><div className="overlay-card"><strong>{status === 'won' ? 'Fleet destroyed.' : 'All ships lost.'}</strong><span>Score {score}</span><button className="btn primary" onClick={reset}>play again</button></div></div>}</div></GameFrame>;
+  return <GameFrame meta={meta} score={score} best={best} reset={reset} note="CLICK / TAP ENEMY WATERS TO FIRE"><div className="game-panel battle-panel"><div className="battle-status mono"><span className={`turn-light ${turn}`}/>{message}</div><div className="battle-fields"><div className="battle-field"><BattleGrid board={enemy} enemy onFire={fire}/><span className="battle-field-label mono">enemy waters</span></div><div className="battle-field"><BattleGrid board={player}/><span className="battle-field-label mono">your fleet</span></div></div>{status !== 'playing' && <div className="game-overlay"><div className="overlay-card"><strong>{status === 'won' ? 'Fleet destroyed.' : 'All ships lost.'}</strong><span>Score {score}</span><button className="btn primary" onClick={reset}>play again</button></div></div>}</div></GameFrame>;
 }
 
 function BattleGrid({ board, enemy = false, onFire }) {

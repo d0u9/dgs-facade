@@ -154,7 +154,7 @@ function Snake() {
         setFood(createFood(nextSnake));
         return nextSnake;
       });
-    }, 125);
+    }, 165);
 
     return () => window.clearInterval(timer);
   }, [food, gameOver, running]);
