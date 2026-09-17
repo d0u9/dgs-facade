@@ -84,13 +84,39 @@ Use the existing CSS custom properties instead of introducing close variants.
 | Secondary text | `--muted` | `#8da499` | Supporting copy |
 | Primary accent | `--accent` | `#8df3b9` | Focus, active states, key actions |
 | Secondary accent | `--accent-2` | `#7ed7ff` | Secondary data and differentiation |
+| Warning | `--warning` | `#ffe28a` | Waiting, caution, special emphasis |
 | Danger | `--danger` | `#ff9b9b` | Destructive and error states |
+| Neon pink | `--neon-pink` | `#ff8fc6` | High-energy highlights and game milestones |
+| Neon violet | `--neon-violet` | `#c4b5fd` | Rare tertiary highlights |
 
 Black and fluorescent green are the visual signature. Cyan and warm status
 colors are supporting colors, not competing brand colors. Prefer transparent
 tints of these tokens for fills and the solid tokens for text, borders, and
 icons. On a bright accent fill, use near-black text such as `#07100b`; do not
 put white text on fluorescent green.
+
+### Cyberpunk neon extension
+
+The system supports a controlled cyberpunk layer for games, experiments, and
+moments of unusually high energy. Its neon range is green, cyan, warm yellow,
+pink, and violet. Use it as an escalation from the core palette, not as the
+default appearance of every surface.
+
+- Keep the canvas and most panels near-black so neon retains its impact.
+- Use green and cyan first; introduce yellow, pink, or violet for milestones,
+  exceptional values, warnings, or distinct categories.
+- Limit a normal screen to one dominant neon and one supporting neon. A game
+  may use the full sequence when visible labels also identify every value.
+- Prefer neon for text, borders, icons, and small fills. Large saturated areas
+  should be rare and paired with near-black text.
+- Glow is optional and secondary to the solid color. Keep edges and text crisp.
+- Do not encode order, severity, or success solely through the neon hue.
+
+The 2048 tiles are the reference for a permissible multi-neon progression:
+dark green and cyan for low values, muted violet and warm coral for middle
+values, then bright green, cyan, yellow, pink, and violet for milestones. The
+printed tile number remains the primary identifier, so the sequence remains
+usable when hues are difficult to distinguish.
 
 ## Typography
 
@@ -170,6 +196,30 @@ reference points:
 Responsive changes should alter composition, not merely scale everything down.
 Controls must retain a minimum `44px` touch target. Decorative status copy may
 be reduced, but navigation, labels, and recovery actions must remain explicit.
+
+## Main Layout for game and utility details
+
+**Main Layout** uses a two-screen sequence. The first viewport is a
+spacious introduction with orientation, description, controls, and status. The
+second viewport starts with a status strip and reserves the remaining space for
+the complete game or tool workspace.
+
+- Use mandatory vertical scroll snapping with one snap point per viewport.
+- A partial wheel, trackpad, or swipe gesture may move within the threshold;
+  when the gesture ends, the page settles on one complete screen.
+- Mark important snap points with `scroll-snap-stop: always` so users do not
+  accidentally skip the workspace or introduction.
+- Place a quiet mono cue near the bottom of the introduction: `scroll down to
+  play` for games and `scroll down to use` for tools.
+- The second screen occupies exactly `100svh` for games and must not create a
+  vertical scrollbar.
+- Pin live state to the top of the second screen, independently of the centered
+  workspace. Games show values such as score, best, time, mines, turn, or level.
+- Center the primary interface in the space left below the status strip. Shrink
+  it responsively before allowing it to overflow the screen.
+- Upward scrolling follows the same rule and returns to the complete intro.
+- Keep native scrolling semantics. Do not intercept wheel events with custom
+  JavaScript or prevent keyboard and touch scrolling.
 
 ## Color-blind and low-vision accessibility
 
