@@ -12,11 +12,7 @@ function configuredMetadata() {
     transformIndexHtml(html) {
       return html
         .replace('__HOME_TITLE__', config.site.homeTitle)
-        .replace('__HOME_DESCRIPTION__', config.site.homeDescription)
-        .replace('__GAME_TITLE__', config.site.gameTitle)
-        .replace('__GAME_DESCRIPTION__', config.site.gameDescription)
-        .replace('__SNAKE_TITLE__', config.site.snakeTitle)
-        .replace('__SNAKE_DESCRIPTION__', config.site.snakeDescription);
+        .replace('__HOME_DESCRIPTION__', config.site.homeDescription);
     }
   };
 }
@@ -40,9 +36,7 @@ export default defineConfig({
         hextris: resolve(import.meta.dirname, 'game/hextris/index.html'),
         minesweeper: resolve(import.meta.dirname, 'game/minesweeper/index.html'),
         dino: resolve(import.meta.dirname, 'game/dino/index.html'),
-        battleship: resolve(import.meta.dirname, 'game/battleship/index.html'),
-        game2048: resolve(import.meta.dirname, '2048/index.html'),
-        snake: resolve(import.meta.dirname, 'snake/index.html')
+        battleship: resolve(import.meta.dirname, 'game/battleship/index.html')
       }
     }
   }

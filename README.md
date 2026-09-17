@@ -1,45 +1,52 @@
 # dgs-facade
 
-A small personal homepage intended for a Caddy-hosted static site.
+A small personal homepage, browser arcade, and collection of local utilities,
+intended for a Caddy-hosted static site.
 
 ## Routes
 
 - `/` — homepage
-- `/2048/` — playable 2048
-- `/snake/` — playable Snake
+- `/arcade/` — browser arcade
+- `/arcade/2048/` — playable 2048
+- `/arcade/snake/` — playable Snake
+- `/arcade/minesweeper/` — playable Minesweeper
+- `/arcade/hextris/` — playable Hextris
+- `/arcade/battleship/` — playable Battleship
+- `/utilities/` — browser-only utilities
+- `/utilities/base64/` — Base64 encoder and decoder
 
 ## Requirements
 
-- Node.js 20+
-- npm
+- Node.js 20.19+ or 22.12+
+- pnpm 10
 - Caddy for deployment (optional)
 
 ## Development
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Open:
 
 ```text
 http://localhost:5173/
-http://localhost:5173/2048/
+http://localhost:5173/arcade/
+http://localhost:5173/utilities/
 ```
 
 ## Configuration
 
-Edit `src/config.json` to change the site name, page metadata, homepage copy,
-links, footer, or the 2048 score-storage key. For example:
+Edit `src/config.json` to change the site name, homepage metadata and copy,
+footer, or game score-storage keys. For example:
 
 ```json
 {
-  "site": { "name": "d0u9" },
+  "site": { "name": "d0u9", "homeTitle": "d0u9 / home" },
   "home": {
-    "cards": [
-      { "href": "/snake/", "external": false }
-    ]
+    "status": "online",
+    "footerRight": "d0u9"
   }
 }
 ```
@@ -49,8 +56,8 @@ Keep all existing keys when editing the real file, then rebuild the site.
 ## Build
 
 ```bash
-npm install
-npm run build
+pnpm install
+pnpm build
 ```
 
 The deployable static site is generated in:
@@ -134,9 +141,9 @@ sudo caddy validate --config /etc/caddy/Caddyfile
 sudo systemctl reload caddy
 ```
 
-## 2048 controls
+## Game controls
 
-Desktop:
+2048 and Snake support:
 
 - Arrow keys
 - WASD

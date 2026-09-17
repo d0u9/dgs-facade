@@ -2,11 +2,7 @@
   "site": {
     "name": "d0u9",
     "homeTitle": "d0u9 / home",
-    "homeDescription": "A quiet personal corner of the internet: private tools and small experiments.",
-    "gameTitle": "2048 / d0u9",
-    "gameDescription": "A minimal 2048 game.",
-    "snakeTitle": "Snake / d0u9",
-    "snakeDescription": "A minimal Snake game."
+    "homeDescription": "A quiet personal corner of the internet: private tools and small experiments."
   },
   "home": {
     "status": "online",
@@ -15,22 +11,6 @@
     "headlineMuted": "of the internet.",
     "description": "Small tools, temporary things, and experiments that are useful enough to keep running.",
     "pills": ["HTTPS", "NO TRACKING"],
-    "cards": [
-      {
-        "eyebrow": "01 / game",
-        "title": "Snake",
-        "description": "A quick keyboard-and-touch version of the classic game.",
-        "href": "/snake/",
-        "external": false
-      },
-      {
-        "eyebrow": "02 / game",
-        "title": "2048",
-        "description": "A small keyboard-and-touch version of the classic puzzle.",
-        "href": "/2048/",
-        "external": false
-      }
-    ],
     "footerLeft": "small games / quiet corners",
     "footerRight": "d0u9"
   },
