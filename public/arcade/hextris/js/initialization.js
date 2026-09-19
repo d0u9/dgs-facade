@@ -183,7 +183,7 @@ function initialize(a) {
 
 				}
 
-				document.body.addEventListener('touchstart', handleTapBefore, false);
+				bindMobileSwipeControls();
 			} else {
 				try {
 					document.body.removeEventListener('mousedown', handleClickBefore, false);
@@ -218,7 +218,7 @@ function startBtnHandler() {
 
 			}
 
-			document.body.addEventListener('touchstart', handleTap, false);
+			bindMobileSwipeControls();
 		} else {
 			try {
 				document.body.removeEventListener('mousedown', handleClickBefore, false);
@@ -256,7 +256,38 @@ function handlePause() {
 }
 
 function handleTap(e) {
-	handleClickTap(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+	// Kept as a no-op for compatibility with the original engine. On touch
+	// devices rotation is intentionally reserved for horizontal swipes.
+}
+
+function bindMobileSwipeControls() {
+	var stage = $('#hextris-stage');
+	var playSurface = $('.hextris-game-shell');
+	var start = null;
+
+	playSurface.off('.hextrisSwipe');
+	playSurface.on('touchstart.hextrisSwipe', function(e) {
+		if ($(e.target).closest('button').length) return;
+		var touch = e.originalEvent.touches[0];
+		var surfaceRect = playSurface[0].getBoundingClientRect();
+		if (touch.clientY - surfaceRect.top < 64) return;
+		start = { x: touch.clientX, y: touch.clientY };
+	});
+	playSurface.on('touchmove.hextrisSwipe', function(e) {
+		if (start) e.preventDefault();
+	});
+	playSurface.on('touchend.hextrisSwipe touchcancel.hextrisSwipe', function(e) {
+		if (!start) return;
+		var touch = e.originalEvent.changedTouches[0];
+		var dx = touch.clientX - start.x;
+		var dy = touch.clientY - start.y;
+		var stageRect = stage[0].getBoundingClientRect();
+		var startedAboveCenter = start.y < stageRect.top + stageRect.height / 2;
+		start = null;
+
+		if (Math.abs(dx) < 28 || Math.abs(dx) <= Math.abs(dy) || !MainHex || gameState === 0 || gameState === -1) return;
+		MainHex.rotate(startedAboveCenter === (dx > 0) ? -1 : 1);
+	});
 }
 
 function handleClick(e) {

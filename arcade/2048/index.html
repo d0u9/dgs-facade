@@ -41,7 +41,16 @@
       </section>
 
       <section class="v2048-stage" aria-label="2048 play area">
-        <div class="v2048-stage-scores" aria-label="Current game scores"><div><span>score</span><strong id="scoreStage">0</strong></div><div><span>best</span><strong id="bestStage">0</strong></div></div><div class="v2048-play"><div id="board" aria-label="2048 game board"></div></div>
+        <div class="v2048-stage-scores" aria-label="Current game scores"><span class="v2048-gesture-hint">top edge: swipe to return</span><div><span>score</span><strong id="scoreStage">0</strong></div><div><span>best</span><strong id="bestStage">0</strong></div></div>
+        <div class="v2048-medals" aria-label="Medals earned this game" aria-live="polite">
+          <div id="medal-128" class="v2048-medal v2048-medal-128" hidden><span aria-hidden="true"></span><b>128</b></div>
+          <div id="medal-256" class="v2048-medal v2048-medal-256" hidden><span aria-hidden="true"></span><b>256</b></div>
+          <div id="medal-512" class="v2048-medal v2048-medal-512" hidden><span aria-hidden="true"></span><b>512</b></div>
+          <div id="medal-1024" class="v2048-medal v2048-medal-1024" hidden><span aria-hidden="true"></span><b>1024</b></div>
+          <div id="medal-2048" class="v2048-medal v2048-medal-2048" hidden><span aria-hidden="true"></span><b>2048</b></div>
+          <div id="medal-4096" class="v2048-medal v2048-medal-4096" hidden><span aria-hidden="true"></span><b>4096</b></div>
+        </div>
+        <div class="v2048-play"><div id="board" aria-label="2048 game board"></div></div>
       </section>
     </main>
 

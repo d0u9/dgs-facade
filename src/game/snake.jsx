@@ -17,6 +17,7 @@ const DIRECTIONS = {
   left: { x: -1, y: 0 },
   right: { x: 1, y: 0 },
 };
+
 const KEY_MAP = {
   ArrowUp: 'up',
   w: 'up',
@@ -64,8 +65,29 @@ function Snake() {
   const direction = useRef('right');
   const queuedDirection = useRef('right');
   const touchStart = useRef(null);
+  const lastSwipeAt = useRef(-Infinity);
+  const stageRef = useRef(null);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    let locked = false;
+    const startTouch = (event) => { locked = event.touches[0].clientY - stage.getBoundingClientRect().top >= 64; };
+    const preventScroll = (event) => { if (locked) event.preventDefault(); };
+    const endTouch = () => { locked = false; };
+    stage.addEventListener('touchstart', startTouch, { passive: true });
+    stage.addEventListener('touchmove', preventScroll, { passive: false });
+    stage.addEventListener('touchend', endTouch, { passive: true });
+    stage.addEventListener('touchcancel', endTouch, { passive: true });
+    return () => { stage.removeEventListener('touchstart', startTouch); stage.removeEventListener('touchmove', preventScroll); stage.removeEventListener('touchend', endTouch); stage.removeEventListener('touchcancel', endTouch); };
+  }, []);
 
   const chooseDirection = useCallback((next) => {
+    if (!running && !gameOver) {
+      direction.current = 'right';
+      queuedDirection.current = 'right';
+      setRunning(true);
+      return;
+    }
     if (gameOver) {
       direction.current = 'right';
       queuedDirection.current = next === 'left' ? 'right' : next;
@@ -81,7 +103,7 @@ function Snake() {
     if (current.x + candidate.x === 0 && current.y + candidate.y === 0) return;
     queuedDirection.current = next;
     setRunning(true);
-  }, [gameOver]);
+  }, [gameOver, running]);
 
   const reset = useCallback(() => {
     direction.current = 'right';
@@ -162,6 +184,7 @@ function Snake() {
   const occupied = new Map(snake.map((cell, index) => [`${cell.x}-${cell.y}`, index]));
   const beginSwipe = (event) => {
     const touch = event.touches[0];
+    if (touch.clientY - stageRef.current.getBoundingClientRect().top < 64) return;
     touchStart.current = { x: touch.clientX, y: touch.clientY };
   };
   const endSwipe = (event) => {
@@ -171,7 +194,12 @@ function Snake() {
     const dy = touch.clientY - touchStart.current.y;
     touchStart.current = null;
     if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    lastSwipeAt.current = performance.now();
     chooseDirection(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+  };
+  const tapToStart = () => {
+    if (performance.now() - lastSwipeAt.current < 500) return;
+    start();
   };
 
   return (
@@ -181,13 +209,13 @@ function Snake() {
         <div className="game-summary">
           <div className="score-row"><div className="score-box"><div className="score-label">score</div><div className="score-value">{score}</div></div><div className="score-box"><div className="score-label">best</div><div className="score-value">{best}</div></div></div>
           <div className="game-actions"><button className="btn primary" type="button" onClick={reset}>new game</button><a className="btn" href="/arcade/">exit</a></div>
-          <div className="game-note">ARROWS / WASD · SWIPE OR DIRECTION PAD ON TOUCH DEVICES</div>
+          <div className="game-note">ARROWS / WASD · SWIPE ON TOUCH DEVICES</div>
         </div>
       </DetailIntro>
-      <section className="game-shell">
+      <section ref={stageRef} className="game-shell" onTouchStart={beginSwipe} onTouchEnd={endSwipe} onTouchCancel={() => { touchStart.current = null; }}>
         <div className="game-stage-hud" aria-label="Current game scores"><div><span>score</span><strong>{score}</strong></div><div><span>best</span><strong>{best}</strong></div></div>
         <div className="game-panel-wrap">
-          <div className="game-panel snake-panel" aria-label="Snake game board" onTouchStart={beginSwipe} onTouchEnd={endSwipe} onTouchCancel={() => { touchStart.current = null; }}>
+          <div className="game-panel snake-panel" aria-label="Snake game board">
             <div className="snake-board">
               {Array.from({ length: SIZE * SIZE }, (_, index) => {
                 const x = index % SIZE;
@@ -205,18 +233,11 @@ function Snake() {
             </div>
 
             {!running && !gameOver && (
-              <div className="game-overlay"><div className="overlay-card"><strong>Ready?</strong><span>Press any key to start</span></div></div>
+              <div className="game-overlay" onClick={tapToStart}><div className="overlay-card"><strong>Ready?</strong><span>Tap or swipe to start</span></div></div>
             )}
             {gameOver && (
               <div className="game-overlay"><div className="overlay-card"><strong>Game over.</strong><span>Score {score} · press any key</span></div></div>
             )}
-          </div>
-
-          <div className="direction-pad" aria-label="Snake direction controls">
-            <button type="button" onClick={() => chooseDirection('up')} aria-label="Up">↑</button>
-            <button type="button" onClick={() => chooseDirection('left')} aria-label="Left">←</button>
-            <button type="button" onClick={() => chooseDirection('down')} aria-label="Down">↓</button>
-            <button type="button" onClick={() => chooseDirection('right')} aria-label="Right">→</button>
           </div>
         </div>
       </section>

@@ -69,13 +69,32 @@ function useBest(slug) {
   return [best, commit];
 }
 
+function useGameScreenTouchLock() {
+  const stageRef = React.useRef(null);
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return undefined;
+    let locked = false;
+    const start = (event) => { locked = event.touches[0].clientY - stage.getBoundingClientRect().top >= 64; };
+    const move = (event) => { if (locked) event.preventDefault(); };
+    const end = () => { locked = false; };
+    stage.addEventListener('touchstart', start, { passive: true });
+    stage.addEventListener('touchmove', move, { passive: false });
+    stage.addEventListener('touchend', end, { passive: true });
+    stage.addEventListener('touchcancel', end, { passive: true });
+    return () => { stage.removeEventListener('touchstart', start); stage.removeEventListener('touchmove', move); stage.removeEventListener('touchend', end); stage.removeEventListener('touchcancel', end); };
+  }, []);
+  return stageRef;
+}
+
 function GameFrame({ meta, score, best, reset, children, note }) {
+  const stageRef = useGameScreenTouchLock();
   return <main className="detail-shell arcade-game-shell"><PageHeader section="arcade" page={meta.title.toLowerCase()} />
     <DetailIntro backHref="/arcade/" backLabel="Arcade" eyebrow={`${meta.code} / local arcade`} title={meta.title} description={meta.blurb} scrollLabel="scroll down to play">
       <div className="game-summary"><div className="score-row"><div className="score-box"><div className="score-label">score</div><div className="score-value">{score}</div></div><div className="score-box"><div className="score-label">best</div><div className="score-value">{best}</div></div></div>
       <div className="game-actions"><button className="btn primary" onClick={reset}>new game</button><a className="btn" href="/arcade/">exit</a></div><div className="game-note">{note || meta.keys}</div></div>
     </DetailIntro>
-    <section className={`game-shell game-shell-${meta.slug}`}><div className="game-stage-hud" aria-label="Current game scores"><div><span>score</span><strong>{score}</strong></div><div><span>best</span><strong>{best}</strong></div></div><div className="game-panel-wrap">{children}</div></section>
+    <section ref={stageRef} className={`game-shell game-shell-${meta.slug}`}><div className="game-stage-hud" aria-label="Current game scores"><div><span>score</span><strong>{score}</strong></div><div><span>best</span><strong>{best}</strong></div></div><div className="game-panel-wrap">{children}</div></section>
   </main>;
 }
 
