@@ -1,0 +1,67 @@
+/* Site chrome for the vendor Javascript Tetris page. Mirrors the Hextris
+   integration (hextris-integration.css): intro screen, then a scroll-snapped
+   game screen with an external HUD. Standalone entry, so no shared reset. */
+*, *::before, *::after { box-sizing: border-box; }
+:root { color-scheme: dark; --bg:#050610; --line:rgba(37,244,238,.16); --line-strong:rgba(37,244,238,.32); --text:#edf7f1; --muted:#8da499; --accent:#25f4ee; --accent-2:#fe2c55; --mono:ui-monospace,SFMono-Regular,Menlo,monospace; --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+html,body { min-width:320px; min-height:100%; margin:0; overflow-x:hidden; overscroll-behavior-x:none; background:var(--bg); }
+body { overflow-y:auto; color:var(--text); font-family:var(--sans); }
+.tetris-page { width:min(1180px,calc(100% - 40px)); height:100svh; min-height:0; margin:0 auto; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; scroll-snap-type:y mandatory; scrollbar-width:none; }
+.tetris-page::-webkit-scrollbar { display:none; }
+.tetris-topbar { min-height:76px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); scroll-snap-align:start; scroll-snap-stop:always; }
+.tetris-brand,.tetris-status { display:flex; align-items:center; gap:10px; color:var(--muted); font:12px var(--mono); letter-spacing:.06em; text-decoration:none; }
+.tetris-mark,.tetris-status i { width:8px; height:8px; border:1px solid var(--accent); transform:rotate(45deg); box-shadow:0 0 14px rgba(37,244,238,.55); }
+.tetris-status i { border:0; border-radius:50%; background:var(--accent); }
+.tetris-intro { position:relative; min-height:calc(100svh - 76px); display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:24px; padding:54px 0; border-bottom:1px solid var(--line); }
+.tetris-back,.tetris-exit { min-height:44px; display:inline-flex; align-items:center; gap:8px; padding:0 15px; border:1px solid var(--line); border-radius:999px; background:rgba(8,15,11,.72); color:var(--text); text-decoration:none; font:12px var(--mono); }
+.tetris-eyebrow { margin-bottom:10px; color:var(--accent); font:12px var(--mono); letter-spacing:.12em; text-transform:uppercase; }
+.tetris-copy h1 { margin:0; font:600 clamp(58px,8vw,104px)/.9 var(--sans); letter-spacing:-.07em; }
+.tetris-copy p { margin:20px 0 0; color:var(--muted); font:clamp(15px,1.5vw,18px)/1.6 var(--sans); }
+.tetris-actions { display:flex; align-items:center; gap:14px; }
+.tetris-keys { color:#607369; font:9px var(--mono); letter-spacing:.05em; white-space:nowrap; }
+.tetris-scroll-cue { position:absolute; bottom:22px; left:50%; display:flex; align-items:center; gap:10px; color:var(--muted); font:10px var(--mono); letter-spacing:.1em; text-transform:uppercase; transform:translateX(-50%); }
+.tetris-scroll-cue span:last-child { color:var(--accent); font-size:15px; animation:scroll-cue 1.8s ease-in-out infinite; }
+@keyframes scroll-cue { 0%,100%{transform:translateY(-2px)} 50%{transform:translateY(4px)} }
+
+.tetris-game-shell { height:100svh; min-height:0; display:grid; grid-template-rows:auto minmax(0,1fr) auto; justify-items:center; gap:8px; overflow:hidden; padding:16px 0 20px; scroll-snap-align:start; scroll-snap-stop:always; }
+.tetris-toolbar { width:100%; max-width:900px; display:flex; justify-content:flex-end; }
+.tetris-stage-hud { display:flex; gap:8px; }
+.tetris-stage-hud > div { min-width:76px; padding:7px 11px; border:1px solid var(--line); border-radius:12px; background:rgba(10,18,13,.66); backdrop-filter:blur(12px); }
+.tetris-stage-hud > div:last-child { border-color:rgba(254,44,85,.35); }
+.tetris-stage-hud span { display:block; color:var(--muted); font:9px var(--mono); letter-spacing:.12em; text-transform:uppercase; }
+.tetris-stage-hud strong { display:block; margin-top:2px; color:var(--accent); font:500 15px var(--mono); text-transform:capitalize; }
+.tetris-stage-hud > div:last-child strong { color:var(--accent-2); }
+
+#tetris-stage { width:100%; max-width:900px; height:100%; min-height:0; display:grid; place-items:center; container-type:size; touch-action:none; }
+/* Vendor sizes blocks from the canvas's CSS size (10x20 court), so the court
+   keeps a strict 1:2 ratio and fills whichever stage dimension runs out first. */
+#tetris { height:min(100cqh - 16px, (100cqw - 16px) * 2); }
+.tetris-court { position:relative; height:100%; aspect-ratio:1/2; border:1px solid var(--line-strong); border-radius:6px; background:linear-gradient(rgba(37,244,238,.035) 1px, transparent 1px) 0 0 / 100% 5%, linear-gradient(90deg, rgba(37,244,238,.035) 1px, transparent 1px) 0 0 / 10% 100%, rgba(5,10,14,.9); box-shadow:0 0 18px rgba(37,244,238,.22), inset 0 0 24px rgba(37,244,238,.06); }
+.tetris-court #canvas { display:block; width:100%; height:100%; }
+/* Next-piece preview lives in the HUD row as its own tile. */
+.tetris-stage-hud > .tetris-next { min-width:0; display:flex; align-items:center; gap:8px; padding:5px 8px; }
+.tetris-next p { display:none; }
+.tetris-next #upcoming { display:block; width:34px; height:34px; }
+/* Start prompt overlays the court (vendor toggles its visibility). */
+.tetris-court #start { position:absolute; inset:0; margin:0; display:grid; place-items:center; background:rgba(5,6,16,.55); }
+.tetris-court #start a { padding:12px 16px; border:1px solid var(--accent); border-radius:10px; background:rgba(5,6,16,.8); color:var(--accent); font:11px/1.4 var(--mono); text-align:center; text-decoration:none; text-transform:uppercase; text-shadow:0 0 8px var(--accent); box-shadow:0 0 16px rgba(37,244,238,.35), inset 0 0 10px rgba(37,244,238,.15); }
+.tetris-stage-hud strong { text-shadow:0 0 8px currentColor; }
+#stats { display:none; } /* vendor FPS counter */
+
+.tetris-gesture-hint { display:none; margin:0; color:var(--muted); font:9px var(--mono); letter-spacing:.08em; text-transform:uppercase; text-align:center; }
+@media (pointer:coarse) { .tetris-gesture-hint { display:block; } }
+
+@media (max-width:600px) {
+  .tetris-page { width:min(calc(100% - 22px),1180px); }
+  .tetris-topbar { min-height:60px; }
+  .tetris-status span { display:none; }
+  .tetris-intro { min-height:calc(100svh - 60px); grid-template-columns:auto minmax(0,1fr); gap:14px; padding:36px 0; }
+  .tetris-back { width:44px; padding:0; justify-content:center; }
+  .tetris-back span:last-child { display:none; }
+  .tetris-actions { grid-column:1/-1; justify-content:space-between; }
+  .tetris-copy h1 { font-size:clamp(52px,16vw,78px); }
+  .tetris-game-shell { padding:12px 0 16px; gap:6px; }
+  .tetris-toolbar { justify-content:center; }
+  .tetris-stage-hud > div { min-width:0; padding:5px 8px; }
+  .tetris-stage-hud strong { font-size:13px; }
+}
+@media (prefers-reduced-motion:reduce) { .tetris-scroll-cue span:last-child { animation:none; } }

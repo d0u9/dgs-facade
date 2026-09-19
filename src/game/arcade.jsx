@@ -11,6 +11,7 @@ const GAMES = [
   { slug: 'hextris', title: 'Hextris', code: '04', blurb: 'Rotate the hexagon. Match three colors before the stack reaches the edge.', keys: '← → / A D · SPACE' },
   { slug: 'dino', title: 'Chrome Dino', code: '05', blurb: "Open Chrome's built-in offline runner.", keys: 'COPY URL · OPEN FROM ADDRESS BAR', href: '/arcade/dino/' },
   { slug: 'battleship', title: 'Battleship', code: '06', blurb: 'Find the hidden fleet before the opponent sinks yours.', keys: 'CLICK / TAP TO FIRE' },
+  { slug: 'tetris', title: 'Tetris', code: '07', blurb: 'Stack falling pieces. Clear full rows before the well fills up.', keys: '← → ↓ · ↑ ROTATE · SPACE' },
 ];
 
 function GamesHub() {
@@ -55,7 +56,7 @@ function DinoGuide() {
 }
 
 function glyph(slug) {
-  return { hextris: '⬡', minesweeper: '✣', dino: '◢', battleship: '⌁', snake: '∿', '2048': '＋' }[slug];
+  return { hextris: '⬡', minesweeper: '✣', dino: '◢', battleship: '⌁', snake: '∿', '2048': '＋', tetris: '▦' }[slug];
 }
 
 function useBest(slug) {

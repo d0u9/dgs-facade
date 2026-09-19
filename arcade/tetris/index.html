@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=0"><meta name="theme-color" content="#050610"><meta name="description" content="Play the open-source Javascript Tetris locally in your browser."><meta name="referrer" content="no-referrer"><title>Tetris / Arcade / d0u9</title>
+  <link rel="stylesheet" href="/tetris-integration.css">
+</head>
+<body>
+<main class="tetris-page">
+  <header class="tetris-topbar"><a class="tetris-brand" href="/arcade/"><i class="tetris-mark"></i><span>d0u9 / arcade / tetris</span></a><div class="tetris-status"><i></i><span>local only</span></div></header>
+  <section class="tetris-intro"><a class="tetris-back" href="/arcade/"><span>←</span><span>Arcade</span></a><div class="tetris-copy"><div class="tetris-eyebrow">07 / open source arcade</div><h1>Tetris</h1><p>Stack falling pieces. Clear full rows before the well fills up.</p></div><div class="tetris-actions"><a class="tetris-exit" href="/arcade/">exit</a><span class="tetris-keys">← → ↓ · ↑ ROTATE · SPACE</span></div><div class="tetris-scroll-cue" aria-hidden="true"><span>scroll down to play</span><span>↓</span></div></section>
+  <section class="tetris-game-shell">
+    <div class="tetris-toolbar">
+      <div class="tetris-stage-hud" aria-label="Current game status">
+        <div id="menu" class="tetris-next"><span>next</span><canvas id="upcoming"></canvas><p hidden>score <span id="score">00000</span></p><p hidden>rows <span id="rows">0</span></p></div>
+        <div><span>score</span><strong id="tetrisScoreValue">0</strong></div>
+        <div><span>rows</span><strong id="tetrisRowsValue">0</strong></div>
+        <div><span>best</span><strong id="tetrisBestValue">0</strong></div>
+        <div><span>state</span><strong id="tetrisStateValue">ready</strong></div>
+      </div>
+    </div>
+    <div id="tetris-stage">
+      <!-- canvas/start here and menu/upcoming/score/rows in the HUD are IDs the vendor script looks up. -->
+      <div id="tetris">
+        <div class="tetris-court">
+          <canvas id="canvas"></canvas>
+          <p id="start"><a href="javascript:play();">Press Space to Play.</a></p>
+        </div>
+      </div>
+    </div>
+    <p class="tetris-gesture-hint">tap rotate · drag move · flick down drop</p>
+  </section>
+</main>
+<script src="/arcade/tetris/stats.js"></script><script src="/arcade/tetris/tetris.js"></script>
+<script src="/tetris-status-adapter.js"></script>
+</body>
+</html>
