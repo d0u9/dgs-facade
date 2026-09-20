@@ -190,7 +190,12 @@ function writeUrl(filters, selected, is3d, amap, workspace, camera, play, snap) 
   if (play.rate !== DEFAULT_RATE) p.set('r', String(play.rate));
   if (snap !== DEFAULT_SNAP) p.set('panel', snap);
   if (is3d) p.set('3d', '1');
-  if (amap !== (navigator.language === 'zh-CN')) p.set('base', amap ? 'amap' : 'osm');
+  // Always written, never left to the reader's own default. Amap tiles are in GCJ-02 and the
+  // track coordinates are shifted to match, so the camera in `at` means one place on Amap and
+  // a place some hundreds of metres away on OpenStreetMap. A link that leaves the basemap to
+  // `navigator.language` opens somewhere else for anyone whose language differs from the
+  // sender's.
+  p.set('base', amap ? 'amap' : 'osm');
   const qs = p.toString();
   const url = qs ? `?${qs}` : location.pathname;
   if (url === `${location.search || location.pathname}`) return;
@@ -349,6 +354,19 @@ function toGcj([lon, lat, ...rest]) {
 }
 const identity = (c) => c;
 
+// GCJ-02 back to WGS-84. The forward shift has no closed-form inverse, so it is subtracted
+// until it converges, which takes two or three passes for a metre of accuracy.
+function fromGcj([lon, lat, ...rest]) {
+  let wLon = lon;
+  let wLat = lat;
+  for (let i = 0; i < 3; i += 1) {
+    const [gLon, gLat] = toGcj([wLon, wLat]);
+    wLon += lon - gLon;
+    wLat += lat - gLat;
+  }
+  return [wLon, wLat, ...rest];
+}
+
 function buildGroundFeatures(items, geoms, proj) {
   const lines = [];
   const points = [];
@@ -373,6 +391,7 @@ function buildGroundFeatures(items, geoms, proj) {
 
 function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView, onViewChange, fitKey, fitAllKey, focusSource, focusKey, initialCamera, onCamera }) {
   const proj = amap ? toGcj : identity;
+  const amapRef = useRef(null);
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const overlayRef = useRef(null);
@@ -522,6 +541,15 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
     const map = mapRef.current;
     map.baseLayers.forEach((id) => map.setLayoutProperty(id, 'visibility', amap ? 'none' : 'visible'));
     map.setLayoutProperty('amap', 'visibility', amap ? 'visible' : 'none');
+    // The tracks move with the basemap, since they are shifted into GCJ-02 while Amap is on.
+    // The camera has to move with them, or switching the basemap slides the view off whatever
+    // it was looking at. The first pass only records which basemap the map opened with.
+    const wasAmap = amapRef.current;
+    amapRef.current = amap;
+    if (wasAmap === null || wasAmap === amap) return;
+    const c = map.getCenter();
+    const [lon, lat] = amap ? toGcj([c.lng, c.lat]) : fromGcj([c.lng, c.lat]);
+    map.jumpTo({ center: [lon, lat] });
   }, [amap, ready]);
 
   const ground = useMemo(() => buildGroundFeatures(items, geoms, proj), [items, geoms, proj]);

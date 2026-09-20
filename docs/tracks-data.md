@@ -187,7 +187,7 @@ copies it; the address bar holds the same thing.
 | `sel`     | selected track                                      |
 | `at`      | camera as `lon,lat,zoom,pitch,bearing`              |
 | `3d`      | `1` with terrain on                                 |
-| `base`    | `amap` or `osm`, written only when it differs from the visitor's default |
+| `base`    | `amap` or `osm`, always written                     |
 | `panel`   | `peek`, `half` or `full`, written only when it is not `half` |
 | `t`       | playback position in seconds                        |
 | `play`    | `1` while playback is running                       |
@@ -205,6 +205,14 @@ unaffected.
 
 Opening a link does not overwrite the workspace the visitor had saved. It is
 kept once they change it themselves.
+
+`base` used to be left out when it matched the sender's own default, and a
+reader with no `base` fell back to `navigator.language`. Amap tiles are in
+GCJ-02 and the track coordinates are shifted to match, so the same `at` means
+one place on Amap and a place a few hundred metres away on OpenStreetMap: a
+link from a zh-CN sender opened somewhere else for everyone else. It is always
+written now, and switching basemap moves the camera by the same shift as the
+tracks, so the view stays on what it was looking at.
 
 A camera carried by `at` is held against every automatic fit, not only the
 first one. The page moves under itself on the way up — the workspace resolves,
