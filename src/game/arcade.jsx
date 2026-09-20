@@ -13,6 +13,9 @@ const GAMES = [
   { slug: 'battleship', title: 'Battleship', code: '06', blurb: 'Find the hidden fleet before the opponent sinks yours.', keys: 'CLICK / TAP TO FIRE' },
   { slug: 'tetris', title: 'Tetris', code: '07', blurb: 'Stack falling pieces. Clear full rows before the well fills up.', keys: '← → ↓ · ↑ ROTATE · SPACE' },
   { slug: 'flappy', title: 'Flappy Bird', code: '08', blurb: 'Flap through the gaps. One touch is all the control you get.', keys: 'SPACE / CLICK / TAP' },
+  { slug: 'flood', title: 'Color Flood', code: '09', blurb: 'Flood the board from the corner. Twenty-four moves, no more.', keys: 'CLICK / TAP A COLOR' },
+  { slug: 'tower', title: 'Tower Blocks', code: '10', blurb: 'Drop each block on the one below. Every miss trims the next one.', keys: 'SPACE / CLICK / TAP' },
+  { slug: 'bubbles', title: 'Bubble Shooter', code: '11', blurb: 'Aim, fire, and pop clusters of three before they reach the line.', keys: 'AIM · CLICK / DRAG TO FIRE' },
 ];
 
 function GamesHub() {
@@ -57,7 +60,7 @@ function DinoGuide() {
 }
 
 function glyph(slug) {
-  return { hextris: '⬡', minesweeper: '✣', dino: '◢', battleship: '⌁', snake: '∿', '2048': '＋', tetris: '▦', flappy: '⌒' }[slug];
+  return { hextris: '⬡', minesweeper: '✣', dino: '◢', battleship: '⌁', snake: '∿', '2048': '＋', tetris: '▦', flappy: '⌒', flood: '◈', tower: '⊟', bubbles: '◎' }[slug];
 }
 
 function useBest(slug) {

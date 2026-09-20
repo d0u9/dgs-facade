@@ -407,6 +407,9 @@ a {
 .arcade-battleship { --card-accent: #8fb9ff; }
 .arcade-snake { --card-accent: var(--accent); }
 .arcade-flappy { --card-accent: #ffe66d; }
+.arcade-flood { --card-accent: #c04dff; }
+.arcade-tower { --card-accent: #ffe66d; }
+.arcade-bubbles { --card-accent: #39ff88; }
 
 .arcade-game-shell { position: relative; z-index: 2; }
 .canvas-panel { overflow: hidden; padding: 10px; }

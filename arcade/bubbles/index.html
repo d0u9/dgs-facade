@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=0"><meta name="theme-color" content="#050610"><meta name="description" content="Play the open-source Bubble Shooter locally in your browser."><meta name="referrer" content="no-referrer"><title>Bubble Shooter / Arcade / d0u9</title>
+  <link rel="stylesheet" href="/arcade-shell.css">
+</head>
+<body>
+<main class="ag-page" style="--game-accent:#39ff88; --court-ratio:0.857">
+  <header class="ag-topbar"><a class="ag-brand" href="/arcade/"><i class="ag-mark"></i><span>d0u9 / arcade / bubbles</span></a><div class="ag-status"><i></i><span>local only</span></div></header>
+  <section class="ag-intro"><a class="ag-back" href="/arcade/"><span>←</span><span>Arcade</span></a><div class="ag-copy"><div class="ag-eyebrow">11 / open source arcade</div><h1>Bubble Shooter</h1><p>Aim, fire, and pop clusters of three. Let them reach the line and it ends.</p></div><div class="ag-actions"><a class="ag-exit" href="/arcade/">exit</a><span class="ag-keys">AIM · CLICK / DRAG TO FIRE</span></div><div class="ag-scroll-cue" aria-hidden="true"><span>scroll down to play</span><span>↓</span></div></section>
+  <section class="ag-game-shell">
+    <div class="ag-toolbar">
+      <div class="ag-hud" aria-label="Current game status">
+        <div><span>score</span><strong id="score">0</strong></div>
+        <div><span>shots</span><strong id="shots">0</strong></div>
+        <div><span>best</span><strong id="best">0</strong></div>
+        <div><span>state</span><strong id="message">ready</strong></div>
+      </div>
+      <div class="ag-buttons"><button class="ag-btn" id="restart" type="button">new game</button></div>
+    </div>
+    <div class="ag-stage">
+      <!-- game/score/shots/best/message/restart are ids the vendor script looks up. -->
+      <div class="ag-court"><canvas id="game" width="480" height="560"></canvas></div>
+    </div>
+    <p class="ag-hint">drag to aim · lift to fire</p>
+  </section>
+</main>
+<script src="/arcade/bubble-shooter/game.js"></script>
+<script src="/arcade-hud.js"></script>
+<script src="/bubbles-adapter.js"></script>
+</body>
+</html>
