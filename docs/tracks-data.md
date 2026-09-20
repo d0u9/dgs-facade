@@ -34,13 +34,11 @@ are the ones the page offers before the visitor has picked anything.
 
 ## Ids
 
-`data/tracks/ids.json` records which id belongs to which track. The mock data
-in `data/tracks/` is currently kept outside this branch's commits, so keep a
-separate backup of the ledger with the source files and provide both to the
-build environment. A deployment without this directory has an empty track
-library. Without the ledger, a rebuild can assign different ids and shared
-links can stop resolving. The build prints the ids it has just assigned as a
-reminder.
+`data/tracks/ids.json` records which id belongs to which track. It is committed
+with the track files it describes, and the two belong together: a deployment
+without `data/tracks/` has an empty track library, and a rebuild without the
+ledger can assign different ids, which stops shared links resolving. The build
+prints the ids it has just assigned as a reminder.
 
 An id is five characters with no relation to the track's name, because a link
 carries the whole workspace and because an id derived from a name changes
