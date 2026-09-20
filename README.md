@@ -14,6 +14,7 @@ intended for a Caddy-hosted static site.
 - `/arcade/battleship/` — playable Battleship
 - `/utilities/` — browser-only utilities
 - `/utilities/base64/` — Base64 encoder and decoder
+- `/tracks/` — GPX track map with 3D terrain and playback
 
 ## Requirements
 
@@ -34,6 +35,7 @@ Open:
 http://localhost:5173/
 http://localhost:5173/arcade/
 http://localhost:5173/utilities/
+http://localhost:5173/tracks/
 ```
 
 ## Configuration
@@ -52,6 +54,27 @@ footer, or game score-storage keys. For example:
 ```
 
 Keep all existing keys when editing the real file, then rebuild the site.
+
+## Tracks
+
+`/tracks/` draws GPX, KML and GeoJSON files from `data/tracks/<type>/` on a
+MapLibre basemap. The build turns them into static JSON under
+`public/tracks-data/`, which is generated and not committed; the dev server
+rebuilds on any change under `data/tracks`.
+
+```bash
+pnpm add-track ~/Downloads/ride.gpx --type bike   # file it, rebuild, print its link
+pnpm tracks                                       # rebuild without the dev server
+```
+
+`data/tracks/ids.json` records which id belongs to which track and must be
+committed: without it a rebuild hands out new ids and every link anyone has
+shared stops resolving.
+
+A link carries the whole view — filters, the tracks on the map, the selection,
+the camera, the basemap, 2D/3D, the panel and the playback position — so a
+copied URL reopens what the sender was looking at. See
+[tracks data](docs/tracks-data.md).
 
 ## Design
 

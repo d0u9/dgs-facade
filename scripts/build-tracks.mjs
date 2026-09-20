@@ -269,7 +269,6 @@ function readFeatured(srcDir, log) {
 }
 
 export function buildTracks({ srcDir, outDir, log = console.log }) {
-  rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
   const featured = readFeatured(srcDir, log);
   const isFeatured = (meta) => [meta.id, meta.name, meta.source].some((v) => v && featured.has(String(v).toLowerCase()));
@@ -330,9 +329,12 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
   const claimed = new Set();
   const bySrc = new Map();
   const byFp = new Map();
+  const present = new Set(pending.map((item) => item.srcKey));
   Object.entries(ledger).forEach(([id, entry]) => {
     if (entry.src && !bySrc.has(entry.src)) bySrc.set(entry.src, id);
-    if (entry.fp && !byFp.has(entry.fp)) byFp.set(entry.fp, id);
+    // Only an entry whose own source is gone can be matched by shape. Otherwise a copy of a
+    // track filed under a second type would take the original's id and leave it with a new one.
+    if (entry.fp && !byFp.has(entry.fp) && !present.has(entry.src)) byFp.set(entry.fp, id);
   });
   const free = (id) => id && !claimed.has(id);
 
@@ -360,6 +362,12 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
     index.push(item.meta);
     writeFileSync(join(outDir, `${item.meta.id}.json`), JSON.stringify(item.payload));
   });
+
+  // Stale geometry is removed one file at a time rather than by emptying the directory first:
+  // the dev server rebuilds on its own, and a build that starts by deleting everything can
+  // pull files out from under a build already running.
+  const wanted = new Set([...index.map((meta) => `${meta.id}.json`), 'index.json']);
+  readdirSync(outDir).forEach((name) => { if (!wanted.has(name)) rmSync(join(outDir, name), { force: true }); });
 
   const orphans = Object.keys(ledger).filter((id) => !claimed.has(id));
   if (orphans.length) log(`[tracks] ${orphans.length} ${LEDGER} ${orphans.length === 1 ? 'entry keeps an id for a track that is gone' : 'entries keep ids for tracks that are gone'}`);
