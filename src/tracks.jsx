@@ -58,6 +58,14 @@ const filtersDirty = (f) => JSON.stringify(f) !== JSON.stringify(DEFAULT_FILTERS
 // so "on the map" has a single meaning and a single control at every level.
 // It lives in the URL so it can be shared, and in localStorage so it survives a reload.
 const WS_KEY = 'tracks:workspace';
+// Build ids are fixed width, which is what lets the workspace ride in the URL without separators.
+const ID_CHARS = 5;
+const SNAPS = ['peek', 'half', 'full'];
+const DEFAULT_SNAP = 'half';
+const DEFAULT_RATE = 60;
+// Past this the link is long enough that a chat app may wrap or cut it, and a cut link loses
+// whatever sat at the end. The map keeps every track; only the link stops at this many.
+const MAX_URL_TRACKS = 40;
 
 function readStoredWorkspace() {
   try {
@@ -69,6 +77,20 @@ function readStoredWorkspace() {
 
 function storeWorkspace(ids) {
   try { localStorage.setItem(WS_KEY, JSON.stringify(ids)); } catch { /* private mode */ }
+}
+
+// Older browsers, and any browser that refuses the clipboard API on an unfocused page.
+function copyFallback(text) {
+  const el = document.createElement('textarea');
+  el.value = text;
+  el.setAttribute('readonly', '');
+  el.style.cssText = 'position:fixed;top:-1000px';
+  document.body.appendChild(el);
+  el.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { ok = false; }
+  el.remove();
+  return ok;
 }
 
 // "at" is lon,lat,zoom,pitch,bearing — enough to reproduce the exact view for whoever opens the link.
@@ -85,17 +107,32 @@ const fmtCamera = (map) => {
   return [r(c.lng, 5), r(c.lat, 5), r(map.getZoom(), 2), r(map.getPitch(), 1), r(map.getBearing(), 1)].join(',');
 };
 
+// A workspace of 30 tracks is 150 characters with the ids run together and 179 with commas
+// between them, and a link that a chat app truncates loses tracks off the end. Links written
+// before the ids were fixed width still carry commas, so both are read.
+function readIds(value) {
+  if (!value) return [];
+  return value.replace(/,/g, '').match(new RegExp(`.{1,${ID_CHARS}}`, 'g')) ?? [];
+}
+
 function readUrl() {
   const p = new URLSearchParams(location.search);
   const list = (k) => (p.get(k) ? p.get(k).split(',') : []);
+  const num = (k) => (p.has(k) && Number.isFinite(Number(p.get(k))) ? Number(p.get(k)) : null);
   return {
     filters: {
       types: list('type'), kinds: list('kind'), q: p.get('q') ?? '', from: p.get('from') ?? '', to: p.get('to') ?? '',
       dmin: p.get('dmin') ?? '', dmax: p.get('dmax') ?? '', altmin: p.get('altmin') ?? '', inView: p.get('view') === '1',
     },
     selected: p.get('sel'),
-    workspace: p.has('ws') ? list('ws') : readStoredWorkspace(),
+    workspace: p.has('ws') ? readIds(p.get('ws')) : readStoredWorkspace(),
+    fromLink: p.has('ws'),
     seeded: p.has('ws') || localStorage.getItem(WS_KEY) != null,
+    // Playback rides along so a link can point at one moment of a track, not only at the track.
+    playT: num('t'),
+    playing: p.get('play') === '1',
+    rate: num('r') ?? DEFAULT_RATE,
+    snap: SNAPS.includes(p.get('panel')) ? p.get('panel') : DEFAULT_SNAP,
     camera: readCamera(p.get('at')),
     is3d: p.get('3d') === '1',
     // Default to Amap for zh-CN visitors, whose OpenStreetMap coverage and access are poor.
@@ -103,15 +140,19 @@ function readUrl() {
   };
 }
 
-function writeUrl(filters, selected, is3d, amap, workspace, camera) {
+function writeUrl(filters, selected, is3d, amap, workspace, camera, play, snap) {
   const p = new URLSearchParams();
   if (filters.types.length) p.set('type', filters.types.join(','));
   if (filters.kinds.length) p.set('kind', filters.kinds.join(','));
   ['q', 'from', 'to', 'dmin', 'dmax', 'altmin'].forEach((k) => filters[k] && p.set(k, filters[k]));
   if (filters.inView) p.set('view', '1');
   if (selected) p.set('sel', selected);
-  if (workspace.length) p.set('ws', workspace.join(','));
+  if (workspace.length) p.set('ws', workspace.slice(0, MAX_URL_TRACKS).join(''));
   if (camera) p.set('at', camera);
+  if (play.t != null) p.set('t', String(Math.round(play.t * 10) / 10));
+  if (play.playing) p.set('play', '1');
+  if (play.rate !== DEFAULT_RATE) p.set('r', String(play.rate));
+  if (snap !== DEFAULT_SNAP) p.set('panel', snap);
   if (is3d) p.set('3d', '1');
   if (amap !== (navigator.language === 'zh-CN')) p.set('base', amap ? 'amap' : 'osm');
   const qs = p.toString();
@@ -798,12 +839,16 @@ function TracksApp() {
   const [is3d, setIs3d] = useState(initial.is3d);
   const [amap, setAmap] = useState(initial.amap);
   const [viewBounds, setViewBounds] = useState(null);
-  const [playT, setPlayT] = useState(null);
-  const [playing, setPlaying] = useState(false);
-  const [rate, setRate] = useState(60);
+  const [playT, setPlayT] = useState(initial.playT);
+  const [playing, setPlaying] = useState(initial.playing);
+  const [rate, setRate] = useState(initial.rate);
   // Bottom-sheet snap points on mobile; on desktop "peek" collapses the side column.
-  const [snap, setSnap] = useState('half');
+  const [snap, setSnap] = useState(initial.snap);
   const [filterOpen, setFilterOpen] = useState(false);
+  // Tracks a link asked for that the library no longer has. Saying so beats a link that
+  // quietly opens on fewer tracks than the sender saw.
+  const [dropped, setDropped] = useState(0);
+  const [copied, setCopied] = useState(null);
   const panelOpen = snap !== 'peek';
 
   useEffect(() => {
@@ -841,8 +886,31 @@ function TracksApp() {
   const selItem = items?.find((it) => it.id === selected) ?? null;
   const selGeom = selected ? geoms[selected] : null;
 
-  useEffect(() => { writeUrl(filters, selected, is3d, amap, workspace, camera); }, [filters, selected, is3d, amap, workspace, camera]);
-  useEffect(() => { storeWorkspace(workspace); }, [workspace]);
+  // Playback moves every frame, and rewriting the URL that often would cost more than it buys.
+  // The link instead carries the point playback started from: whoever opens it seeks there and
+  // runs from there, which is the same thing the sender is watching.
+  const [linkT, setLinkT] = useState(initial.playT);
+  useEffect(() => { if (!playing) setLinkT(playT); }, [playing, playT]);
+  const play = useMemo(() => ({ t: selected ? linkT : null, playing, rate }), [selected, linkT, playing, rate]);
+  useEffect(() => { writeUrl(filters, selected, is3d, amap, workspace, camera, play, snap); }, [filters, selected, is3d, amap, workspace, camera, play, snap]);
+
+  // A link's workspace is the sender's, not the visitor's: it is kept only once the visitor
+  // changes it, so opening a shared link does not wipe the set they had saved.
+  const ownWorkspace = useRef(!initial.fromLink);
+  useEffect(() => {
+    if (!ownWorkspace.current) { ownWorkspace.current = true; return; }
+    storeWorkspace(workspace);
+  }, [workspace]);
+
+  // The address bar already holds the whole view; the button saves finding it on a phone.
+  // The clipboard API is refused when the page is not focused, so a failure says so rather
+  // than leaving a button that looks like it did nothing.
+  const onCopyLink = useCallback(async () => {
+    let ok = false;
+    try { await navigator.clipboard.writeText(location.href); ok = true; } catch { ok = copyFallback(location.href); }
+    setCopied(ok ? 'ok' : 'fail');
+    setTimeout(() => setCopied(null), 1600);
+  }, []);
 
   const onToggleWorkspace = useCallback((id) => {
     setWorkspace((ws) => (ws.includes(id) ? ws.filter((v) => v !== id) : [...ws, id]));
@@ -871,11 +939,19 @@ function TracksApp() {
     const resolve = (token) => items.find((it) => it.id === token)?.id ?? null;
     setWorkspace((ws) => {
       const next = ws.map(resolve).filter(Boolean);
-      return next.length === ws.length && next.every((id, i) => id === ws[i]) ? ws : next;
+      if (next.length === ws.length && next.every((id, i) => id === ws[i])) return ws;
+      setDropped(ws.length - next.length);
+      return next;
     });
     setSelected((cur) => (cur ? resolve(cur) : cur));
   }, [items]);
-  useEffect(() => { setPlaying(false); setPlayT(null); }, [selected]);
+  // A new selection starts from the top, except on the first run: the link's own position stands.
+  const keepLinkPlay = useRef(initial.playT != null || initial.playing);
+  useEffect(() => {
+    if (keepLinkPlay.current) { keepLinkPlay.current = false; return; }
+    setPlaying(false);
+    setPlayT(null);
+  }, [selected]);
 
   useEffect(() => {
     if (!playing || !selItem) return undefined;
@@ -945,6 +1021,9 @@ function TracksApp() {
           {snap === 'peek' ? `▴ swipe up · ${filtered.length} tracks` : snap === 'half' ? '▴ full · ▾ hide' : '▾ swipe down'}
         </button>
         {error ? <div className="tracks-empty mono">{error}</div> : <>
+          {dropped > 0 && <button className="tracks-notice mono" onClick={() => setDropped(0)}>
+            {dropped} {dropped === 1 ? 'track in this link is' : 'tracks in this link are'} no longer in the library · dismiss
+          </button>}
           <PanelHead
             filterCount={activeFilterCount}
             filterOpen={filterOpen}
@@ -969,6 +1048,7 @@ function TracksApp() {
         <TrackMap items={shown} geoms={geoms} selected={selected} onSelect={setSelected} is3d={is3d} amap={amap} marker={marker} inView={filters.inView} onViewChange={onViewChange} fitKey={fitKey} fitAllKey={fitAllKey} initialCamera={initial.camera} onCamera={setCamera} />
         <div className="tracks-toolbar">
           <button className="btn tracks-panel-btn" onClick={() => setSnap(panelOpen ? 'peek' : 'half')}>{panelOpen ? '◂ panel' : '▸ panel'}</button>
+          <button className="btn" onClick={onCopyLink} title="copy a link to exactly this view">{copied === 'ok' ? '✓ copied' : copied === 'fail' ? '✗ copy it from the address bar' : '⧉ link'}</button>
           <button className="btn" onClick={() => setFitAllKey((n) => n + 1)} disabled={!shown.length} title="zoom to fit every track on the map">⤢ fit</button>
           <button className={`btn ${is3d ? 'active' : ''}`} onClick={() => setIs3d((v) => !v)}>{is3d ? '3D' : '2D'}</button>
           <button className={`btn ${amap ? 'active' : ''}`} onClick={() => setAmap((v) => !v)} title="switch basemap">{amap ? '高德' : 'OSM'}</button>

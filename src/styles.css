@@ -1090,6 +1090,13 @@ a {
 .tracks-item-meta { font-size: 10px; line-height: 1.35; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tracks-item-dist { font-size: 11px; color: var(--code-text); white-space: nowrap; }
 .tracks-empty { padding: 20px 14px; color: var(--muted); font-size: 12px; }
+/* A link that asked for tracks the library no longer has; click to dismiss. */
+.tracks-notice {
+  display: block; width: 100%; text-align: left; padding: 8px 14px; border: 0;
+  border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--warn, #e0a33e) 14%, transparent);
+  color: var(--fg); font: inherit; font-size: 11px; cursor: pointer;
+}
+.tracks-notice:hover { background: color-mix(in srgb, var(--warn, #e0a33e) 22%, transparent); }
 .tracks-stage { position: relative; min-width: 0; min-height: 0; }
 .tracks-stage .tracks-map { position: absolute; inset: 0; background: var(--bg); }
 .tracks-toolbar { position: absolute; top: 10px; left: 10px; display: flex; gap: 6px; z-index: 2; }
