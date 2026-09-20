@@ -88,4 +88,4 @@ const index = buildTracks({ srcDir: SRC_DIR, outDir: OUT_DIR });
 added.forEach((source) => {
   index.filter((it) => it.source === source).forEach((it) => console.log(`add-track: /tracks/?ws=${it.id}&sel=${it.id}  ${it.name}`));
 });
-console.log('add-track: commit data/tracks/ids.json so the links keep working');
+console.log('add-track: back up data/tracks/ids.json with your track files so the links keep working');

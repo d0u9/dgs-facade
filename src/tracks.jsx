@@ -215,6 +215,52 @@ function useDebounced(value, ms) {
   return debounced;
 }
 
+// A track that sits still for half an hour used to play back as half an hour of a motionless
+// dot: the map marker is placed by position and the elevation profile's cursor by distance,
+// so during a stop the only thing on screen that moved was the clock. Stops are found once
+// per track and replayed at a boosted rate, so any stop takes about the same short moment
+// however long it really was.
+// How slow counts as stopped, measured over a window rather than between two samples: a
+// parked phone's position jitters, and simplification thins a long stop down to a couple of
+// samples far apart, so neither the gap between samples nor the distance between them
+// answers on its own. 0.05 m/s is 3 metres a minute. The slowest stretch of the hikes here
+// averages 0.25 m/s, so a slow walk is not mistaken for a stop.
+const IDLE_SPEED_MS = 0.05;
+const IDLE_MIN_S = 60;   // Shorter than this is a traffic light, and skipping it reads as a stutter.
+const IDLE_WALL_S = 1.5; // What a stop costs the viewer, whatever it cost the driver.
+const MAX_FRAME_MS = 100;
+
+function metres(a, b) {
+  const k = Math.cos((a[1] * Math.PI) / 180);
+  return Math.hypot((b[0] - a[0]) * k, b[1] - a[1]) * 111320;
+}
+
+function idleSpans(geom) {
+  const { coords, times } = geom ?? {};
+  if (!coords || !times?.length) return [];
+  const spans = [];
+  const speedFrom = (i, j) => metres(coords[i], coords[j]) / (times[j] - times[i] || 1);
+  let i = 0;
+  while (i < coords.length - 1) {
+    // Judge the first whole IDLE_MIN_S, never a single sample interval.
+    let j = i + 1;
+    while (j < coords.length && times[j] - times[i] < IDLE_MIN_S) j += 1;
+    if (j >= coords.length) break;
+    if (speedFrom(i, j) < IDLE_SPEED_MS) {
+      while (j + 1 < coords.length && speedFrom(i, j + 1) < IDLE_SPEED_MS) j += 1;
+      spans.push({ from: times[i], to: times[j], duration: times[j] - times[i], i0: i, i1: j });
+      i = j;
+    } else {
+      i += 1;
+    }
+  }
+  return spans;
+}
+
+function spanAt(spans, t) {
+  return t == null ? null : spans.find((s) => t >= s.from && t < s.to) ?? null;
+}
+
 // Position at `t` seconds from start, interpolated between samples.
 function positionAt(geom, t) {
   const { coords, times } = geom;
@@ -310,6 +356,41 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
       attributionControl: { compact: true },
     });
     mapRef.current = map;
+    // Google Earth: right-drag zooms and Shift + wheel tilts. Keep MapLibre's
+    // left-drag pan, Ctrl + drag orbit, and two-finger pinch/rotate/tilt.
+    const canvas = map.getCanvas();
+    let rightDrag = null;
+    const endRightDrag = () => { rightDrag = null; };
+    const moveRightDrag = (event) => {
+      if (!rightDrag) return;
+      if (!(event.buttons & 2)) { endRightDrag(); return; }
+      const dy = event.clientY - rightDrag.y;
+      rightDrag.y = event.clientY;
+      if (dy) map.zoomTo(map.getZoom() - dy * 0.012, { duration: 0 });
+      event.preventDefault();
+    };
+    const startRightDrag = (event) => {
+      if (!is3dRef.current || event.button !== 2 || event.ctrlKey) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      rightDrag = { y: event.clientY };
+    };
+    const tiltWheel = (event) => {
+      if (!is3dRef.current || !event.shiftKey) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? canvas.clientHeight : 1);
+      map.setPitch(Math.max(0, Math.min(map.getMaxPitch(), map.getPitch() - pixels * 0.08)));
+    };
+    const suppressRightMenu = (event) => {
+      if (is3dRef.current) event.preventDefault();
+    };
+    const mapElement = containerRef.current;
+    mapElement.addEventListener('mousedown', startRightDrag, true);
+    mapElement.addEventListener('wheel', tiltWheel, { capture: true, passive: false });
+    mapElement.addEventListener('contextmenu', suppressRightMenu);
+    window.addEventListener('mousemove', moveRightDrag);
+    window.addEventListener('mouseup', endRightDrag);
     // Compact attribution still opens expanded on wide screens; start it folded into the ⓘ button.
     map.once('load', () => containerRef.current?.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show'));
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
@@ -355,7 +436,15 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
     // The panel toggle resizes the container without a window resize, which MapLibre doesn't track.
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(containerRef.current);
-    return () => { ro.disconnect(); map.remove(); };
+    return () => {
+      ro.disconnect();
+      mapElement.removeEventListener('mousedown', startRightDrag, true);
+      mapElement.removeEventListener('wheel', tiltWheel, true);
+      mapElement.removeEventListener('contextmenu', suppressRightMenu);
+      window.removeEventListener('mousemove', moveRightDrag);
+      window.removeEventListener('mouseup', endRightDrag);
+      map.remove();
+    };
   }, []);
 
   useEffect(() => {
@@ -471,7 +560,7 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
       groundMarkerRef.current = new maplibregl.Marker({ element: el, pitchAlignment: 'map' }).setLngLat(pos.slice(0, 2)).addTo(mapRef.current);
     }
     const el = groundMarkerRef.current.getElement();
-    el.className = `tracks-playhead ${marker.air ? 'air' : ''}`;
+    el.className = `tracks-playhead ${marker.air ? 'air' : ''} ${marker.idle ? 'idle' : ''}`;
     el.style.setProperty('--chip', marker.color);
     groundMarkerRef.current.setLngLat(pos.slice(0, 2));
   }, [marker, ready, proj]);
@@ -704,7 +793,15 @@ const TrackList = memo(function TrackList({ items, selected, onSelect, workspace
 const PROFILE_W = 300;
 const PROFILE_H = 70;
 
-function Profile({ geom, playT, onScrub }) {
+function Profile({ geom, playT, onScrub, spans = [] }) {
+  const scrubFrame = useRef(null);
+  const pendingTime = useRef(null);
+  const onScrubRef = useRef(onScrub);
+  onScrubRef.current = onScrub;
+  useEffect(() => () => {
+    if (scrubFrame.current != null) cancelAnimationFrame(scrubFrame.current);
+    scrubFrame.current = null;
+  }, [geom]);
   const data = useMemo(() => {
     if (!geom?.coords || geom.coords.every((c) => c[2] == null)) return null;
     let d = 0;
@@ -742,16 +839,31 @@ function Profile({ geom, playT, onScrub }) {
     let hi = pts.length - 1;
     while (lo < hi) { const m = (lo + hi) >> 1; if (pts[m][0] < target) lo = m + 1; else hi = m; }
     const t = geom.times[lo];
-    if (t != null) onScrub(t);
+    if (t == null) return;
+    pendingTime.current = t;
+    // Pointer events can arrive faster than paint. One seek per frame keeps the
+    // terrain pin and deck layers from being rebuilt for every intermediate event.
+    if (scrubFrame.current == null) scrubFrame.current = requestAnimationFrame(() => {
+      scrubFrame.current = null;
+      onScrubRef.current?.(pendingTime.current);
+    });
   };
+  // A stop covers no distance, so on a distance axis it is a line rather than a band. Drawing
+  // it at a minimum width is what makes it visible before playback reaches it.
+  const bands = spans.map((span) => {
+    const x0 = x(data.pts[span.i0][0]);
+    const w = Math.max(2, x(data.pts[span.i1][0]) - x0);
+    return { x: x0, w, key: span.from };
+  });
   return <svg className={`tracks-profile${onScrub ? ' scrub' : ''}`} onPointerDown={scrub} onPointerMove={scrub} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-label="elevation profile">
     <path d={`${line}L${W},${H}L0,${H}Z`} className="tracks-profile-fill" />
+    {bands.map((b) => <rect key={b.key} x={b.x} y="0" width={b.w} height={H} className="tracks-profile-idle" />)}
     <path d={line} className="tracks-profile-line" vectorEffect="non-scaling-stroke" />
     {cursor != null && <line x1={cursor} x2={cursor} y1="0" y2={H} className="tracks-profile-cursor" vectorEffect="non-scaling-stroke" />}
   </svg>;
 }
 
-function Detail({ item, geom, onClose, playT, setPlayT, playing, setPlaying, rate, setRate, inWorkspace, onToggleWorkspace }) {
+function Detail({ item, geom, onClose, playT, setPlayT, playing, setPlaying, rate, setRate, inWorkspace, onToggleWorkspace, spans, idle }) {
   const canPlay = Boolean(geom?.times?.length) && item.duration > 0;
   const hasProfile = Boolean(geom?.coords?.some((c) => c[2] != null));
   const scrubTo = (t) => { setPlaying(false); setPlayT(t); };
@@ -780,7 +892,14 @@ function Detail({ item, geom, onClose, playT, setPlayT, playing, setPlaying, rat
       {!hasProfile && <input type="range" min="0" max={item.duration} value={playT ?? 0} onChange={(e) => scrubTo(Number(e.target.value))} aria-label="playback position" />}
       <span className="mono tracks-play-time">{fmtDur(Math.round(playT ?? 0))} / {fmtDur(item.duration)}</span>
     </div>}
-    <Profile geom={geom} playT={playT} onScrub={canPlay ? scrubTo : undefined} />
+    {/* Says what the still marker means. Without it a stop reads as a page that has hung. */}
+    {idle && <div className="tracks-play-idle mono">■ stopped {fmtDur(Math.round(idle.duration))}</div>}
+    <Profile geom={geom} playT={playT} onScrub={canPlay ? scrubTo : undefined} spans={spans} />
+    {/* The profile's axis is distance, so its cursor holds still through a stop. This one is
+        the track's own time, and keeps moving whenever playback does. */}
+    {canPlay && <div className="tracks-play-track" aria-hidden="true">
+      <div className="tracks-play-track-fill" style={{ width: `${Math.min(100, ((playT ?? 0) / item.duration) * 100)}%` }} />
+    </div>}
   </div>;
 }
 
@@ -953,14 +1072,25 @@ function TracksApp() {
     setPlayT(null);
   }, [selected]);
 
+  const spans = useMemo(() => idleSpans(selGeom), [selGeom]);
+  const idle = useMemo(() => spanAt(spans, playT), [spans, playT]);
+
   useEffect(() => {
     if (!playing || !selItem) return undefined;
     let last = performance.now();
     let raf;
     const tick = (now) => {
-      const dt = ((now - last) / 1000) * rate;
+      // requestAnimationFrame stops while the tab is in the background, and the first frame
+      // after it comes back reports the whole time away. Without a ceiling that one frame
+      // throws playback to the end of the track.
+      let dt = (Math.min(now - last, MAX_FRAME_MS) / 1000) * rate;
       last = now;
       setPlayT((t) => {
+        // Inside a stop the clock runs fast enough to cross it in IDLE_WALL_S, then goes back
+        // to the chosen rate. Nothing else changes: `t` stays the track's own time, so the
+        // marker, the profile and the link all keep meaning what they meant.
+        const span = spanAt(spans, t);
+        if (span) dt *= Math.max(1, span.duration / (IDLE_WALL_S * rate));
         const next = (t ?? 0) + dt;
         if (next >= selItem.duration) { setPlaying(false); return selItem.duration; }
         return next;
@@ -969,7 +1099,7 @@ function TracksApp() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, rate, selItem]);
+  }, [playing, rate, selItem, spans]);
 
   const marker = useMemo(() => {
     if (playT == null || !selGeom?.times) return null;
@@ -979,8 +1109,8 @@ function TracksApp() {
     // Non-airborne tracks get a pin in 3D: the head stays at one height for the whole
     // playback (terrain exaggeration included) while the stem reaches down to the surface.
     const top = (selItem.maxEle ?? 0) * TERRAIN_EXAG + PIN_FLOAT_M;
-    return { position: air ? p : [p[0], p[1]], color: typeOf(selItem.type).color, air, top };
-  }, [playT, selGeom, selItem]);
+    return { position: air ? p : [p[0], p[1]], color: typeOf(selItem.type).color, air, top, idle: Boolean(idle) };
+  }, [playT, selGeom, selItem, idle]);
 
   const onViewChange = useCallback((b) => setViewBounds(b), []);
   const [fitAllKey, setFitAllKey] = useState(0);
@@ -1053,7 +1183,7 @@ function TracksApp() {
           <button className={`btn ${is3d ? 'active' : ''}`} onClick={() => setIs3d((v) => !v)}>{is3d ? '3D' : '2D'}</button>
           <button className={`btn ${amap ? 'active' : ''}`} onClick={() => setAmap((v) => !v)} title="switch basemap">{amap ? '高德' : 'OSM'}</button>
         </div>
-        {selItem && <Detail item={selItem} geom={selGeom} onClose={() => setSelected(null)} playT={playT} setPlayT={setPlayT} playing={playing} setPlaying={setPlaying} rate={rate} setRate={setRate} inWorkspace={inWorkspace.has(selItem.id)} onToggleWorkspace={onToggleWorkspace} />}
+        {selItem && <Detail item={selItem} geom={selGeom} onClose={() => setSelected(null)} playT={playT} setPlayT={setPlayT} playing={playing} setPlaying={setPlaying} rate={rate} setRate={setRate} inWorkspace={inWorkspace.has(selItem.id)} onToggleWorkspace={onToggleWorkspace} spans={spans} idle={idle} />}
       </section>
     </div>
   </div>;

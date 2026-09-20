@@ -96,8 +96,8 @@ function timeParts(feature) {
 
 // Ids are short and opaque: a shared link carries the whole workspace, and a name-derived
 // id would both blow past what chat apps pass through and change whenever a track is renamed.
-// data/tracks/ids.json is the record of which id belongs to which track, and is committed:
-// without it a rebuild hands out fresh ids and every link that was shared stops resolving.
+// data/tracks/ids.json is the local record of which id belongs to which track.
+// Back it up with the source files: without it shared links can stop resolving.
 const LEDGER = 'ids.json';
 const ID_SPACE = 36 ** ID_LENGTH;
 // index.json is the track index; a geometry file may not take its name.
@@ -371,7 +371,7 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
 
   const orphans = Object.keys(ledger).filter((id) => !claimed.has(id));
   if (orphans.length) log(`[tracks] ${orphans.length} ${LEDGER} ${orphans.length === 1 ? 'entry keeps an id for a track that is gone' : 'entries keep ids for tracks that are gone'}`);
-  if (minted.length) log(`[tracks] new ids, commit ${LEDGER}: ${minted.join(', ')}`);
+  if (minted.length) log(`[tracks] new ids, back up ${LEDGER}: ${minted.join(', ')}`);
   writeLedger(srcDir, ledger, log);
 
   index.sort((a, b) => (b.start ?? '').localeCompare(a.start ?? ''));

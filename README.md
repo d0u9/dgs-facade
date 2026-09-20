@@ -67,9 +67,10 @@ pnpm add-track ~/Downloads/ride.gpx --type bike   # file it, rebuild, print its 
 pnpm tracks                                       # rebuild without the dev server
 ```
 
-`data/tracks/ids.json` records which id belongs to which track and must be
-committed: without it a rebuild hands out new ids and every link anyone has
-shared stops resolving.
+The mock files in `data/tracks/` are kept locally for now and are not part of
+this branch's commits. `ids.json` keeps track links stable across local
+rebuilds. Provide the track files and ledger separately to a build environment;
+without them, the deployed track library is empty.
 
 A link carries the whole view — filters, the tracks on the map, the selection,
 the camera, the basemap, 2D/3D, the panel and the playback position — so a
