@@ -9,13 +9,22 @@
   },
   "scripts": {
     "dev": "vite",
+    "tracks": "node -e \"import('./scripts/build-tracks.mjs').then((m) => m.buildTracks({ srcDir: 'data/tracks', outDir: 'public/tracks-data' }))\"",
+    "add-track": "node scripts/add-track.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@deck.gl/core": "^9.4.0",
+    "@deck.gl/geo-layers": "^9.4.0",
+    "@deck.gl/layers": "^9.4.0",
+    "@deck.gl/mapbox": "^9.4.0",
+    "@tmcw/togeojson": "^7.1.2",
+    "@xmldom/xmldom": "^0.9.12",
+    "maplibre-gl": "^5.24.0",
+    "ogl": "^1.0.11",
     "react": "19.3.0",
-    "react-dom": "19.3.0",
-    "ogl": "^1.0.11"
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "6.1.1",

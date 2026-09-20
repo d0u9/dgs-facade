@@ -33,3 +33,6 @@ Thumbs.db
 # Local project output
 outputs/
 work/
+
+# Generated track data (built from data/tracks)
+public/tracks-data/
