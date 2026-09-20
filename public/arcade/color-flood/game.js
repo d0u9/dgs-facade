@@ -11,9 +11,10 @@
 
   const W = canvas.width, H = canvas.height, N = 14, CELL = W / N;
   const LIMIT = 24;
-  // SITE PATCH: swatches repainted in the site's neon palette, the same six
-  // hues the Tetris pieces use, so the arcade reads as one set.
-  const COLORS = ['#25f4ee', '#fe2c55', '#ffe66d', '#4d7cff', '#39ff88', '#c04dff'];
+  // SITE PATCH: Okabe-Ito colors keep the six choices distinct for common
+  // forms of color vision deficiency.
+  const COLORS = ['#E69F00', '#56B4E9', '#009E73', '#F0E442', '#0072B2', '#CC79A7'];
+  const COLOR_NAMES = ['orange', 'sky blue', 'bluish green', 'yellow', 'blue', 'reddish purple'];
 
   let grid, moves, over;
 
@@ -79,6 +80,8 @@
   COLORS.forEach((col, i) => {
     const b = document.createElement('button');
     b.className = 'swatch';
+    b.type = 'button';
+    b.setAttribute('aria-label', COLOR_NAMES[i]);
     b.style.background = col;
     b.addEventListener('click', () => flood(i));
     swatches.appendChild(b);

@@ -10,8 +10,8 @@ Vendored: `game.js` only, with local patches. Everything in the file is private
 to its IIFE, so nothing can be overridden from outside. Each patch is marked
 `SITE PATCH`:
 
- * the swatch palette and the board backdrop in `draw()`, repainted in the
-   site's dark neon palette;
+ * the swatch palette uses six Okabe-Ito colors, and the board backdrop in
+   `draw()` matches the site's dark theme;
  * `newGame` exposed as `window.colorFloodNewGame`, because upstream only ever
    calls it on load and has no restart control.
 
