@@ -286,6 +286,7 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
     if (!collection?.features) return;
 
     const waypoints = [];
+    const fileLines = [];
     collection.features.forEach((feature, fi) => {
       if (!feature.geometry) return;
       const props = feature.properties ?? {};
@@ -300,6 +301,7 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
       const item = buildLineItem(feature, { name, type, kind, source, desc: props.desc ?? null, start: props.time ?? null });
       if (!item) return;
       if (props.featured === true || props.featured === 'true') item.meta.featured = true;
+      fileLines.push(item.meta);
       pending.push({ srcKey: `${source}#${fi}`, fp: item.fp, meta: item.meta, payload: item.geometry });
     });
 
@@ -308,11 +310,15 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
       const lats = waypoints.map((w) => w.lat);
       const eles = waypoints.map((w) => w.ele).filter((e) => e != null);
       const times = waypoints.map((w) => Date.parse(w.time)).filter((t) => !Number.isNaN(t)).sort((a, b) => a - b);
+      // A waypoint carries no time in many exports. Borrowing the file's own tracks keeps the
+      // waypoints beside them in the list, which groups and sorts by date.
+      const lineStarts = fileLines.map((m) => m.start).filter(Boolean).sort();
+      const lineEnds = fileLines.map((m) => m.end).filter(Boolean).sort();
       const meta = {
         name: `${fileName} waypoints`, type: folderType, kind: 'waypoint', source, desc: null,
         points: waypoints.length,
-        start: times.length ? new Date(times[0]).toISOString() : null,
-        end: times.length ? new Date(times[times.length - 1]).toISOString() : null,
+        start: times.length ? new Date(times[0]).toISOString() : lineStarts[0] ?? null,
+        end: times.length ? new Date(times[times.length - 1]).toISOString() : lineEnds[lineEnds.length - 1] ?? null,
         duration: null, distance: null, maxSpeed: null,
         minEle: eles.length ? Math.round(Math.min(...eles)) : null,
         maxEle: eles.length ? Math.round(Math.max(...eles)) : null,

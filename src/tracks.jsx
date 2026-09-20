@@ -2,7 +2,7 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from '
 import { createRoot } from 'react-dom/client';
 import maplibregl from 'maplibre-gl';
 import { MapboxOverlay } from '@deck.gl/mapbox';
-import { LineLayer, PathLayer, ScatterplotLayer } from '@deck.gl/layers';
+import { IconLayer, LineLayer, PathLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { PageHeader } from './components/PageChrome.jsx';
 import './styles.css';
@@ -23,12 +23,48 @@ const MAP_STYLE = 'https://tiles.openfreemap.org/styles/fiord';
 // Amap (高德) tiles are in GCJ-02, so track coordinates get shifted to match while it is on.
 const AMAP_TILES = [1, 2, 3, 4].map((n) => `https://webrd0${n}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}`);
 const TERRAIN_EXAG = 2.5;
-// How far above the track's highest point the pin head floats, in metres.
-const PIN_FLOAT_M = 900;
+// How high the playback pin and a waypoint's callout float, in screen pixels rather than in
+// metres. A fixed height in metres is either lost in the relief when zoomed out or thrown off
+// the top of the screen when zoomed in; asking for a number of pixels holds the look still at
+// every zoom. Converted to metres against the view's own scale.
+const PIN_FLOAT_PX = 150;
+const WPT_FLOAT_PX = 110;
+// Metres per screen pixel at a latitude and zoom, for a 512 px tile.
+const metresPerPixel = (lat, zoom) => (156543.03392 * Math.cos((lat * Math.PI) / 180)) / 2 ** (zoom + 1);
+const floatMetres = (px, lat, zoom) => Math.min(9000, Math.max(120, px * metresPerPixel(lat, zoom)));
+// A waypoint label is a callout: a leader line straight up from the point, a shelf across the
+// top of it, and the name sitting on the shelf. High enough that the shelf clears the relief,
+// so the leader is what says where the point is and the name never lies over the terrain. Flat on the terrain a name crosses the track line and the hillshade and is hard to
+// read; lifted clear with a stem pointing at the ground it reads, and still says where it is.
+// Waypoint name size in pixels. Big enough to read over a hillshade, small enough that a long
+// Chinese name does not become the map.
+const WPT_TEXT_PX = 12;
 const DEM_TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
 const EMPTY = { type: 'FeatureCollection', features: [] };
 
 const typeOf = (t) => TYPES[t] ?? TYPES.other;
+// Roughly how wide a name is drawn, in ems: a CJK glyph takes a full one, a Latin letter about
+// half. Used to size the shelf under a waypoint's name, which has to match the text it carries.
+const textEms = (name) => [...String(name)].reduce((w, ch) => w + (/[\u2E80-\uFFEF]/.test(ch) ? 1 : 0.52), 0);
+// The shelf under a waypoint name. An icon rather than a line layer: a line in world
+// coordinates turns edge-on as the camera orbits, while an icon is a billboard and stays
+// across the screen. Drawn as one rounded stroke with a wider centre, so it reads as a shelf
+// resting on the leader rather than as a rule under the text. White and `mask: true`, so
+// deck tints it with the track's own colour.
+// The shelf under a waypoint's name: a hairline with rounded ends and a slight swell in the
+// middle, where the leader meets it. One icon, drawn wide and scaled down — deck sizes an icon
+// by its height and keeps its aspect, so asking for a width means asking for width/aspect.
+const SHELF_W = 256;
+const SHELF_H = 20;
+const SHELF_ASPECT = SHELF_W / SHELF_H;
+const SHELF_SVG = encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="${SHELF_W}" height="${SHELF_H}">`
+  + `<rect x="2" y="7" width="${SHELF_W - 4}" height="6" rx="3" fill="#fff"/>`
+  + `<rect x="${SHELF_W / 2 - 24}" y="4" width="48" height="12" rx="6" fill="#fff"/>`
+  + '</svg>',
+);
+const SHELF_ICON = { url: `data:image/svg+xml;charset=utf-8,${SHELF_SVG}`, width: SHELF_W, height: SHELF_H, anchorX: SHELF_W / 2, anchorY: SHELF_H / 2, mask: true };
+const shelfSize = (px) => px / SHELF_ASPECT;
 const hexToRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 
 function fmtDist(m) {
@@ -323,19 +359,19 @@ function buildGroundFeatures(items, geoms, proj) {
     if (g.waypoints) {
       g.waypoints.forEach((w) => points.push({
         type: 'Feature', geometry: { type: 'Point', coordinates: proj([w.lon, w.lat]) },
-        properties: { id: it.id, name: w.name, color },
+        properties: { id: it.id, src: it.source ?? '', key: `${it.id}:${w.lon},${w.lat}`, name: w.name, color, ele: w.ele ?? null },
       }));
       return;
     }
     lines.push({
       type: 'Feature', geometry: { type: 'LineString', coordinates: g.coords.map((c) => proj([c[0], c[1]])) },
-      properties: { id: it.id, kind: it.kind, color, air: Boolean(typeOf(it.type).air) },
+      properties: { id: it.id, src: it.source ?? '', kind: it.kind, color, air: Boolean(typeOf(it.type).air) },
     });
   });
   return { lines: { type: 'FeatureCollection', features: lines }, points: { type: 'FeatureCollection', features: points } };
 }
 
-function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView, onViewChange, fitKey, fitAllKey, initialCamera, onCamera }) {
+function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView, onViewChange, fitKey, fitAllKey, focusSource, focusKey, initialCamera, onCamera }) {
   const proj = amap ? toGcj : identity;
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -423,7 +459,7 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
       map.addLayer({ id: 'plan-line', type: 'line', source: 'tracks', filter: ['all', ['!', ['get', 'air']], ['==', ['get', 'kind'], 'plan']], paint: { 'line-color': ['get', 'color'], 'line-width': 2.5, 'line-dasharray': [2, 1.5] } });
       map.addLayer({ id: 'track-hit', type: 'line', source: 'tracks', paint: { 'line-color': '#000', 'line-width': 14, 'line-opacity': 0 } });
       map.addLayer({ id: 'wpt-dot', type: 'circle', source: 'wpts', paint: { 'circle-radius': 5, 'circle-color': ['get', 'color'], 'circle-stroke-color': '#050610', 'circle-stroke-width': 2 } });
-      map.addLayer({ id: 'wpt-label', type: 'symbol', source: 'wpts', layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'], 'text-size': 11, 'text-offset': [0, 1.2], 'text-anchor': 'top', 'text-optional': true }, paint: { 'text-color': '#edf7f1', 'text-halo-color': '#050610', 'text-halo-width': 1.5 } });
+      map.addLayer({ id: 'wpt-label', type: 'symbol', source: 'wpts', layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'], 'text-size': 12, 'text-offset': [0, 1.2], 'text-anchor': 'top', 'text-optional': true }, paint: { 'text-color': '#ffffff', 'text-halo-color': '#050610', 'text-halo-width': 2, 'text-halo-blur': 0 } });
       ['track-hit', 'wpt-dot'].forEach((layer) => {
         map.on('click', layer, (e) => onSelectRef.current(e.features[0].properties.id));
         map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
@@ -470,9 +506,11 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
       map.setTerrain({ source: 'dem', exaggeration: TERRAIN_EXAG });
       if (!map.getLayer('sky')) map.setSky?.({ 'sky-color': '#07101c', 'horizon-color': '#12301f', 'fog-color': '#050610', 'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.6, 'fog-ground-blend': 0.8 });
       map.easeTo({ pitch: Math.max(map.getPitch(), 55), duration: 800 });
+      ['wpt-label', 'wpt-dot'].forEach((id) => map.setLayoutProperty(id, 'visibility', 'none'));
     } else {
       if (!map.hasControl(scale)) map.addControl(scale, 'bottom-left');
       map.setTerrain(null);
+      ['wpt-label', 'wpt-dot'].forEach((id) => map.setLayoutProperty(id, 'visibility', 'visible'));
       // A link's own pitch and bearing survive the first pass; later 2D toggles flatten the view.
       if (!skipPitchReset.current) map.easeTo({ pitch: 0, bearing: 0, duration: 600 });
     }
@@ -495,13 +533,65 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
     map.setFilter('track-casing', ['==', ['get', 'id'], selected ?? '']);
     // Selecting a track is what isolates it: the rest of the map fades instead of disappearing,
     // so the context stays and nothing has to be taken off the map to read one line.
-    const dim = (base) => (selected ? ['case', ['==', ['get', 'id'], selected], base, base * 0.18] : base);
+    // A track is isolated by its id, a whole file by its source: picking a file reads as one
+    // thing on the map, the same way picking a single track does.
+    const dim = (base) => {
+      if (focusSource) return ['case', ['==', ['get', 'src'], focusSource], base, base * 0.18];
+      if (selected) return ['case', ['==', ['get', 'id'], selected], base, base * 0.18];
+      return base;
+    };
     map.setPaintProperty('track-line', 'line-opacity', dim(1));
     map.setPaintProperty('plan-line', 'line-opacity', dim(1));
     map.setPaintProperty('track-air-shadow', 'line-opacity', dim(0.35));
     map.setPaintProperty('wpt-dot', 'circle-opacity', dim(1));
-    map.setPaintProperty('wpt-label', 'text-opacity', dim(1));
-  }, [ground, selected, ready]);
+    // A name is the only thing that tells one waypoint from another, so it is never faded:
+    // dimming the track it belongs to must not cost the reader the word.
+    map.setPaintProperty('wpt-label', 'text-opacity', 1);
+  }, [ground, selected, focusSource, ready]);
+
+  // The DEM streams in, so the height under a waypoint is not known at the moment its callout
+  // is first drawn. One re-read when the map settles is enough, and it stops once every
+  // waypoint has a height, so an idle map does no work.
+  const [terrainTick, setTerrainTick] = useState(0);
+  const terrainPending = useRef(true);
+  // A waypoint outside the view never gets a DEM tile, so its height stays unknown and the
+  // retry would run on every idle for as long as the page is open. Give it a fixed budget.
+  const terrainTries = useRef(0);
+  const TERRAIN_TRIES = 12;
+  const needTerrain = is3d && ground.points.features.some((f) => f.properties.ele == null);
+  // Turning terrain on raises the ground under every waypoint, and the DEM for the view is
+  // usually not in memory yet at that moment, so the heights sampled in the old state are all
+  // wrong. Start sampling again from the flip rather than waiting for something else to.
+  useEffect(() => {
+    terrainPending.current = true;
+    terrainTries.current = 0;
+    setTerrainTick((n) => n + 1);
+  }, [is3d]);
+
+  // The float is a number of pixels, so it changes with the zoom. Recomputed when the view
+  // settles rather than per frame: a stem that stretched during every pinch would rebuild the
+  // deck buffers on each one.
+  useEffect(() => {
+    if (!ready) return undefined;
+    const map = mapRef.current;
+    const onSettled = () => setTerrainTick((n) => n + 1);
+    map.on('moveend', onSettled);
+    return () => map.off('moveend', onSettled);
+  }, [ready]);
+
+  useEffect(() => {
+    if (!ready || !needTerrain) return undefined;
+    const map = mapRef.current;
+    // Only while a height is still missing: a tick redraws the deck layers, which makes the map
+    // idle again, and an unconditional bump would spin that into a loop on a still map.
+    const onIdle = () => {
+      if (!terrainPending.current || terrainTries.current >= TERRAIN_TRIES) return;
+      terrainTries.current += 1;
+      setTerrainTick((n) => n + 1);
+    };
+    map.on('idle', onIdle);
+    return () => map.off('idle', onIdle);
+  }, [ready, needTerrain]);
 
   // Stable data reference: deck only rebuilds GPU buffers when this array changes.
   const air = useMemo(() => items
@@ -509,6 +599,10 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
     .map((it) => ({ id: it.id, name: it.name, type: it.type, path: geoms[it.id].coords.map((c) => proj([c[0], c[1], c[2] ?? 0])) })), [items, geoms, proj]);
 
   const pos = marker && proj(marker.position);
+  const selSource = selected ? items.find((it) => it.id === selected)?.source ?? null : null;
+  // Last known ground height per waypoint, so a sample taken before the DEM tile arrived is
+  // replaced rather than kept, and a callout never jumps back to sea level on a redraw.
+  const terrainBases = useRef({});
   useEffect(() => {
     const layers = [
       new PathLayer({
@@ -525,16 +619,89 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
         updateTriggers: { getColor: selected, getWidth: selected },
       }),
     ];
+    // In 3D every waypoint gets the playhead's pin: a stem down to the terrain, a head, and the
+    // name floating at the top of the stem, where nothing on the ground is drawn over it.
+    if (is3dRef.current && ground.points.features.length) {
+      const map = mapRef.current;
+      const zoom = map?.getZoom() ?? 12;
+      let missing = false;
+      const wpts = ground.points.features.map((f) => {
+        const [lon, lat] = f.geometry.coordinates;
+        const p = f.properties;
+        // Many exports give a waypoint no elevation, so the ground under it has to be sampled
+        // from the DEM. That query answers 0 until the tile it needs is in memory, which is
+        // what used to drop a callout to sea level and leave it there: `terrainTick` re-runs
+        // this once the map goes idle, and the last good sample is kept in the meantime.
+        // queryTerrainElevation only answers while terrain is on; in 2D these layers are not
+        // drawn at all, so nothing here runs against a flat world.
+        let base = p.ele != null ? p.ele * TERRAIN_EXAG : map?.queryTerrainElevation([lon, lat]);
+        if (base == null || (p.ele == null && base === 0)) {
+          base = terrainBases.current[p.key] ?? 0;
+          if (!base) missing = true;
+        } else terrainBases.current[p.key] = base;
+        return { ...p, lon, lat, base, top: base + floatMetres(WPT_FLOAT_PX, lat, zoom) };
+      });
+      terrainPending.current = missing;
+      // A waypoint's callout carries its name, and a name that has faded to a ghost is no use
+      // at all, so an unselected one dims far less than a track line does — and a waypoint from
+      // the same file as the selection does not dim at all.
+      const alpha = (d) => {
+        if (!selected && !focusSource) return 255;
+        if (d.src === (focusSource ?? selSource)) return 255;
+        return 120;
+      };
+      const shelfPx = (d) => shelfSize(Math.max(52, textEms(d.name) * WPT_TEXT_PX + 18));
+      const pick = (info) => info.object && onSelectRef.current(info.object.id);
+      // The leader is thin and slightly translucent: it has to say where the point is without
+      // becoming the brightest thing on a dark hillside. The shelf and the name carry the weight.
+      layers.push(new LineLayer({
+        id: 'wpt-stem', data: wpts, getSourcePosition: (d) => [d.lon, d.lat, d.top], getTargetPosition: (d) => [d.lon, d.lat, d.base],
+        getColor: (d) => [...hexToRgb(d.color), alpha(d)], getWidth: 1.6, widthUnits: 'pixels',
+        updateTriggers: { getColor: [selected, focusSource] },
+      }));
+      // A dot where the leader meets the ground: without it the line just stops somewhere on
+      // the slope, and which pixel it means is a guess.
+      layers.push(new ScatterplotLayer({
+        id: 'wpt-foot', data: wpts, getPosition: (d) => [d.lon, d.lat, d.base],
+        getFillColor: (d) => [...hexToRgb(d.color), alpha(d)], getLineColor: [5, 6, 16, 220],
+        stroked: true, lineWidthUnits: 'pixels', getLineWidth: 1, radiusUnits: 'pixels', getRadius: 3,
+        pickable: true, onClick: pick,
+        updateTriggers: { getFillColor: [selected, focusSource] },
+      }));
+      layers.push(new IconLayer({
+        id: 'wpt-shelf', data: wpts, getPosition: (d) => [d.lon, d.lat, d.top], getIcon: () => SHELF_ICON,
+        getColor: (d) => [...hexToRgb(d.color), alpha(d)], getSize: shelfPx, sizeUnits: 'pixels',
+        billboard: true, pickable: true, onClick: pick,
+        updateTriggers: { getColor: [selected, focusSource] },
+      }));
+      layers.push(new TextLayer({
+        id: 'wpt-text', data: wpts, getPosition: (d) => [d.lon, d.lat, d.top], getText: (d) => d.name,
+        getColor: (d) => [255, 255, 255, alpha(d)], getSize: WPT_TEXT_PX, sizeUnits: 'pixels', billboard: true,
+        // Sits on the shelf: bottom-aligned at the leader's top point, lifted by the shelf's
+        // own half-height plus a little air.
+        getTextAnchor: 'middle', getAlignmentBaseline: 'bottom', getPixelOffset: [0, -4],
+        // System sans, not the mono the panel uses: Chinese names are set far better by it.
+        fontFamily: '-apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif',
+        fontWeight: 600,
+        // Names are Chinese as often as not, so the atlas is built from the data rather than
+        // from deck's ASCII default, which would drop every character it has not been told about.
+        characterSet: 'auto',
+        outlineColor: [5, 6, 16, 255], outlineWidth: 5, fontSettings: { sdf: true, radius: 12, buffer: 8 },
+        pickable: true, onClick: pick,
+        updateTriggers: { getColor: [selected, focusSource] },
+      }));
+    }
     if (marker && !marker.air && is3dRef.current) {
       const [lon, lat] = pos;
+      const top = marker.topEle + floatMetres(PIN_FLOAT_PX, lat, mapRef.current?.getZoom() ?? 12);
       // Pin: stem from the floating head straight down to the point on the terrain.
       const groundZ = mapRef.current?.queryTerrainElevation([lon, lat]) ?? 0;
       layers.push(new LineLayer({
-        id: 'playhead-stem', data: [marker], getSourcePosition: () => [lon, lat, marker.top], getTargetPosition: () => [lon, lat, groundZ],
+        id: 'playhead-stem', data: [marker], getSourcePosition: () => [lon, lat, top], getTargetPosition: () => [lon, lat, groundZ],
         getColor: (d) => [...hexToRgb(d.color), 190], getWidth: 2, widthUnits: 'pixels',
       }));
       layers.push(new ScatterplotLayer({
-        id: 'playhead-head', data: [marker], getPosition: () => [lon, lat, marker.top], getFillColor: (d) => hexToRgb(d.color),
+        id: 'playhead-head', data: [marker], getPosition: () => [lon, lat, top], getFillColor: (d) => hexToRgb(d.color),
         getLineColor: [255, 255, 255], stroked: true, lineWidthUnits: 'pixels', getLineWidth: 2, radiusUnits: 'pixels', getRadius: 8,
       }));
     }
@@ -552,7 +719,7 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
       }));
     }
     overlayRef.current?.setProps({ layers, getTooltip: ({ object }) => object && { text: object.name } });
-  }, [air, selected, marker, proj, is3d]);
+  }, [air, ground, selected, selSource, focusSource, marker, proj, is3d, terrainTick]);
 
   useEffect(() => {
     if (!ready) return;
@@ -610,17 +777,57 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
   }, []);
 
   // Fit to the selection, or to everything visible when the filter set changes.
+  const didFit = useRef(false);
+  const fitNow = useCallback((list) => {
+    // The index is fetched after the map is built, so the first pass here has nothing to fit.
+    // Returning without spending `skipFit` is what keeps a restored camera: otherwise the empty
+    // pass consumes it and the fit that follows, once the tracks arrive, throws the view away.
+    if (!list.length) return;
+    didFit.current = true;
+    if (skipFit.current) { skipFit.current = false; return; }
+    fitTo(list, Boolean(selected));
+  }, [fitTo, selected]);
+
+  // A camera the page opened with is the visitor's view, and it has to survive everything the
+  // page does to itself on the way up: the workspace resolving, ids being dropped, geometry
+  // arriving. Automatic fits are refused until the visitor moves first — picking something,
+  // opening a file, or pressing fit. `skipFit` alone only covers the first of those passes.
+  const lockCamera = useRef(Boolean(initialCamera));
+  const openedWith = useRef(selected);
   useEffect(() => {
     if (!ready) return;
-    if (skipFit.current) { skipFit.current = false; return; }
-    fitTo(selected ? items.filter((it) => it.id === selected) : items, Boolean(selected));
+    if (lockCamera.current) {
+      if (selected === openedWith.current) return;
+      lockCamera.current = false;
+    }
+    fitNow(selected ? items.filter((it) => it.id === selected) : items);
   }, [selected, fitKey, ready]);
+
+  // The tracks land after the map does. Fit once when they do, so a reload that restores a
+  // workspace from localStorage opens on it instead of on the whole world.
+  useEffect(() => {
+    if (!ready || didFit.current || lockCamera.current) return;
+    fitNow(selected ? items.filter((it) => it.id === selected) : items);
+  }, [items.length, ready]);
+
+  // Picking a file frames every item that came out of it: its tracks and its waypoints.
+  useEffect(() => {
+    if (!ready || !focusKey) return;
+    const target = items.filter((it) => it.source === focusSource);
+    if (!target.length) return;
+    lockCamera.current = false;
+    skipFit.current = false;
+    didFit.current = true;
+    fitTo(target, false);
+  }, [focusKey, ready, items.length]);
 
   // The fit button: always the whole map contents, whatever is selected, and it overrides
   // a camera restored from the URL.
   useEffect(() => {
     if (!ready || !fitAllKey) return;
+    lockCamera.current = false;
     skipFit.current = false;
+    didFit.current = true;
     fitTo(items, false);
   }, [fitAllKey]);
 
@@ -701,6 +908,67 @@ function TrackRow({ it, selected, onSelect, inWorkspace, onToggleWorkspace }) {
   </li>;
 }
 
+// A GPX file often holds one recording and its waypoints, or several sub-tracks. They are
+// separate items on the map, so the list nests them under the file they came from: one tick
+// draws the whole file, and the submenu picks out a single sub-track or the waypoint set.
+const fileLabel = (source) => String(source).split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
+const KIND_ORDER = { track: 0, plan: 1, waypoint: 2 };
+
+function FileGroup({ items, selected, onSelect, onOpenFile, focusSource, workspace, onSetMany, onToggleWorkspace }) {
+  const ids = items.map((it) => it.id);
+  const on = ids.filter((id) => workspace.has(id)).length;
+  const hasSelected = items.some((it) => it.id === selected);
+  const isFocused = focusSource === items[0].source;
+  const [open, setOpen] = useState(false);
+  const lines = items.filter((it) => it.kind !== 'waypoint');
+  const wpts = items.filter((it) => it.kind === 'waypoint');
+  // One recording plus its waypoints is the common file: the recording's own name says more
+  // than the file name does. A file of several tracks has no such name, so it takes the file's.
+  const label = lines.length === 1 ? lines[0].name : fileLabel(items[0].source);
+  // A file of one recording has nothing to choose between: picking it picks that recording, so
+  // the submenu would only repeat the row. It opens on the caret, and on nothing else. A file
+  // of several tracks does open, because there the submenu is how you get at one of them.
+  const many = lines.length > 1;
+  const shown = open || (many && (hasSelected || isFocused));
+  const distance = lines.reduce((sum, it) => sum + (it.distance ?? 0), 0);
+  const parts = [];
+  if (lines.length) parts.push(`${lines.length} ${lines.length === 1 ? 'track' : 'tracks'}`);
+  wpts.forEach((it) => parts.push(`${it.points} ${it.points === 1 ? 'waypoint' : 'waypoints'}`));
+  return <li className={`tracks-file ${shown ? 'open' : ''} ${hasSelected ? 'selected' : ''}`}>
+    <div className="tracks-item-row tracks-file-head">
+      <label className={`tracks-ws-toggle ${on ? 'active' : ''}`} title={on === ids.length ? 'take the file off the map' : 'add the whole file to the map'}>
+        <TriCheck on={on} total={ids.length} onChange={(next) => onSetMany(ids, next)} label={`${on === ids.length ? 'take' : 'add'} all ${ids.length} items of ${label} ${on === ids.length ? 'off' : 'to'} the map`} />
+      </label>
+      <button className={`tracks-item tracks-file-btn ${isFocused ? 'active' : ''}`} onClick={() => { if (many) setOpen(true); onOpenFile(items); }} title="draw the whole file and zoom to it" style={{ '--chip': typeOf(items[0].type).color }}>
+        <span className="tracks-swatch" />
+        <span className="tracks-item-main">
+          <span className="tracks-item-name">{label}</span>
+          <span className="tracks-item-meta mono">{typeOf(items[0].type).label.toLowerCase()} · {parts.join(' · ')} · {fmtDate(items[0].start)}</span>
+        </span>
+        <span className="tracks-item-dist mono">{distance ? fmtDist(distance) : ''}</span>
+      </button>
+      <button className="tracks-file-caret mono" onClick={() => setOpen((o) => !o)} aria-expanded={shown} aria-label={`${shown ? 'hide' : 'show'} what is in ${label}`} title={shown ? 'hide the items in this file' : 'show the items in this file'}>{shown ? '▾' : '▸'}</button>
+    </div>
+    {shown && <ul className="tracks-list tracks-sublist">
+      {items.map((it) => <TrackRow key={it.id} it={it} selected={selected} onSelect={onSelect} inWorkspace={workspace.has(it.id)} onToggleWorkspace={onToggleWorkspace} />)}
+    </ul>}
+  </li>;
+}
+
+// Items of one file stay together in the order tracks, plans, waypoints; the file takes the
+// position of its first item, so the month order the list already had is unchanged.
+function groupBySource(list) {
+  const out = [];
+  const bySource = new Map();
+  list.forEach((it) => {
+    const key = it.source ?? it.id;
+    if (!bySource.has(key)) { const group = []; bySource.set(key, group); out.push(group); }
+    bySource.get(key).push(it);
+  });
+  out.forEach((group) => group.sort((a, b) => (KIND_ORDER[a.kind] ?? 9) - (KIND_ORDER[b.kind] ?? 9) || a.name.localeCompare(b.name)));
+  return out;
+}
+
 // One control for "draw these on the map", at three scopes: row, year, whole list.
 // A partly ticked scope shows the native indeterminate box, so "some of them" needs no wording.
 function TriCheck({ on, total, onChange, label }) {
@@ -720,7 +988,7 @@ function TriCheck({ on, total, onChange, label }) {
 }
 
 // Year tabs + month strip narrow the list, so any track is two clicks away instead of a long scroll.
-const TrackList = memo(function TrackList({ items, selected, onSelect, workspace, onSetMany, onToggleWorkspace }) {
+const TrackList = memo(function TrackList({ items, selected, onSelect, onOpenFile, focusSource, workspace, onSetMany, onToggleWorkspace }) {
   const years = useMemo(() => {
     const counts = new Map();
     items.forEach((it) => {
@@ -791,7 +1059,9 @@ const TrackList = memo(function TrackList({ items, selected, onSelect, workspace
       {byMonth.map(([m, list]) => (
         <section key={m ?? 'none'}>
           {month == null && m != null && <div className="tracks-month-head mono">{MONTHS[m]}</div>}
-          <ul className="tracks-list">{list.map((it) => <TrackRow key={it.id} it={it} selected={selected} onSelect={onSelect} inWorkspace={workspace.has(it.id)} onToggleWorkspace={onToggleWorkspace} />)}</ul>
+          <ul className="tracks-list">{groupBySource(list).map((group) => (group.length === 1
+            ? <TrackRow key={group[0].id} it={group[0]} selected={selected} onSelect={onSelect} inWorkspace={workspace.has(group[0].id)} onToggleWorkspace={onToggleWorkspace} />
+            : <FileGroup key={group[0].source} items={group} selected={selected} onSelect={onSelect} onOpenFile={onOpenFile} focusSource={focusSource} workspace={workspace} onSetMany={onSetMany} onToggleWorkspace={onToggleWorkspace} />))}</ul>
         </section>
       ))}
     </div>
@@ -875,6 +1145,7 @@ function Detail({ item, geom, onClose, playT, setPlayT, playing, setPlaying, rat
   const canPlay = Boolean(geom?.times?.length) && item.duration > 0;
   const hasProfile = Boolean(geom?.coords?.some((c) => c[2] != null));
   const scrubTo = (t) => { setPlaying(false); setPlayT(t); };
+  const [statsOpen, setStatsOpen] = useState(false);
   const stats = item.kind === 'waypoint'
     ? [['points', item.points], ['min ele', fmtEle(item.minEle)], ['max ele', fmtEle(item.maxEle)]]
     : [['distance', fmtDist(item.distance)], ['duration', fmtDur(item.duration)], ['max speed', fmtSpeed(item.maxSpeed)], ['avg speed', item.duration ? fmtSpeed(item.distance / item.duration) : '—'], ['max ele', fmtEle(item.maxEle)], ['ascent', fmtEle(item.gain)]];
@@ -890,7 +1161,15 @@ function Detail({ item, geom, onClose, playT, setPlayT, playing, setPlaying, rat
       </div>
     </div>
     <div className="tracks-item-meta tracks-detail-sub mono">{fmtDate(item.start)} · {item.source}</div>
-    <dl className="tracks-stats">{stats.map(([k, v]) => <div key={k}><dt className="mono">{k}</dt><dd>{v}</dd></div>)}</dl>
+    {/* On a phone the card shares the screen with the map, and six figures at reading size take
+        more of it than the map can spare. They fold into one line there, which still carries the
+        two that answer "what is this track" — the button is hidden at desk width, where the
+        grid always shows. */}
+    <button className="tracks-stats-toggle mono" onClick={() => setStatsOpen((o) => !o)} aria-expanded={statsOpen}>
+      <span>{stats.slice(0, 2).map(([, v]) => v).join(' · ')}</span>
+      <span>{statsOpen ? '▾ less' : '▸ more'}</span>
+    </button>
+    <dl className={`tracks-stats ${statsOpen ? 'open' : ''}`}>{stats.map(([k, v]) => <div key={k}><dt className="mono">{k}</dt><dd>{v}</dd></div>)}</dl>
     {geom?.waypoints && <ol className="tracks-wpts">{geom.waypoints.map((w, i) => <li key={i}><span>{w.name}</span><span className="mono">{fmtEle(w.ele)}</span></li>)}</ol>}
     {canPlay && <div className="tracks-play">
       <button className="btn" onClick={() => { if (playT == null || playT >= item.duration) setPlayT(0); setPlaying((p) => !p); }} aria-label={playing ? 'pause' : 'play'}>{playing ? '❚❚' : '▶'}</button>
@@ -1045,6 +1324,12 @@ function TracksApp() {
     setTimeout(() => setCopied(null), 1600);
   }, [filters, selected, is3d, amap, workspace, camera, playT, playing, rate, snap]);
 
+  // Picking a file is its own kind of selection: every item of it goes on the map and the
+  // camera frames the lot. A single track picked afterwards takes over, so the two never
+  // both claim the map at once.
+  const [focus, setFocus] = useState(null);
+  const selectItem = useCallback((id) => { setFocus(null); setSelected(id); }, []);
+
   const onToggleWorkspace = useCallback((id) => {
     setWorkspace((ws) => (ws.includes(id) ? ws.filter((v) => v !== id) : [...ws, id]));
   }, []);
@@ -1055,6 +1340,16 @@ function TracksApp() {
     setWorkspace((ws) => (on ? [...ws, ...ids.filter((id) => !ws.includes(id)).slice(0, MAX_BULK)] : ws.filter((id) => !ids.includes(id))));
   }, []);
   const onAddAllToWorkspace = useCallback((list) => onSetMany(list.map((it) => it.id), true), [onSetMany]);
+  const onOpenFile = useCallback((group) => {
+    onSetMany(group.map((it) => it.id), true);
+    // A file that holds one recording and some waypoints has an obvious subject: select the
+    // recording, so the card, the elevation profile and playback are there without a second
+    // click. A file of several tracks has no such subject, so nothing is selected.
+    const lines = group.filter((it) => it.kind !== 'waypoint');
+    setSelected(lines.length === 1 ? lines[0].id : null);
+    // The key, not the source, drives the fit: clicking the same file again re-frames it.
+    setFocus((cur) => ({ source: group[0].source, key: (cur?.key ?? 0) + 1 }));
+  }, [onSetMany]);
   const onClearWorkspace = useCallback(() => setWorkspace([]), []);
   // First visit only: start from the same set the empty state offers, so a library with no
   // featured.json still opens on something. A cleared workspace stays cleared.
@@ -1120,10 +1415,11 @@ function TracksApp() {
     const p = positionAt(selGeom, playT);
     if (!p) return null;
     const air = typeOf(selItem.type).air;
-    // Non-airborne tracks get a pin in 3D: the head stays at one height for the whole
-    // playback (terrain exaggeration included) while the stem reaches down to the surface.
-    const top = (selItem.maxEle ?? 0) * TERRAIN_EXAG + PIN_FLOAT_M;
-    return { position: air ? p : [p[0], p[1]], color: typeOf(selItem.type).color, air, top, idle: Boolean(idle) };
+    // Non-airborne tracks get a pin in 3D: the head hangs over the track's own high point
+    // (terrain exaggeration included) and the stem reaches down to the surface. How far over
+    // is decided by the map, which knows the zoom.
+    const topEle = (selItem.maxEle ?? 0) * TERRAIN_EXAG;
+    return { position: air ? p : [p[0], p[1]], color: typeOf(selItem.type).color, air, topEle, idle: Boolean(idle) };
   }, [playT, selGeom, selItem, idle]);
 
   const onViewChange = useCallback((b) => setViewBounds(b), []);
@@ -1173,7 +1469,7 @@ function TracksApp() {
             filterOpen={filterOpen}
             setFilterOpen={setFilterOpen}
             mapItems={onMap}
-            onSelect={setSelected}
+            onSelect={selectItem}
             onToggleWorkspace={onToggleWorkspace}
             onClearWorkspace={onClearWorkspace}
             starter={starter}
@@ -1185,11 +1481,11 @@ function TracksApp() {
             <Filters filters={filters} setFilters={setFilters} counts={counts} />
             <button className="btn tracks-filter-done" onClick={() => setFilterOpen(false)}>done · {filtered.length} tracks</button>
           </div>}
-          <TrackList items={filtered} selected={selected} onSelect={setSelected} workspace={inWorkspace} onSetMany={onSetMany} onToggleWorkspace={onToggleWorkspace} />
+          <TrackList items={filtered} selected={selected} onSelect={selectItem} onOpenFile={onOpenFile} focusSource={focus?.source ?? null} workspace={inWorkspace} onSetMany={onSetMany} onToggleWorkspace={onToggleWorkspace} />
         </>}
       </aside>
       <section className="tracks-stage">
-        <TrackMap items={shown} geoms={geoms} selected={selected} onSelect={setSelected} is3d={is3d} amap={amap} marker={marker} inView={filters.inView} onViewChange={onViewChange} fitKey={fitKey} fitAllKey={fitAllKey} initialCamera={initial.camera} onCamera={setCamera} />
+        <TrackMap items={shown} geoms={geoms} selected={selected} onSelect={selectItem} is3d={is3d} amap={amap} marker={marker} inView={filters.inView} onViewChange={onViewChange} fitKey={fitKey} fitAllKey={fitAllKey} focusSource={focus?.source ?? null} focusKey={focus?.key ?? 0} initialCamera={initial.camera} onCamera={setCamera} />
         <div className="tracks-toolbar">
           <button className="btn tracks-panel-btn" onClick={() => setSnap(panelOpen ? 'peek' : 'half')}>{panelOpen ? '◂ panel' : '▸ panel'}</button>
           <button className="btn" onClick={onCopyLink} title="copy a link to exactly this view">{copied === 'ok' ? '✓ copied' : copied === 'fail' ? '✗ copy it from the address bar' : '⧉ link'}</button>
