@@ -410,6 +410,7 @@ a {
 .arcade-flood { --card-accent: #c04dff; }
 .arcade-tower { --card-accent: #ffe66d; }
 .arcade-bubbles { --card-accent: #39ff88; }
+.arcade-suika { --card-accent: #ff5d7a; }
 
 .arcade-game-shell { position: relative; z-index: 2; }
 .canvas-panel { overflow: hidden; padding: 10px; }

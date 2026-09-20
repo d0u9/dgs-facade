@@ -35,6 +35,7 @@ export default defineConfig({
         arcadeFlood: resolve(import.meta.dirname, 'arcade/flood/index.html'),
         arcadeTower: resolve(import.meta.dirname, 'arcade/tower/index.html'),
         arcadeBubbles: resolve(import.meta.dirname, 'arcade/bubbles/index.html'),
+        arcadeSuika: resolve(import.meta.dirname, 'arcade/suika/index.html'),
         arcade2048: resolve(import.meta.dirname, 'arcade/2048/index.html'),
         utilities: resolve(import.meta.dirname, 'utilities/index.html'),
         base64: resolve(import.meta.dirname, 'utilities/base64/index.html'),

@@ -8,9 +8,10 @@
 :root { color-scheme: dark; --bg:#050610; --line:rgba(37,244,238,.16); --line-strong:rgba(37,244,238,.32); --text:#edf7f1; --muted:#8da499; --accent:#25f4ee; --accent-2:#fe2c55; --mono:ui-monospace,SFMono-Regular,Menlo,monospace; --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
 html,body { min-width:320px; min-height:100%; margin:0; overflow-x:hidden; overscroll-behavior-x:none; background:var(--bg); }
 body { overflow-y:auto; color:var(--text); font-family:var(--sans); }
-.ag-page { --game-accent:var(--accent); --court-ratio:1; width:min(1180px,calc(100% - 40px)); height:100svh; min-height:0; margin:0 auto; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; scroll-snap-type:y mandatory; scrollbar-width:none; }
+.ag-page { --game-accent:var(--accent); --court-ratio:1; --court-gutter:16px; width:min(1180px,calc(100% - 40px)); height:100svh; min-height:0; margin:0 auto; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; scroll-snap-type:y mandatory; scrollbar-width:none; }
 .ag-page::-webkit-scrollbar { display:none; }
 .ag-topbar { min-height:76px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); scroll-snap-align:start; scroll-snap-stop:always; }
+.ag-topbar-right { display:flex; align-items:center; gap:14px; }
 .ag-brand,.ag-status { display:flex; align-items:center; gap:10px; color:var(--muted); font:12px var(--mono); letter-spacing:.06em; text-decoration:none; }
 .ag-mark,.ag-status i { width:8px; height:8px; border:1px solid var(--game-accent); transform:rotate(45deg); box-shadow:0 0 14px color-mix(in srgb, var(--game-accent) 55%, transparent); }
 .ag-status i { border:0; border-radius:50%; background:var(--game-accent); }
@@ -40,8 +41,29 @@ body { overflow-y:auto; color:var(--text); font-family:var(--sans); }
 /* The vendor scripts each draw into a fixed backing store, so the court keeps
    that ratio and fills whichever stage dimension runs out first. */
 .ag-stage { width:100%; max-width:900px; height:100%; min-height:0; display:grid; place-items:center; container-type:size; touch-action:none; }
-.ag-court { position:relative; height:min(100cqh, (100cqw - 16px) / var(--court-ratio)); aspect-ratio:var(--court-ratio); border:1px solid var(--line-strong); border-radius:6px; overflow:hidden; box-shadow:0 0 18px color-mix(in srgb, var(--game-accent) 22%, transparent), inset 0 0 24px color-mix(in srgb, var(--game-accent) 6%, transparent); }
+.ag-court { position:relative; height:min(100cqh, (100cqw - var(--court-gutter)) / var(--court-ratio)); aspect-ratio:var(--court-ratio); border:1px solid var(--line-strong); border-radius:6px; overflow:hidden; box-shadow:0 0 18px color-mix(in srgb, var(--game-accent) 22%, transparent), inset 0 0 24px color-mix(in srgb, var(--game-accent) 6%, transparent); }
 .ag-court canvas { display:block; width:100%; height:100%; }
+
+/* Watermelon runs the board to both edges on a phone, where the page's side
+   margin is play area the board would rather have. Desktop keeps the 900px
+   stage cap, so this only applies where the margin actually costs something. */
+@media (max-width:600px) {
+  .ag-game-shell.ag-bleed { --court-gutter:14px; width:100vw; margin-left:calc(50% - 50vw); }
+  .ag-game-shell.ag-bleed .ag-stage { max-width:none; }
+  .ag-game-shell.ag-bleed .ag-toolbar,
+  .ag-game-shell.ag-bleed .ag-hint { padding:0 11px; }
+}
+
+/* Game-over panel over the board, used by Watermelon. The vendor games that
+   end on the canvas itself do not need it. */
+.ag-overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; background:rgba(5,6,16,.82); backdrop-filter:blur(2px); text-align:center; }
+.ag-overlay[hidden] { display:none; }
+.ag-overlay-title { margin:0; color:var(--game-accent); font:16px var(--mono); letter-spacing:.14em; text-transform:uppercase; }
+.ag-overlay-score { display:flex; align-items:baseline; gap:8px; margin:0; color:var(--muted); font:11px var(--mono); letter-spacing:.1em; text-transform:uppercase; }
+.ag-overlay-score strong { color:var(--text); font-size:30px; letter-spacing:0; }
+
+/* Next-fruit chip in the Watermelon HUD; the vendor swaps its src. */
+.ag-next-fruit { display:block; width:18px; height:18px; }
 
 /* Colour picker used by Color Flood; the vendor appends .swatch buttons. */
 .ag-swatches { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }

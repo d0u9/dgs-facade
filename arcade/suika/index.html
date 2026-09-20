@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=0"><meta name="theme-color" content="#050610"><meta name="description" content="Play the open-source Suika watermelon merge game locally in your browser."><meta name="referrer" content="no-referrer"><title>Watermelon / Arcade / d0u9</title>
+  <link rel="stylesheet" href="/arcade-shell.css">
+</head>
+<body>
+<main class="ag-page" style="--game-accent:#ff5d7a; --court-ratio:0.625">
+  <header class="ag-topbar"><a class="ag-brand" href="/arcade/"><i class="ag-mark"></i><span>d0u9 / arcade / watermelon</span></a><div class="ag-topbar-right"><button class="ag-btn" id="restart" type="button">new game</button><div class="ag-status"><i></i><span>local only</span></div></div></header>
+  <section class="ag-intro"><a class="ag-back" href="/arcade/"><span>←</span><span>Arcade</span></a><div class="ag-copy"><div class="ag-eyebrow">12 / open source arcade</div><h1>Watermelon</h1><p>Drop fruit into the jar. Two of a kind merge into the next one up. Overflow the top and it ends.</p></div><div class="ag-actions"><a class="ag-exit" href="/arcade/">exit</a><span class="ag-keys">MOVE TO AIM · CLICK / TAP TO DROP</span></div><div class="ag-scroll-cue" aria-hidden="true"><span>scroll down to play</span><span>↓</span></div></section>
+  <section class="ag-game-shell ag-bleed">
+    <div class="ag-toolbar">
+      <div class="ag-hud" aria-label="Current game status">
+        <div><span>score</span><strong id="score">0</strong></div>
+        <div><span>best</span><strong id="best">0</strong></div>
+        <div><span>next</span><strong><img id="next" class="ag-next-fruit" src="/arcade/suika/assets/img/circle0.png" alt="Next fruit"></strong></div>
+        <div><span>state</span><strong id="message">ready</strong></div>
+      </div>
+    </div>
+    <div class="ag-stage">
+      <!-- game/score/best/next/message are ids the vendor script looks up; it
+           appends its own canvas to #game. -->
+      <div class="ag-court"><div id="game"></div>
+        <div class="ag-overlay" id="gameover" hidden>
+          <p class="ag-overlay-title">Game over</p>
+          <p class="ag-overlay-score"><span>score</span><strong id="final">0</strong></p>
+          <button class="ag-btn" id="again" type="button">play again</button>
+        </div>
+      </div>
+    </div>
+    <p class="ag-hint">drag to aim · lift to drop</p>
+  </section>
+</main>
+<script src="/arcade/suika/matter.js"></script>
+<script src="/arcade/suika/game.js"></script>
+<script src="/arcade-hud.js"></script>
+<script src="/suika-adapter.js"></script>
+</body>
+</html>

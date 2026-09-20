@@ -16,6 +16,7 @@ const GAMES = [
   { slug: 'flood', title: 'Color Flood', code: '09', blurb: 'Flood the board from the corner. Twenty-four moves, no more.', keys: 'CLICK / TAP A COLOR' },
   { slug: 'tower', title: 'Tower Blocks', code: '10', blurb: 'Drop each block on the one below. Every miss trims the next one.', keys: 'SPACE / CLICK / TAP' },
   { slug: 'bubbles', title: 'Bubble Shooter', code: '11', blurb: 'Aim, fire, and pop clusters of three before they reach the line.', keys: 'AIM · CLICK / DRAG TO FIRE' },
+  { slug: 'suika', title: 'Watermelon', code: '12', blurb: 'Drop fruit into the jar. Two of a kind merge into the next one up.', keys: 'MOVE TO AIM · CLICK / TAP TO DROP' },
 ];
 
 function GamesHub() {
@@ -60,7 +61,7 @@ function DinoGuide() {
 }
 
 function glyph(slug) {
-  return { hextris: '⬡', minesweeper: '✣', dino: '◢', battleship: '⌁', snake: '∿', '2048': '＋', tetris: '▦', flappy: '⌒', flood: '◈', tower: '⊟', bubbles: '◎' }[slug];
+  return { hextris: '⬡', minesweeper: '✣', dino: '◢', battleship: '⌁', snake: '∿', '2048': '＋', tetris: '▦', flappy: '⌒', flood: '◈', tower: '⊟', bubbles: '◎', suika: '●' }[slug];
 }
 
 function useBest(slug) {
