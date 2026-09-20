@@ -1,6 +1,6 @@
-// Bubble Shooter: HUD wording and touch aiming. The vendor aims from
-// mousemove and fires on click, so a drag is forwarded as mousemove and the
-// lift as the click.
+// Bubble Shooter: HUD wording and touch aiming. The vendor aims from mousemove
+// and fires on the canvas's own click, so only the aim needs forwarding: a
+// drag moves the aim, and the tap that ends it fires on its own.
 (function () {
   var stage = document.querySelector('.ag-stage');
   var canvas = document.getElementById('game');
@@ -11,5 +11,5 @@
     [/^Cleared!.*/, 'cleared']
   ]);
 
-  window.agHud.forwardTouch(stage, canvas, { move: true });
+  window.agHud.forwardAim(stage, canvas);
 })();

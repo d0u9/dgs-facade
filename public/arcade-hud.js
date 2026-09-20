@@ -21,35 +21,42 @@ window.agHud = (function () {
     normalize();
   }
 
-  // Touch/pen taps on `stage` are forwarded to `target` as the mouse event the
-  // vendor listens for. preventDefault stops the browser from also synthesizing
-  // that event, which would read as a second input; mouse pointers are left to
-  // the vendor's own listener.
-  function forwardTouch(stage, target, { move = false, onTap = null } = {}) {
+  // Both vendors fire on `click`, which the browser sends for a tap on its
+  // own. Cancelling pointerdown suppresses the compatibility mousedown and
+  // mouseup, but NOT the click, so synthesizing one here would drop two blocks
+  // or fire two bubbles per tap. So nothing forwards a tap: only the aim is
+  // forwarded, as the mousemove the vendor tracks, since a touch device sends
+  // no mousemove before the tap lands.
+  function forwardAim(stage, target) {
     let active = false;
-    const send = (type, event) => target.dispatchEvent(new MouseEvent(type, {
+    const send = (event) => target.dispatchEvent(new MouseEvent('mousemove', {
       bubbles: true, clientX: event.clientX, clientY: event.clientY
     }));
     stage.addEventListener('pointerdown', (event) => {
       if (event.pointerType === 'mouse') return;
-      event.preventDefault();
       active = true;
-      if (move) send('mousemove', event); else if (onTap) onTap(event); else send('click', event);
+      send(event);
     });
-    if (move) {
-      stage.addEventListener('pointermove', (event) => {
-        if (!active || event.pointerType === 'mouse') return;
-        event.preventDefault();
-        send('mousemove', event);
-      });
-      const end = (event) => {
-        if (!active || event.pointerType === 'mouse') return;
-        active = false;
-        if (event.type === 'pointerup') { if (onTap) onTap(event); else send('click', event); }
-      };
-      stage.addEventListener('pointerup', end);
-      stage.addEventListener('pointercancel', end);
-    }
+    stage.addEventListener('pointermove', (event) => {
+      if (!active || event.pointerType === 'mouse') return;
+      event.preventDefault();
+      send(event);
+    });
+    const end = (event) => {
+      if (event.pointerType === 'mouse') return;
+      if (event.type === 'pointerup') send(event); // aim at the lift point, before the click lands
+      active = false;
+    };
+    stage.addEventListener('pointerup', end);
+    stage.addEventListener('pointercancel', end);
+  }
+
+  // Runs on the capture phase, ahead of the vendor's own listener on the
+  // canvas, so the handler can swallow a click the vendor should not see.
+  function interceptClick(stage, handler) {
+    stage.addEventListener('click', (event) => {
+      if (handler(event) === false) { event.preventDefault(); event.stopPropagation(); }
+    }, true);
   }
 
   // Keys the vendors consume without preventDefault would scroll the
@@ -60,5 +67,5 @@ window.agHud = (function () {
     });
   }
 
-  return { mapMessage, forwardTouch, holdKeys };
+  return { mapMessage, forwardAim, interceptClick, holdKeys };
 })();
