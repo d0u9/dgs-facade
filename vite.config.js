@@ -1,7 +1,8 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
+import { buildTracks } from './scripts/build-tracks.mjs';
 
 const config = JSON.parse(readFileSync(new URL('./src/config.json', import.meta.url), 'utf8'));
 
@@ -17,8 +18,30 @@ function configuredMetadata() {
   };
 }
 
+const tracksSrc = resolve(import.meta.dirname, 'data/tracks');
+const tracksOut = resolve(import.meta.dirname, 'public/tracks-data');
+
+function trackData() {
+  return {
+    name: 'track-data',
+    buildStart() {
+      buildTracks({ srcDir: tracksSrc, outDir: tracksOut });
+    },
+    configureServer(server) {
+      server.watcher.add(tracksSrc);
+      // The build writes ids.json back into the source directory; rebuilding on that write
+      // would loop.
+      const ledger = join(tracksSrc, 'ids.json');
+      const rebuild = (file) => {
+        if (file.startsWith(tracksSrc) && file !== ledger) buildTracks({ srcDir: tracksSrc, outDir: tracksOut });
+      };
+      server.watcher.on('add', rebuild).on('change', rebuild).on('unlink', rebuild);
+    }
+  };
+}
+
 export default defineConfig({
-  plugins: [configuredMetadata(), react()],
+  plugins: [configuredMetadata(), trackData(), react()],
   build: {
     rollupOptions: {
       input: {
@@ -37,6 +60,7 @@ export default defineConfig({
         arcadeBubbles: resolve(import.meta.dirname, 'arcade/bubbles/index.html'),
         arcadeSuika: resolve(import.meta.dirname, 'arcade/suika/index.html'),
         arcade2048: resolve(import.meta.dirname, 'arcade/2048/index.html'),
+        tracks: resolve(import.meta.dirname, 'tracks/index.html'),
         utilities: resolve(import.meta.dirname, 'utilities/index.html'),
         base64: resolve(import.meta.dirname, 'utilities/base64/index.html'),
         filediff: resolve(import.meta.dirname, 'utilities/filediff/index.html'),

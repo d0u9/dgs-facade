@@ -35,6 +35,12 @@ function HomeContent() {
       description: 'Small, private tools that run entirely in your browser.',
       href: '/utilities/',
     },
+    {
+      eyebrow: '03 / tracks',
+      title: 'Tracks',
+      description: 'Flights, drives, hikes, and voyages on a 3D map.',
+      href: '/tracks/',
+    },
   ];
 
   return (
