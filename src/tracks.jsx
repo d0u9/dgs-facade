@@ -889,11 +889,10 @@ function Detail({ item, geom, onClose, playT, setPlayT, playing, setPlaying, rat
       <select className="tracks-input" value={rate} onChange={(e) => setRate(Number(e.target.value))} aria-label="playback speed">
         {[10, 60, 300, 1000].map((r) => <option key={r} value={r}>{r}×</option>)}
       </select>
+      {idle && <span className="tracks-play-idle mono">■ stopped {fmtDur(Math.round(idle.duration))}</span>}
       {!hasProfile && <input type="range" min="0" max={item.duration} value={playT ?? 0} onChange={(e) => scrubTo(Number(e.target.value))} aria-label="playback position" />}
       <span className="mono tracks-play-time">{fmtDur(Math.round(playT ?? 0))} / {fmtDur(item.duration)}</span>
     </div>}
-    {/* Says what the still marker means. Without it a stop reads as a page that has hung. */}
-    {idle && <div className="tracks-play-idle mono">■ stopped {fmtDur(Math.round(idle.duration))}</div>}
     <Profile geom={geom} playT={playT} onScrub={canPlay ? scrubTo : undefined} spans={spans} />
     {/* The profile's axis is distance, so its cursor holds still through a stop. This one is
         the track's own time, and keeps moving whenever playback does. */}

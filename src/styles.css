@@ -1124,12 +1124,12 @@ a {
 /* Where the track stood still. A stop covers no distance, so on this axis it is a thin band. */
 .tracks-profile-idle { fill: color-mix(in srgb, var(--fg) 16%, transparent); }
 .tracks-profile.scrub { cursor: ew-resize; touch-action: none; }
-.tracks-play { display: flex; align-items: center; gap: 8px; margin: 10px 0 6px; }
+.tracks-play { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 10px 0 6px; }
 .tracks-play .btn { min-width: 32px; }
 .tracks-play input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
 .tracks-play .tracks-input { width: auto; padding: 4px 6px; font-size: 12px; }
-.tracks-play-time { margin-left: auto; font-size: 11px; color: var(--muted); text-align: right; }
-.tracks-play-idle { padding: 2px 0; font-size: 11px; color: var(--muted); }
+.tracks-play-time { margin-left: auto; white-space: nowrap; font-size: 11px; color: var(--muted); text-align: right; }
+.tracks-play-idle { flex: none; white-space: nowrap; font-size: 11px; color: var(--muted); }
 /* Time, where the elevation profile above it is distance: this one keeps moving through a stop. */
 .tracks-play-track { height: 2px; margin-top: 4px; background: color-mix(in srgb, var(--fg) 14%, transparent); }
 .tracks-play-track-fill { height: 100%; background: var(--accent); }
