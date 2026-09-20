@@ -372,7 +372,9 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
   const orphans = Object.keys(ledger).filter((id) => !claimed.has(id));
   if (orphans.length) log(`[tracks] ${orphans.length} ${LEDGER} ${orphans.length === 1 ? 'entry keeps an id for a track that is gone' : 'entries keep ids for tracks that are gone'}`);
   if (minted.length) log(`[tracks] new ids, back up ${LEDGER}: ${minted.join(', ')}`);
-  writeLedger(srcDir, ledger, log);
+  // A clean checkout may have no local track sources. Keep its build output
+  // empty without creating a source directory or ledger as a side effect.
+  if (pending.length || existsSync(join(srcDir, LEDGER))) writeLedger(srcDir, ledger, log);
 
   index.sort((a, b) => (b.start ?? '').localeCompare(a.start ?? ''));
   log(`[tracks] ${index.filter((it) => it.featured).length} featured`);
