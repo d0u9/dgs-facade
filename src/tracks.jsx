@@ -22,7 +22,7 @@ const KINDS = { track: 'Recorded', plan: 'Planned', waypoint: 'Waypoints' };
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/fiord';
 // Amap (高德) tiles are in GCJ-02, so track coordinates get shifted to match while it is on.
 const AMAP_TILES = [1, 2, 3, 4].map((n) => `https://webrd0${n}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}`);
-const TERRAIN_EXAG = 1.4;
+const TERRAIN_EXAG = 2.5;
 // How far above the track's highest point the pin head floats, in metres.
 const PIN_FLOAT_M = 900;
 const DEM_TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
