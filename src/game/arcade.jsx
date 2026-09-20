@@ -12,6 +12,7 @@ const GAMES = [
   { slug: 'dino', title: 'Chrome Dino', code: '05', blurb: "Open Chrome's built-in offline runner.", keys: 'COPY URL · OPEN FROM ADDRESS BAR', href: '/arcade/dino/' },
   { slug: 'battleship', title: 'Battleship', code: '06', blurb: 'Find the hidden fleet before the opponent sinks yours.', keys: 'CLICK / TAP TO FIRE' },
   { slug: 'tetris', title: 'Tetris', code: '07', blurb: 'Stack falling pieces. Clear full rows before the well fills up.', keys: '← → ↓ · ↑ ROTATE · SPACE' },
+  { slug: 'flappy', title: 'Flappy Bird', code: '08', blurb: 'Flap through the gaps. One touch is all the control you get.', keys: 'SPACE / CLICK / TAP' },
 ];
 
 function GamesHub() {
@@ -56,7 +57,7 @@ function DinoGuide() {
 }
 
 function glyph(slug) {
-  return { hextris: '⬡', minesweeper: '✣', dino: '◢', battleship: '⌁', snake: '∿', '2048': '＋', tetris: '▦' }[slug];
+  return { hextris: '⬡', minesweeper: '✣', dino: '◢', battleship: '⌁', snake: '∿', '2048': '＋', tetris: '▦', flappy: '⌒' }[slug];
 }
 
 function useBest(slug) {

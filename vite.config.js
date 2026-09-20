@@ -31,6 +31,7 @@ export default defineConfig({
         arcadeBattleship: resolve(import.meta.dirname, 'arcade/battleship/index.html'),
         arcadeSnake: resolve(import.meta.dirname, 'arcade/snake/index.html'),
         arcadeTetris: resolve(import.meta.dirname, 'arcade/tetris/index.html'),
+        arcadeFlappy: resolve(import.meta.dirname, 'arcade/flappy/index.html'),
         arcade2048: resolve(import.meta.dirname, 'arcade/2048/index.html'),
         utilities: resolve(import.meta.dirname, 'utilities/index.html'),
         base64: resolve(import.meta.dirname, 'utilities/base64/index.html'),

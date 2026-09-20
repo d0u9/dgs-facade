@@ -1,0 +1,60 @@
+/* Site chrome for the vendor HTML5 Flappy Bird page. Mirrors the Tetris
+   integration (tetris-integration.css): intro screen, then a scroll-snapped
+   game screen with an external HUD. Standalone entry, so no shared reset. */
+*, *::before, *::after { box-sizing: border-box; }
+:root { color-scheme: dark; --bg:#050610; --line:rgba(37,244,238,.16); --line-strong:rgba(37,244,238,.32); --text:#edf7f1; --muted:#8da499; --accent:#25f4ee; --accent-2:#fe2c55; --mono:ui-monospace,SFMono-Regular,Menlo,monospace; --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+html,body { min-width:320px; min-height:100%; margin:0; overflow-x:hidden; overscroll-behavior-x:none; background:var(--bg); }
+body { overflow-y:auto; color:var(--text); font-family:var(--sans); }
+.flappy-page { width:min(1180px,calc(100% - 40px)); height:100svh; min-height:0; margin:0 auto; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; scroll-snap-type:y mandatory; scrollbar-width:none; }
+.flappy-page::-webkit-scrollbar { display:none; }
+.flappy-topbar { min-height:76px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); scroll-snap-align:start; scroll-snap-stop:always; }
+.flappy-brand,.flappy-status { display:flex; align-items:center; gap:10px; color:var(--muted); font:12px var(--mono); letter-spacing:.06em; text-decoration:none; }
+.flappy-mark,.flappy-status i { width:8px; height:8px; border:1px solid var(--accent); transform:rotate(45deg); box-shadow:0 0 14px rgba(37,244,238,.55); }
+.flappy-status i { border:0; border-radius:50%; background:var(--accent); }
+.flappy-intro { position:relative; min-height:calc(100svh - 76px); display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:24px; padding:54px 0; border-bottom:1px solid var(--line); }
+.flappy-back,.flappy-exit { min-height:44px; display:inline-flex; align-items:center; gap:8px; padding:0 15px; border:1px solid var(--line); border-radius:999px; background:rgba(8,15,11,.72); color:var(--text); text-decoration:none; font:12px var(--mono); }
+.flappy-eyebrow { margin-bottom:10px; color:var(--accent); font:12px var(--mono); letter-spacing:.12em; text-transform:uppercase; }
+.flappy-copy h1 { margin:0; font:600 clamp(58px,8vw,104px)/.9 var(--sans); letter-spacing:-.07em; }
+.flappy-copy p { margin:20px 0 0; color:var(--muted); font:clamp(15px,1.5vw,18px)/1.6 var(--sans); }
+.flappy-actions { display:flex; align-items:center; gap:14px; }
+.flappy-keys { color:#607369; font:9px var(--mono); letter-spacing:.05em; white-space:nowrap; }
+.flappy-scroll-cue { position:absolute; bottom:22px; left:50%; display:flex; align-items:center; gap:10px; color:var(--muted); font:10px var(--mono); letter-spacing:.1em; text-transform:uppercase; transform:translateX(-50%); }
+.flappy-scroll-cue span:last-child { color:var(--accent); font-size:15px; animation:scroll-cue 1.8s ease-in-out infinite; }
+@keyframes scroll-cue { 0%,100%{transform:translateY(-2px)} 50%{transform:translateY(4px)} }
+
+.flappy-game-shell { height:100svh; min-height:0; display:grid; grid-template-rows:auto minmax(0,1fr) auto; justify-items:center; gap:8px; overflow:hidden; padding:16px 0 20px; scroll-snap-align:start; scroll-snap-stop:always; }
+.flappy-toolbar { width:100%; max-width:900px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.flappy-stage-hud { display:flex; gap:8px; }
+.flappy-stage-hud > div { min-width:76px; padding:7px 11px; border:1px solid var(--line); border-radius:12px; background:rgba(10,18,13,.66); backdrop-filter:blur(12px); }
+.flappy-stage-hud > div:last-child { border-color:rgba(254,44,85,.35); }
+.flappy-stage-hud span { display:block; color:var(--muted); font:9px var(--mono); letter-spacing:.12em; text-transform:uppercase; }
+.flappy-stage-hud strong { display:block; margin-top:2px; color:var(--accent); font:500 15px var(--mono); text-transform:lowercase; text-shadow:0 0 8px currentColor; }
+.flappy-stage-hud > div:last-child strong { color:var(--accent-2); }
+.flappy-buttons { display:flex; gap:8px; }
+.flappy-btn { min-height:38px; padding:0 14px; border:1px solid var(--line); border-radius:999px; background:rgba(8,15,11,.72); color:var(--text); font:11px var(--mono); letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
+.flappy-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+/* Vendor draws into a fixed 400x560 backing store, so the court keeps that
+   ratio and fills whichever stage dimension runs out first. */
+#flappy-stage { width:100%; max-width:900px; height:100%; min-height:0; display:grid; place-items:center; container-type:size; touch-action:none; }
+.flappy-court { height:min(100cqh, (100cqw - 16px) * 1.4); aspect-ratio:400/560; border:1px solid var(--line-strong); border-radius:6px; overflow:hidden; box-shadow:0 0 18px rgba(37,244,238,.22), inset 0 0 24px rgba(37,244,238,.06); }
+.flappy-court #game { display:block; width:100%; height:100%; }
+
+.flappy-gesture-hint { display:none; margin:0; color:var(--muted); font:9px var(--mono); letter-spacing:.08em; text-transform:uppercase; text-align:center; }
+@media (pointer:coarse) { .flappy-gesture-hint { display:block; } }
+
+@media (max-width:600px) {
+  .flappy-page { width:min(calc(100% - 22px),1180px); }
+  .flappy-topbar { min-height:60px; }
+  .flappy-status span { display:none; }
+  .flappy-intro { min-height:calc(100svh - 60px); grid-template-columns:auto minmax(0,1fr); gap:14px; padding:36px 0; }
+  .flappy-back { width:44px; padding:0; justify-content:center; }
+  .flappy-back span:last-child { display:none; }
+  .flappy-actions { grid-column:1/-1; justify-content:space-between; }
+  .flappy-copy h1 { font-size:clamp(52px,16vw,78px); }
+  .flappy-game-shell { padding:12px 0 16px; gap:6px; }
+  .flappy-toolbar { flex-direction:column; gap:6px; }
+  .flappy-stage-hud > div { min-width:0; padding:5px 8px; }
+  .flappy-stage-hud strong { font-size:13px; }
+}
+@media (prefers-reduced-motion:reduce) { .flappy-scroll-cue span:last-child { animation:none; } }

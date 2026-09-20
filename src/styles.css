@@ -406,6 +406,7 @@ a {
 .arcade-dino { --card-accent: #ffe28a; }
 .arcade-battleship { --card-accent: #8fb9ff; }
 .arcade-snake { --card-accent: var(--accent); }
+.arcade-flappy { --card-accent: #ffe66d; }
 
 .arcade-game-shell { position: relative; z-index: 2; }
 .canvas-panel { overflow: hidden; padding: 10px; }
