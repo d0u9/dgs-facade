@@ -156,7 +156,15 @@ function writeUrl(filters, selected, is3d, amap, workspace, camera, play, snap) 
   if (is3d) p.set('3d', '1');
   if (amap !== (navigator.language === 'zh-CN')) p.set('base', amap ? 'amap' : 'osm');
   const qs = p.toString();
-  history.replaceState(null, '', qs ? `?${qs}` : location.pathname);
+  const url = qs ? `?${qs}` : location.pathname;
+  if (url === `${location.search || location.pathname}`) return;
+  try {
+    history.replaceState(null, '', url);
+  } catch (error) {
+    // Some mobile browsers rate-limit History API writes. Keep the page usable
+    // if the address bar refuses an update during rapid interaction.
+    if (error?.name !== 'SecurityError' && error?.name !== 'QuotaExceededError') throw error;
+  }
 }
 
 function applyFilters(items, f, viewBounds) {
@@ -1008,7 +1016,13 @@ function TracksApp() {
   // The link instead carries the point playback started from: whoever opens it seeks there and
   // runs from there, which is the same thing the sender is watching.
   const [linkT, setLinkT] = useState(initial.playT);
-  useEffect(() => { if (!playing) setLinkT(playT); }, [playing, playT]);
+  // Scrubbing can update playT every frame. Wait for the gesture to settle
+  // before writing its position to the URL, especially on mobile browsers.
+  useEffect(() => {
+    if (playing) return undefined;
+    const timeout = setTimeout(() => setLinkT(playT), 300);
+    return () => clearTimeout(timeout);
+  }, [playing, playT]);
   const play = useMemo(() => ({ t: selected ? linkT : null, playing, rate }), [selected, linkT, playing, rate]);
   useEffect(() => { writeUrl(filters, selected, is3d, amap, workspace, camera, play, snap); }, [filters, selected, is3d, amap, workspace, camera, play, snap]);
 
@@ -1025,10 +1039,11 @@ function TracksApp() {
   // than leaving a button that looks like it did nothing.
   const onCopyLink = useCallback(async () => {
     let ok = false;
+    writeUrl(filters, selected, is3d, amap, workspace, camera, { t: selected ? playT : null, playing, rate }, snap);
     try { await navigator.clipboard.writeText(location.href); ok = true; } catch { ok = copyFallback(location.href); }
     setCopied(ok ? 'ok' : 'fail');
     setTimeout(() => setCopied(null), 1600);
-  }, []);
+  }, [filters, selected, is3d, amap, workspace, camera, playT, playing, rate, snap]);
 
   const onToggleWorkspace = useCallback((id) => {
     setWorkspace((ws) => (ws.includes(id) ? ws.filter((v) => v !== id) : [...ws, id]));
