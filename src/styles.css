@@ -1124,12 +1124,12 @@ a {
 /* Where the track stood still. A stop covers no distance, so on this axis it is a thin band. */
 .tracks-profile-idle { fill: color-mix(in srgb, var(--fg) 16%, transparent); }
 .tracks-profile.scrub { cursor: ew-resize; touch-action: none; }
-.tracks-play { display: flex; align-items: center; gap: 8px; margin: 10px 0 6px; }
+.tracks-play { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 10px 0 6px; }
 .tracks-play .btn { min-width: 32px; }
 .tracks-play input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
 .tracks-play .tracks-input { width: auto; padding: 4px 6px; font-size: 12px; }
-.tracks-play-time { margin-left: auto; font-size: 11px; color: var(--muted); text-align: right; }
-.tracks-play-idle { padding: 2px 0; font-size: 11px; color: var(--muted); }
+.tracks-play-time { margin-left: auto; white-space: nowrap; font-size: 11px; color: var(--muted); text-align: right; }
+.tracks-play-idle { flex: none; white-space: nowrap; font-size: 11px; color: var(--muted); }
 /* Time, where the elevation profile above it is distance: this one keeps moving through a stop. */
 .tracks-play-track { height: 2px; margin-top: 4px; background: color-mix(in srgb, var(--fg) 14%, transparent); }
 .tracks-play-track-fill { height: 100%; background: var(--accent); }
@@ -1154,12 +1154,40 @@ a {
   .tracks-detail { bottom: 28px; max-height: calc(100% - 60px); }
   .tracks-stats { grid-template-columns: repeat(3, 1fr); gap: 6px; }
 }
+/* Desk width shows the figures outright; the fold is a phone control. */
+.tracks-stats-toggle { display: none; }
 @media (max-width: 760px) {
-  .tracks-detail { left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 45%; padding: 10px 12px; }
-  .tracks-detail-head h2 { font-size: 16px; }
-  .tracks-stats { margin: 6px 0; gap: 4px 6px; }
+  .tracks-detail { left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 45%; padding: 8px 10px; border-radius: 12px; }
+  .tracks-detail-head h2 { margin: 1px 0; font-size: 14px; }
+  .tracks-detail-sub { margin-top: 2px; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tracks-stats { display: none; margin: 6px 0; gap: 4px 6px; }
+  .tracks-stats.open { display: grid; }
   .tracks-stats dt { font-size: 9px; }
-  .tracks-stats dd { font-size: 13px; }
+  .tracks-stats dd { font-size: 12px; }
+  .tracks-stats-toggle {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    margin: 6px 0 0;
+    padding: 5px 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    color: var(--text);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .tracks-stats-toggle span:last-child { color: var(--muted); }
+  /* The card shares a 400px-tall stage with the map, so everything in it gives up a few
+     pixels: the profile keeps its shape at 52px, and the head stops being a heading. */
+  .tracks-profile { height: 52px; }
+  .tracks-detail-head .tracks-item-meta { font-size: 9px; }
+  .tracks-shell .tracks-detail .btn { padding: 4px 8px; font-size: 10px; }
+  .tracks-play { margin: 6px 0 0; gap: 6px; }
+  .tracks-play .btn, .tracks-play .tracks-input { font-size: 10px; }
+  .tracks-play-time { font-size: 10px; }
   .tracks-profile { height: 48px; }
 }
 .tracks-playhead { --chip: var(--accent); width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid var(--chip); box-shadow: 0 0 10px var(--chip); pointer-events: none; }
@@ -1217,3 +1245,15 @@ a {
   .panel-closed .tracks-panel > :not(.tracks-handle) { display: none; }
   .panel-closed .tracks-handle { border-bottom: 0; }
 }
+
+/* A file that holds several tracks or a waypoint set collapses into one row with a submenu. */
+.tracks-file { display: block; }
+.tracks-file-btn { position: relative; }
+.tracks-file.selected > .tracks-file-head { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+/* Indented and hairlined, so a sub-track reads as part of the file above it. */
+.tracks-sublist { padding: 0 0 2px 14px; border-left: 1px solid var(--line); margin-left: 21px; }
+.tracks-sublist .tracks-ws-toggle { width: 30px; }
+/* Separate from the file's own button: the row picks the file, the caret only folds it. */
+.tracks-file-caret { flex: none; width: 26px; padding: 0; border: 0; border-left: 1px solid var(--line); background: none; color: var(--muted); font-size: 10px; cursor: pointer; }
+.tracks-file-caret:hover { color: var(--text); background: var(--panel); }
+.tracks-file-btn.active { color: var(--text); }

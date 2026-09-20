@@ -34,13 +34,11 @@ are the ones the page offers before the visitor has picked anything.
 
 ## Ids
 
-`data/tracks/ids.json` records which id belongs to which track. The mock data
-in `data/tracks/` is currently kept outside this branch's commits, so keep a
-separate backup of the ledger with the source files and provide both to the
-build environment. A deployment without this directory has an empty track
-library. Without the ledger, a rebuild can assign different ids and shared
-links can stop resolving. The build prints the ids it has just assigned as a
-reminder.
+`data/tracks/ids.json` records which id belongs to which track. It is committed
+with the track files it describes, and the two belong together: a deployment
+without `data/tracks/` has an empty track library, and a rebuild without the
+ledger can assign different ids, which stops shared links resolving. The build
+prints the ids it has just assigned as a reminder.
 
 An id is five characters with no relation to the track's name, because a link
 carries the whole workspace and because an id derived from a name changes
@@ -52,6 +50,58 @@ you want its id released.
 
 If a link does break, the fix is to edit `ids.json`: put the id that was
 shared against the track's current source key.
+
+## Waypoints on the map
+
+In 2D a waypoint is a dot with its name beside it, and the name is never faded,
+even while another track is isolated: it is the only thing that tells one
+waypoint from another.
+
+In 3D the flat dot and the flat name are both switched off and each waypoint
+becomes a callout: a leader line straight up from the point, a shelf across the
+top of it, and the name on the shelf. The leader is what says where the point
+is, so the name itself never has to sit on the terrain. Terrain is drawn at
+`TERRAIN_EXAG` (2.5), which is what makes a name laid on the surface unreadable
+against the hillshade and the track line, so the callouts float clear of it.
+How far is given in screen pixels, not in metres: `WPT_FLOAT_PX` is 110, and
+`PIN_FLOAT_PX` 150 for the playback marker. A fixed height in metres is lost in
+the relief when the map is zoomed out and thrown off the top of the screen when
+it is zoomed in; a number of pixels holds the same look at every zoom, and is
+converted against the view's own scale each time the view settles. The callout
+is what a click hits, since the ground dot is gone.
+
+A waypoint has no elevation in many exports — none of the ones in this library
+do — so the ground under it is sampled from the DEM. That query answers 0 until
+the tile it needs is in memory, which is what used to leave a callout at sea
+level, far below its own point, until something happened to redraw it. The
+sample is retaken when the map next goes idle, the last good value is kept in
+the meantime, and the retry stops once every waypoint has a height, so a still
+map does no work. Switching to 3D starts the sampling over, because the ground
+under every waypoint has just moved and the DEM for the view is not in memory
+yet. A waypoint outside the view never receives a tile, so the retry also has a
+fixed budget of twelve passes and then gives up rather than running on every
+idle for as long as the page is open.
+
+A callout is also dimmed far less than a track line is. A faded line is still a
+line; a faded name is unreadable, and the name is the whole point of the
+callout. A waypoint from the same file as the selection is not dimmed at all.
+
+The shelf is an icon, not a line layer: a line in world coordinates turns
+edge-on as the camera orbits, while an icon is a billboard and stays across the
+screen whatever the bearing. One wide icon is drawn at the size each name
+needs — deck sizes an icon by its height and keeps its aspect, so a shelf that
+has to come out N pixels wide is asked for at N / aspect. The name's layer
+takes `characterSet: 'auto'`, because deck's default atlas is ASCII and would
+drop every Chinese character in a name.
+
+## The detail card on a phone
+
+The card shares a stage about 400 px tall with the map, and the six figures a
+track reports take more of that than the map can spare. On a screen narrower
+than 760 px they fold behind one line, which still carries the two that answer
+what the track is — its distance and its duration — and the rest open on a tap.
+The profile, the title and the playback row all lose a few pixels there as
+well, so the closed card fits without scrolling.
 
 ## Stops in playback
 
@@ -102,8 +152,28 @@ than the speed it was actually driven or walked at.
 **Waypoints are collected per file, not per track.** A file with several
 tracks and several waypoints gets one waypoint entry covering all of them.
 
-**Tracks from one file are not grouped** in the list. They share a `source`,
-which the search box matches, and nothing else marks them as related.
+## Files with several items
+
+A file that produces more than one item — sub-tracks, or a track and its
+waypoints — is one row in the list with a submenu under it.
+
+The row itself draws the whole file and zooms to it. When the file holds
+exactly one recording that recording is selected too, so the detail card, the
+elevation profile and playback are there without a second click; a file of
+several tracks has no such subject and nothing in it is selected. The tick box
+draws the file without moving the camera, and the caret on the right folds the
+submenu, which ticks and selects one sub-track or the waypoint set. Picking a
+file of one recording does not open its submenu — there is nothing in it to
+choose between, and the caret is there for the waypoint list; a file of several
+tracks does open, because the submenu is how one of them is reached.
+
+A picked file is isolated on the map the way a picked track is: the rest fades
+and every item of that file stays lit. A file of exactly one track and its
+waypoints takes the track's name; any other file takes the file name.
+
+Waypoints often carry no time. Such a waypoint entry borrows the start and end
+of the file's own tracks, so it sorts and groups beside them instead of
+falling into `undated`.
 
 ## What a link carries
 
@@ -135,3 +205,14 @@ unaffected.
 
 Opening a link does not overwrite the workspace the visitor had saved. It is
 kept once they change it themselves.
+
+A camera carried by `at` is held against every automatic fit, not only the
+first one. The page moves under itself on the way up — the workspace resolves,
+unknown ids are dropped, geometry arrives — and each of those used to be able
+to trigger a fit that threw the restored view away. Automatic fits are refused
+until the visitor moves first: picks something, opens a file, or presses fit.
+
+The map is built before the track index arrives, so the first fit has nothing
+to fit to and the view is fitted again as soon as the tracks land. A reload
+therefore opens on the restored workspace, not on the world, and a camera
+carried by `at` survives because the empty first pass leaves it alone.
