@@ -348,13 +348,13 @@ function fitStyle(text) {
 
 // An inline SVG rather than a chart library: one line and two axes do not
 // justify the bundle, and the viewBox scales to whatever width the card has.
-const CHART_W = 720, CHART_H = 180, CHART_PAD = { top: 12, right: 12, bottom: 20, left: 52 };
+const CHART_W = 720, CHART_H = 180, CHART_PAD = { top: 16, right: 16, bottom: 16, left: 36 };
 
 function RateChart({ series, from, to }) {
   const [hover, setHover] = useState(null);
   const plotRef = useRef(null);
 
-  const { path, area, low, high, first, last, lastValue, change, coords } = useMemo(() => {
+  const { path, area, first, last, lastValue, change, coords, mid, ticks } = useMemo(() => {
     const values = series.points.map(point => point.value);
     const low = Math.min(...values), high = Math.max(...values);
     // A flat series would divide by zero; give it a band so the line sits mid-height.
@@ -374,8 +374,16 @@ function RateChart({ series, from, to }) {
       left: (x(index) / CHART_W) * 100,
       top: (y(point.value) / CHART_H) * 100
     }));
+    const mid = CHART_PAD.top + innerH / 2;
+    // The value axis is drawn in HTML beside the plot, for the same reason the
+    // crosshair is: preserveAspectRatio="none" would stretch SVG text.
+    const ticks = [
+      { value: high, top: (CHART_PAD.top / CHART_H) * 100 },
+      { value: (high + low) / 2, top: (mid / CHART_H) * 100 },
+      { value: low, top: ((CHART_H - CHART_PAD.bottom) / CHART_H) * 100 }
+    ];
     return {
-      path, area, low, high, coords,
+      path, area, coords, mid, ticks,
       first: series.points[0].date,
       last: series.points[series.points.length - 1].date,
       lastValue,
@@ -408,11 +416,22 @@ function RateChart({ series, from, to }) {
       onPointerCancel={() => setHover(null)}
     >
       <svg className="fx-chart-svg" viewBox={`0 0 ${CHART_W} ${CHART_H}`} preserveAspectRatio="none" role="img" aria-label={`${from} to ${to} rate history`}>
+        <defs>
+          <linearGradient id="fx-chart-fade" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--accent)" stopOpacity=".26" />
+            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
         <line className="fx-chart-grid" x1={CHART_PAD.left} x2={CHART_W - CHART_PAD.right} y1={CHART_PAD.top} y2={CHART_PAD.top} />
+        <line className="fx-chart-grid faint" x1={CHART_PAD.left} x2={CHART_W - CHART_PAD.right} y1={mid} y2={mid} />
         <line className="fx-chart-grid" x1={CHART_PAD.left} x2={CHART_W - CHART_PAD.right} y1={CHART_H - CHART_PAD.bottom} y2={CHART_H - CHART_PAD.bottom} />
         <path className="fx-chart-area" d={area} />
         <path className="fx-chart-line" d={path} />
       </svg>
+      <div className="fx-chart-ticks mono" aria-hidden="true" style={{ width: `${(CHART_PAD.left / CHART_W) * 100}%` }}>
+        {ticks.map(tick => <span key={tick.top} className="fx-chart-tick" style={{ top: `${tick.top}%` }}>{formatAmount(tick.value)}</span>)}
+      </div>
+      {!point && <span className="fx-chart-dot last" aria-hidden="true" style={{ left: `${coords[coords.length - 1].left}%`, top: `${coords[coords.length - 1].top}%` }} />}
       {point && <div className="fx-chart-cursor" aria-hidden="true">
         <span className="fx-chart-crosshair vertical" style={{ left: `${point.left}%` }} />
         <span className="fx-chart-crosshair horizontal" style={{ top: `${point.top}%` }} />
@@ -427,9 +446,8 @@ function RateChart({ series, from, to }) {
         <span className="fx-chart-tip-rate">1 {from} = {formatAmount(point.value)} {to}</span>
       </div>}
     </div>
-    <div className="fx-chart-axis mono">
+    <div className="fx-chart-axis mono" style={{ paddingLeft: `${(CHART_PAD.left / CHART_W) * 100}%` }}>
       <span>{first}</span>
-      <span>low {formatAmount(low)} · high {formatAmount(high)}</span>
       <span>{last}</span>
     </div>
   </div>;
