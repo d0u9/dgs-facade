@@ -589,18 +589,36 @@ a {
 .fx-shell .codec-card { background: var(--panel-strong); }
 .fx-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 .fx-body:has(.fx-picker) { grid-template-columns: minmax(0, 1fr) minmax(250px, 320px); }
-.fx-main { min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
-.fx-grid { min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); align-content: start; gap: 14px; padding: 16px; }
-.fx-card { --fx-num-size: clamp(24px, 3.1vw, 32px); position: relative; display: grid; gap: 10px; padding: 16px 18px 14px; border: 1px solid var(--line); border-radius: 20px; background: rgba(8, 16, 11, .6); transition: border-color .2s ease, background .2s ease, transform .2s ease; }
+.fx-main { min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+/* With a chart open the cards only take the height they need and the chart
+   takes what is left, so the panel has no dead band under the last card. An
+   expanded history does the same job when there is no chart. */
+.fx-main:has(.fx-chart) { grid-template-rows: minmax(0, auto) minmax(200px, 1fr) auto; }
+/* An expanded history must not squeeze the chart down to its axis labels. */
+.fx-main:has(.fx-chart) .fx-history { max-height: 26vh; }
+.fx-main:not(:has(.fx-chart)):has(.fx-history-list.expanded) { grid-template-rows: minmax(0, auto) minmax(0, 1fr); }
+.fx-main:not(:has(.fx-chart)):has(.fx-history-list.expanded) .fx-history { max-height: none; }
+.fx-grid { min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); align-content: start; gap: 10px; padding: 12px; }
+/* Cards lie on their side: identity left, amount right, rate under the amount.
+   A stacked card was twice as tall for the same three facts, which left a dead
+   band under the last row on any screen taller than a phone. */
+.fx-card { --fx-num-size: clamp(20px, 2.1vw, 27px); position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 2px 14px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 16px; background: rgba(8, 16, 11, .6); transition: border-color .2s ease, background .2s ease, transform .2s ease; }
+.fx-card:focus-within { border-color: rgba(141, 243, 185, .5); }
 .fx-card:hover { border-color: var(--line-strong); }
 .fx-card.active { border-color: rgba(141, 243, 185, .38); background: rgba(141, 243, 185, .07); box-shadow: 0 0 0 1px rgba(141, 243, 185, .12), 0 18px 44px rgba(0, 0, 0, .36); }
 .fx-card.dragging { opacity: .55; transform: scale(.98); }
-.fx-card-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px; }
+.fx-card-top { grid-column: 1; grid-row: 1 / span 2; min-width: 0; display: grid; grid-template-columns: auto auto; align-items: center; gap: 8px; }
+.fx-card-tools { display: flex; align-items: center; gap: 4px; }
+.fx-card.picked { border-color: rgba(141, 243, 185, .38); box-shadow: inset 0 0 0 1px rgba(141, 243, 185, .16); }
 .fx-flag { font-size: 30px; line-height: 1; filter: saturate(.92); }
+.fx-identity { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; min-width: 0; padding: 2px 6px 2px 2px; border: 1px solid transparent; border-radius: 12px; background: transparent; color: inherit; cursor: pointer; text-align: left; transition: border-color .15s ease, background .15s ease; }
+.fx-identity:hover { border-color: var(--line); background: rgba(141, 243, 185, .05); }
+.fx-identity.active { border-color: rgba(141, 243, 185, .34); background: rgba(141, 243, 185, .09); }
+.fx-pick-badge { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 999px; background: rgba(141, 243, 185, .18); color: var(--accent); font-size: 9px; }
 .fx-id { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .fx-code { color: var(--text); font-family: var(--code-font-family); font-size: 17px; font-weight: 500; letter-spacing: .06em; }
 .fx-card.active .fx-code { color: var(--accent); }
-.fx-name { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.fx-name { display: none; }
 .fx-handle { padding: 2px 4px; border: 0; background: transparent; color: #46594f; cursor: grab; font-size: 17px; line-height: 1; touch-action: none; }
 .fx-handle:hover { color: var(--accent); }
 .fx-handle:active { cursor: grabbing; }
@@ -609,11 +627,10 @@ a {
 .fx-remove { padding: 2px 2px; border: 0; background: transparent; color: #3d4e45; cursor: pointer; font-size: 17px; line-height: 1; }
 .fx-remove:hover:not(:disabled) { color: var(--danger); }
 .fx-remove:disabled { opacity: .3; cursor: not-allowed; }
-.fx-input { width: 100%; padding: 4px 0 6px; border: 0; border-bottom: 1px solid var(--line); outline: 0; background: transparent; color: var(--text); font-family: var(--code-font-family); font-size: var(--fx-num-size); font-variant-numeric: tabular-nums; letter-spacing: -.01em; text-align: right; }
-.fx-input:focus { border-bottom-color: rgba(141, 243, 185, .5); }
+.fx-input { grid-column: 2; grid-row: 1; width: 100%; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: var(--text); font-family: var(--code-font-family); font-size: var(--fx-num-size); font-variant-numeric: tabular-nums; letter-spacing: -.01em; text-align: right; }
 .fx-input::placeholder { color: #33453b; }
 .fx-card.active .fx-input { color: var(--accent); text-shadow: 0 0 26px rgba(141, 243, 185, .3); }
-.fx-card-foot { color: #5c7166; font-size: 10px; letter-spacing: .05em; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fx-card-foot { grid-column: 2; grid-row: 2; color: #5c7166; font-size: 10px; letter-spacing: .05em; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fx-card.active .fx-card-foot { color: var(--muted); text-transform: uppercase; letter-spacing: .12em; }
 .fx-picker { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); border-left: 1px solid var(--line); }
 .fx-search { width: 100%; padding: 14px 16px; border: 0; border-bottom: 1px solid var(--line); outline: 0; background: transparent; color: var(--text); font-size: 13px; }
@@ -642,9 +659,11 @@ a {
 /* History: newest first, each row reading base-first so it matches what was
    typed (1 USD = 7.1 CNY = 1.5 AUD). */
 .fx-history { display: grid; grid-template-rows: auto minmax(0, 1fr); max-height: 34vh; border-top: 1px solid var(--line); background: rgba(6, 12, 9, .5); }
-.fx-history-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--line); }
+.fx-history-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 10px; padding: 8px 16px; border-bottom: 1px solid var(--line); }
+.fx-history-actions { display: flex; align-items: center; gap: 8px; }
 .fx-history-title { color: var(--muted); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
 .fx-history-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 4px 0; list-style: none; }
+.fx-history-list:not(.expanded) { overflow: hidden; }
 .fx-history-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 0 10px 0 16px; }
 /* Half the weight of --line: rows wrap to two lines on narrow cards, so they
    need a separator, but a full-strength rule would out-shout the numbers. */
@@ -661,6 +680,24 @@ a {
 .fx-history-when { color: #5c7166; font-size: 10px; white-space: nowrap; }
 .fx-history-remove { padding: 2px 4px; border: 0; background: transparent; color: #3d4e45; cursor: pointer; font-size: 15px; line-height: 1; }
 .fx-history-remove:hover { color: var(--danger); }
+
+/* Rate history chart. Fixed viewBox, fluid width: the line is the only thing
+   that has to stay legible, so it stretches rather than re-laying out. */
+.fx-chart { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; padding: 10px 16px 12px; border-top: 1px solid var(--line); background: rgba(6, 12, 9, .5); }
+.fx-chart-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 10px; }
+.fx-chart-title { color: var(--muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+.fx-chart-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.fx-chart-figure { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 4px; }
+.fx-chart-readout { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.fx-chart-value { color: var(--text); font-size: 15px; font-variant-numeric: tabular-nums; }
+.fx-chart-change { font-size: 10px; letter-spacing: .04em; }
+.fx-chart-change.up { color: var(--accent); }
+.fx-chart-change.down { color: var(--danger); }
+.fx-chart-svg { width: 100%; height: 100%; min-height: 120px; overflow: visible; }
+.fx-chart-grid { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.fx-chart-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.fx-chart-area { fill: rgba(141, 243, 185, .09); stroke: none; }
+.fx-chart-axis { display: flex; justify-content: space-between; gap: 10px; color: #5c7166; font-size: 10px; }
 
 .dino-launch-card { max-width: 900px; margin: 0 auto; padding: 28px; border: 1px solid var(--line); border-radius: 24px; background: rgba(10,18,14,.82); box-shadow: 0 24px 80px rgba(0,0,0,.24); }
 .dino-launch-card > label { display: block; margin-bottom: 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
@@ -1053,10 +1090,17 @@ a {
   .fx-body { grid-template-rows: minmax(0, 1fr); }
   .fx-body:has(.fx-picker) { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(140px, 42vh); }
   .fx-picker { border-left: 0; border-top: 1px solid var(--line); }
-  .fx-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 10px; }
-  .fx-card { padding: 12px 14px 10px; border-radius: 16px; }
-  .fx-flag { font-size: 26px; }
-  .fx-card { --fx-num-size: 28px; }
+  .fx-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 10px; }
+
+  .fx-card { --fx-num-size: 24px; gap: 2px 12px; padding: 8px 12px; border-radius: 14px; }
+  .fx-flag { font-size: 22px; }
+  .fx-code { font-size: 15px; }
+  .codec-toolbar-right .btn { white-space: nowrap; }
+  .fx-chart { padding: 8px 12px 10px; }
+  .fx-history-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "line remove" "meta remove"; padding: 4px 8px 4px 12px; }
+  .fx-history-line { grid-area: line; }
+  .fx-history-meta { grid-area: meta; padding-bottom: 5px; }
+  .fx-history-remove { grid-area: remove; }
   .battle-fields { gap: 10px; }
   .battle-grid { width: 100%; margin: 0; }
 

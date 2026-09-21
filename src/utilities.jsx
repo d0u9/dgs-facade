@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client';
 import AmbientCursor from './components/AmbientCursor.jsx';
 import { CollectionCard, CollectionHero, LineNumberedField, PageHeader, ToolHeader } from './components/PageChrome.jsx';
-import { DEFAULT_SOURCE_ID, FALLBACK_NAMES, ISO_CODES, SOURCES, cachedNames, cachedRates, fetchNames, fetchRates, isStale, readStoredSourceId, sourceById, storeSourceId } from './fx.js';
+import { DEFAULT_SOURCE_ID, FALLBACK_NAMES, ISO_CODES, SERIES_RANGES, SERIES_SOURCE_LABEL, SOURCES, cachedNames, cachedRates, fetchNames, fetchRates, fetchSeries, isStale, readStoredSourceId, sourceById, storeSourceId } from './fx.js';
 import './styles.css';
 
 const TOOLS = [
@@ -346,6 +346,51 @@ function fitStyle(text) {
   return { fontSize: `calc(var(--fx-num-size) * ${fitScale(text).toFixed(3)})` };
 }
 
+// An inline SVG rather than a chart library: one line and two axes do not
+// justify the bundle, and the viewBox scales to whatever width the card has.
+const CHART_W = 720, CHART_H = 180, CHART_PAD = { top: 12, right: 12, bottom: 20, left: 52 };
+
+function RateChart({ series, from, to }) {
+  const { path, area, low, high, first, last, lastValue, change } = useMemo(() => {
+    const values = series.points.map(point => point.value);
+    const low = Math.min(...values), high = Math.max(...values);
+    // A flat series would divide by zero; give it a band so the line sits mid-height.
+    const span = high - low || Math.abs(high) || 1;
+    const innerW = CHART_W - CHART_PAD.left - CHART_PAD.right;
+    const innerH = CHART_H - CHART_PAD.top - CHART_PAD.bottom;
+    const x = (index) => CHART_PAD.left + (series.points.length === 1 ? innerW / 2 : (index / (series.points.length - 1)) * innerW);
+    const y = (value) => CHART_PAD.top + innerH - ((value - low) / span) * innerH;
+    const path = series.points.map((point, index) => `${index ? 'L' : 'M'}${x(index).toFixed(2)} ${y(point.value).toFixed(2)}`).join(' ');
+    const area = `${path} L${x(series.points.length - 1).toFixed(2)} ${CHART_PAD.top + innerH} L${x(0).toFixed(2)} ${CHART_PAD.top + innerH} Z`;
+    const firstValue = series.points[0].value, lastValue = series.points[series.points.length - 1].value;
+    return {
+      path, area, low, high,
+      first: series.points[0].date,
+      last: series.points[series.points.length - 1].date,
+      lastValue,
+      change: firstValue ? ((lastValue - firstValue) / firstValue) * 100 : 0
+    };
+  }, [series]);
+
+  return <div className="fx-chart-figure">
+    <div className="fx-chart-readout mono">
+      <span className="fx-chart-value">1 {from} = {formatAmount(lastValue)} {to}</span>
+      <span className={`fx-chart-change ${change >= 0 ? 'up' : 'down'}`}>{change >= 0 ? '+' : ''}{change.toFixed(2)}% over {series.points.length} readings</span>
+    </div>
+    <svg className="fx-chart-svg" viewBox={`0 0 ${CHART_W} ${CHART_H}`} preserveAspectRatio="none" role="img" aria-label={`${from} to ${to} rate history`}>
+      <line className="fx-chart-grid" x1={CHART_PAD.left} x2={CHART_W - CHART_PAD.right} y1={CHART_PAD.top} y2={CHART_PAD.top} />
+      <line className="fx-chart-grid" x1={CHART_PAD.left} x2={CHART_W - CHART_PAD.right} y1={CHART_H - CHART_PAD.bottom} y2={CHART_H - CHART_PAD.bottom} />
+      <path className="fx-chart-area" d={area} />
+      <path className="fx-chart-line" d={path} />
+    </svg>
+    <div className="fx-chart-axis mono">
+      <span>{first}</span>
+      <span>low {formatAmount(low)} · high {formatAmount(high)}</span>
+      <span>{last}</span>
+    </div>
+  </div>;
+}
+
 function CurrencyTool() {
   const [codes, setCodes] = useState(readStoredCodes);
   const [base, setBase] = useState(() => readStoredCodes()[0]);
@@ -360,6 +405,15 @@ function CurrencyTool() {
   const [choosingSource, setChoosingSource] = useState(false);
   const [query, setQuery] = useState('');
   const [copied, setCopied] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  // The two currencies the chart compares. Picking a third drops the oldest,
+  // so the pair is always the last two the user asked for.
+  const [pair, setPair] = useState([]);
+  const [range, setRange] = useState(SERIES_RANGES[0].id);
+  const [series, setSeries] = useState(null);
+  const [seriesError, setSeriesError] = useState('');
+  const [seriesLoading, setSeriesLoading] = useState(false);
   const [dragCode, setDragCode] = useState(null);
   const listRef = useRef(null);
 
@@ -402,44 +456,60 @@ function CurrencyTool() {
     return formatAmount(value * (table[code] / table[base]));
   }, [amount, base, table]);
 
-  // A history entry is written once the typing stops, not per keystroke, so
-  // "1", "12", "123" leave one row rather than three. The entry always leads
-  // with the currency the amount was typed in, which is what makes it
-  // readable later: 1 USD = 7.1 CNY = 1.5 AUD.
-  useEffect(() => {
+  // History is written only when asked for. Recording every keystroke, or even
+  // every pause in typing, filled the list with amounts nobody meant to keep.
+  // The entry leads with the currency the amount was typed in, which is what
+  // makes it readable later: 1 USD = 7.1 CNY = 1.5 AUD.
+  const saveable = Boolean(amount) && Number.isFinite(Number(amount)) && Number(amount) !== 0 && Boolean(table && table[base]);
+  const save = () => {
     const value = Number(amount);
-    if (!amount || !Number.isFinite(value) || value === 0 || !table || !table[base]) return;
-    const timer = window.setTimeout(() => {
-      const legs = codes
-        .filter(code => code !== base && table[code])
-        .map(code => ({ code, value: formatAmount(value * (table[code] / table[base])) }));
-      if (!legs.length) return;
-      setHistory(current => {
-        const signature = `${sourceId}|${base}|${amount}|${legs.map(leg => leg.code).join(',')}`;
-        if (current[0] && current[0].signature === signature) return current;
-        const entry = {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          signature,
-          at: Date.now(),
-          base,
-          amount: formatAmount(value),
-          legs,
-          source: rates?.source || '',
-          date: rates?.date || ''
-        };
-        return [entry, ...current].slice(0, HISTORY_LIMIT);
-      });
-    }, 900);
-    return () => window.clearTimeout(timer);
-  }, [amount, base, codes, table, rates, sourceId]);
+    if (!saveable) return;
+    const legs = codes
+      .filter(code => code !== base && table[code])
+      .map(code => ({ code, value: formatAmount(value * (table[code] / table[base])) }));
+    if (!legs.length) return;
+    const entry = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      at: Date.now(),
+      base,
+      amount: formatAmount(value),
+      legs,
+      source: rates?.source || '',
+      date: rates?.date || ''
+    };
+    setHistory(current => [entry, ...current].slice(0, HISTORY_LIMIT));
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 1200);
+  };
+
+  const togglePair = (code) => setPair(current => {
+    if (current.includes(code)) return current.filter(item => item !== code);
+    return [...current, code].slice(-2);
+  });
+
+  const rangeDays = SERIES_RANGES.find(option => option.id === range)?.days || 30;
+  useEffect(() => {
+    if (pair.length !== 2) { setSeries(null); setSeriesError(''); return; }
+    let cancelled = false;
+    setSeriesLoading(true);
+    setSeriesError('');
+    fetchSeries(pair[0], pair[1], rangeDays)
+      .then(entry => { if (!cancelled) { setSeries(entry); setSeriesError(''); } })
+      .catch(err => { if (!cancelled) { setSeries(null); setSeriesError(err.message || 'No history for this pair.'); } })
+      .finally(() => { if (!cancelled) setSeriesLoading(false); });
+    return () => { cancelled = true; };
+  }, [pair, rangeDays]);
 
   const edit = (code, raw) => { setBase(code); setAmount(sanitizeAmount(raw)); };
-  const remove = (code) => setCodes(current => {
-    if (PINNED_CODES.includes(code)) return current;
-    const next = current.filter(item => item !== code);
-    if (code === base) setBase(next[0]);
-    return next;
-  });
+  const remove = (code) => {
+    setPair(current => current.filter(item => item !== code));
+    setCodes(current => {
+      if (PINNED_CODES.includes(code)) return current;
+      const next = current.filter(item => item !== code);
+      if (code === base) setBase(next[0]);
+      return next;
+    });
+  };
   const forget = (id) => setHistory(current => current.filter(entry => entry.id !== id));
   const replay = (entry) => { setBase(entry.base); setAmount(sanitizeAmount(entry.amount)); };
 
@@ -509,6 +579,7 @@ function CurrencyTool() {
           <button className={`btn ${picking ? 'active' : ''}`} onClick={() => { setPicking(open => !open); setChoosingSource(false); setQuery(''); }} disabled={!table}>add</button>
           <button className="btn" onClick={() => load(sourceId)} disabled={loading}>{loading ? 'loading' : 'refresh'}</button>
           <button className="btn" onClick={() => setAmount('')} disabled={!amount}>clear</button>
+          <button className="btn" onClick={save} disabled={!saveable}>{saved ? 'saved' : 'save'}</button>
           <button className="btn primary" onClick={copy} disabled={!table || !amount}>{copied ? 'copied' : 'copy'}</button>
         </div>
       </div>
@@ -534,28 +605,38 @@ function CurrencyTool() {
         <div className="fx-main">
           <div className="fx-grid" ref={listRef}>
             {codes.map(code => <article
-              className={`fx-card ${code === base ? 'active' : ''} ${code === dragCode ? 'dragging' : ''} ${PINNED_CODES.includes(code) ? 'pinned' : ''}`}
+              className={`fx-card ${code === base ? 'active' : ''} ${code === dragCode ? 'dragging' : ''} ${PINNED_CODES.includes(code) ? 'pinned' : ''} ${pair.includes(code) ? 'picked' : ''}`}
               data-code={code}
               key={code}
             >
               <div className="fx-card-top">
-                <span className="fx-flag" aria-hidden="true">{flagFor(code)}</span>
-                <div className="fx-id">
-                  <span className="fx-code mono">{code}</span>
-                  <span className="fx-name">{names[code] || code}</span>
+                <button
+                  className={`fx-identity ${pair.includes(code) ? 'active' : ''}`}
+                  onClick={() => togglePair(code)}
+                  aria-pressed={pair.includes(code)}
+                  title={`${names[code] || code} — ${pair.includes(code) ? 'remove from the chart' : 'chart against another currency'}`}
+                >
+                  <span className="fx-flag" aria-hidden="true">{flagFor(code)}</span>
+                  <span className="fx-id">
+                    <span className="fx-code mono">{code}</span>
+                    <span className="fx-name">{names[code] || code}</span>
+                  </span>
+                  {pair.includes(code) && <span className="fx-pick-badge mono" aria-hidden="true">{pair.indexOf(code) + 1}</span>}
+                </button>
+                <div className="fx-card-tools">
+                  {PINNED_CODES.includes(code)
+                    ? <span className="fx-pin" title="Pinned" aria-label={`${code} is pinned`}>★</span>
+                    : <button
+                        className="fx-handle"
+                        onPointerDown={event => startDrag(code, event)}
+                        onPointerMove={moveDrag}
+                        onPointerUp={endDrag}
+                        onPointerCancel={endDrag}
+                        aria-label={`Reorder ${code}`}
+                        title="Drag to reorder"
+                      >⠿</button>}
+                  {!PINNED_CODES.includes(code) && <button className="fx-remove" onClick={() => remove(code)} aria-label={`Remove ${code}`}>×</button>}
                 </div>
-                {PINNED_CODES.includes(code)
-                  ? <span className="fx-pin" title="Pinned" aria-label={`${code} is pinned`}>★</span>
-                  : <button
-                      className="fx-handle"
-                      onPointerDown={event => startDrag(code, event)}
-                      onPointerMove={moveDrag}
-                      onPointerUp={endDrag}
-                      onPointerCancel={endDrag}
-                      aria-label={`Reorder ${code}`}
-                      title="Drag to reorder"
-                    >⠿</button>}
-                {!PINNED_CODES.includes(code) && <button className="fx-remove" onClick={() => remove(code)} aria-label={`Remove ${code}`}>×</button>}
               </div>
               <input
                 className="fx-input mono"
@@ -569,18 +650,41 @@ function CurrencyTool() {
                 disabled={!table}
               />
               <div className="fx-card-foot mono">
-                {code === base ? 'base currency' : table && table[code] && table[base] ? `1 ${base} = ${formatAmount(table[code] / table[base])} ${code}` : '—'}
+                {code === base ? 'base currency' : table && table[code] && table[base] ? `1 ${base} = ${formatAmount(table[code] / table[base])}` : '—'}
               </div>
             </article>)}
           </div>
+          {Boolean(pair.length) && <div className="fx-chart">
+            <div className="fx-chart-head">
+              <span className="mono fx-chart-title">
+                {pair.length === 2 ? `${pair[0]} / ${pair[1]} · ${SERIES_SOURCE_LABEL}` : `${pair[0]} · tap another currency name to compare`}
+              </span>
+              <div className="fx-chart-controls">
+                {pair.length === 2 && <button className="btn" onClick={() => setPair([pair[1], pair[0]])} title="Swap which way round the pair is quoted">swap</button>}
+                {pair.length === 2 && <div className="mode-switch" role="group" aria-label="Chart range">
+                  {SERIES_RANGES.map(option => <button className={range === option.id ? 'active' : ''} key={option.id} onClick={() => setRange(option.id)}>{option.label}</button>)}
+                </div>}
+                <button className="btn" onClick={() => setPair([])}>close</button>
+              </div>
+            </div>
+            {pair.length === 2 && (
+              seriesError ? <div className="fx-empty mono has-error">{seriesError}</div>
+                : seriesLoading && !series ? <div className="fx-empty mono">loading history…</div>
+                  : series ? <RateChart series={series} from={pair[0]} to={pair[1]} />
+                    : null
+            )}
+          </div>}
           <div className="fx-history">
             <div className="fx-history-head">
               <span className="mono fx-history-title">history{history.length ? ` · ${history.length}` : ''}</span>
-              <button className="btn" onClick={() => setHistory([])} disabled={!history.length}>clear all</button>
+              <div className="fx-history-actions">
+                {history.length > 1 && <button className="btn" onClick={() => setExpanded(open => !open)}>{expanded ? 'collapse' : `show all · ${history.length}`}</button>}
+                <button className="btn" onClick={() => { setHistory([]); setExpanded(false); }} disabled={!history.length}>clear all</button>
+              </div>
             </div>
             {history.length
-              ? <ul className="fx-history-list">
-                  {history.map(entry => <li className="fx-history-row" key={entry.id}>
+              ? <ul className={`fx-history-list ${expanded ? 'expanded' : ''}`}>
+                  {(expanded ? history : history.slice(0, 1)).map(entry => <li className="fx-history-row" key={entry.id}>
                     <button className="fx-history-line" onClick={() => replay(entry)} title="Put this amount back in the converter">
                       <span className="fx-history-leg base">
                         <span className="fx-history-flag" aria-hidden="true">{flagFor(entry.base)}</span>
@@ -599,7 +703,7 @@ function CurrencyTool() {
                     <button className="fx-history-remove" onClick={() => forget(entry.id)} aria-label="Delete this entry">×</button>
                   </li>)}
                 </ul>
-              : <div className="fx-empty mono">nothing converted yet</div>}
+              : <div className="fx-empty mono">nothing saved yet — press save to keep a conversion</div>}
           </div>
         </div>
         {picking && <aside className="fx-picker">

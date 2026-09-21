@@ -175,6 +175,44 @@ export async function fetchNames() {
   return null;
 }
 
+// Rate history comes from Frankfurter whichever source the converter itself is
+// set to: it is the only one of the four that publishes a dated series without
+// a key. That also means it only covers the ~30 currencies the ECB quotes, so a
+// pair outside that list has no chart rather than a wrong one.
+export const SERIES_SOURCE_LABEL = 'ECB / frankfurter';
+export const SERIES_CACHE_PREFIX = 'd0u9-fx-series';
+export const SERIES_RANGES = [
+  { id: '1m', label: '1M', days: 30 },
+  { id: '3m', label: '3M', days: 90 },
+  { id: '1y', label: '1Y', days: 365 }
+];
+
+function isoDay(offsetDays) {
+  const day = new Date();
+  day.setUTCDate(day.getUTCDate() - offsetDays);
+  return day.toISOString().slice(0, 10);
+}
+
+export async function fetchSeries(from, to, days) {
+  const key = `${SERIES_CACHE_PREFIX}:${from}-${to}-${days}`;
+  const cached = readCache(key);
+  if (cached && !isStale(cached)) return cached;
+  const url = `https://api.frankfurter.dev/v1/${isoDay(days)}..${isoDay(0)}?base=${from}&symbols=${to}`;
+  // A pair the ECB does not quote answers 404. Say so in the pair's own terms
+  // rather than showing the status line and the URL.
+  let payload;
+  try { payload = await getJson(url); }
+  catch { throw new Error(`${SERIES_SOURCE_LABEL} has no history for ${from}/${to}.`); }
+  const points = Object.entries(payload.rates || {})
+    .map(([date, row]) => ({ date, value: row?.[to] }))
+    .filter(point => Number.isFinite(point.value))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (points.length < 2) throw new Error(`${SERIES_SOURCE_LABEL} has no history for ${from}/${to}.`);
+  const entry = { from, to, days, points, fetchedAt: Date.now() };
+  writeCache(key, entry);
+  return entry;
+}
+
 export function cachedNames() {
   const entry = readCache(NAMES_CACHE_KEY);
   return entry && entry.names ? entry : null;
