@@ -59,6 +59,21 @@ Rules this encodes:
 - **Buttons inside `.codec-toolbar` are compact** — the `.codec-toolbar .btn`
   / `.codec-toolbar .mode-switch button` CSS overrides already shrink
   padding/font vs. the site's default `.btn`. Don't inline bigger buttons.
+- **Display tools may skip the two-pane `codec-grid`.** Base64/File Diff/
+  JSON Formatter are editors: dense text, line numbers, `--code-text`.
+  The Currency tool is a *display* tool — the answer must be readable at a
+  glance, so it uses a responsive card grid (`.fx-grid` /`.fx-card`,
+  `repeat(auto-fill, minmax(268px, 1fr))`) with a large `clamp()` amount in
+  `var(--text)`, a flag glyph, and the active card tinted with `--accent`.
+  Keep the shared `tool-shell` + `ToolHeader` + single `codec-toolbar`; only
+  the panel below them changes. Any such custom panel still needs the
+  `minmax(0, 1fr)` grid-row chain down to the scrolling element.
+- **Reorderable lists use Pointer Events, not HTML5 drag-and-drop.**
+  `dragstart`/`dragover` never fire on touch screens, so a drag handle sets
+  `setPointerCapture` on `pointerdown` and reorders on `pointermove` by
+  hit-testing `getBoundingClientRect()` against the other cards
+  (`.fx-handle` in `src/utilities.jsx`). The handle needs
+  `touch-action: none` or the page scrolls instead of dragging.
 - **Text fields use `LineNumberedField`** (`PageChrome.jsx`), not raw
   `<textarea>`. Every text-input or text-output area in a utility tool
   gets a line-number gutter.
@@ -131,8 +146,14 @@ Rules this encodes:
   grid wrapper around a scrollable panel, it needs this same
   `minmax(0, 1fr)` treatment at every grid level down to the scrollable
   element, not just `min-height: 0` on the leaf.
-- **All processing is client-side.** Never add a network call; the whole
-  point of `/utilities/` is "nothing leaves the browser."
+- **User input stays client-side.** Never upload what the user types or
+  pastes; the whole point of `/utilities/` is "nothing leaves the browser."
+  A tool may *download* reference data it cannot compute locally (the
+  Currency tool fetches daily exchange rates — see `src/fx.js`), but only
+  one-way: cache it in `localStorage`, render from the cache immediately,
+  refresh in the background, and give that tool its own hub-card `meta`
+  instead of `RUNS LOCALLY`. Build-time data snapshots are not an option
+  here — deploys are slow, so snapshot data goes stale.
 
 ## Reusable pieces (don't reinvent)
 

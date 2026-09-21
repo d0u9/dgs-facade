@@ -6,17 +6,17 @@ import '../styles.css';
 
 const GAMES = [
   { slug: '2048', title: '2048', code: '01', blurb: 'Join matching tiles and keep the board alive.', keys: 'ARROWS / WASD · SWIPE', href: '/arcade/2048/' },
-  { slug: 'minesweeper', title: 'Minesweeper', code: '02', blurb: 'Clear the field with logic. Mark every hidden mine.', keys: 'CLICK / TAP · LONG PRESS TO FLAG' },
-  { slug: 'snake', title: 'Snake', code: '03', blurb: 'Collect the glowing cells without crossing your own trail.', keys: 'ARROWS / WASD', href: '/arcade/snake/' },
-  { slug: 'hextris', title: 'Hextris', code: '04', blurb: 'Rotate the hexagon. Match three colors before the stack reaches the edge.', keys: '← → / A D · SPACE' },
-  { slug: 'dino', title: 'Chrome Dino', code: '05', blurb: "Open Chrome's built-in offline runner.", keys: 'COPY URL · OPEN FROM ADDRESS BAR', href: '/arcade/dino/' },
-  { slug: 'battleship', title: 'Battleship', code: '06', blurb: 'Find the hidden fleet before the opponent sinks yours.', keys: 'CLICK / TAP TO FIRE' },
-  { slug: 'tetris', title: 'Tetris', code: '07', blurb: 'Stack falling pieces. Clear full rows before the well fills up.', keys: '← → ↓ · ↑ ROTATE · SPACE' },
-  { slug: 'flappy', title: 'Flappy Bird', code: '08', blurb: 'Flap through the gaps. One touch is all the control you get.', keys: 'SPACE / CLICK / TAP' },
-  { slug: 'flood', title: 'Color Flood', code: '09', blurb: 'Flood the board from the corner. Twenty-four moves, no more.', keys: 'CLICK / TAP A COLOR' },
-  { slug: 'tower', title: 'Tower Blocks', code: '10', blurb: 'Drop each block on the one below. Every miss trims the next one.', keys: 'SPACE / CLICK / TAP' },
-  { slug: 'bubbles', title: 'Bubble Shooter', code: '11', blurb: 'Aim, fire, and pop clusters of three before they reach the line.', keys: 'AIM · CLICK / DRAG TO FIRE' },
-  { slug: 'suika', title: 'Watermelon', code: '12', blurb: 'Drop fruit into the jar. Two of a kind merge into the next one up.', keys: 'MOVE TO AIM · CLICK / TAP TO DROP' },
+  { slug: 'flood', title: 'Color Flood', code: '02', blurb: 'Flood the board from the corner. Twenty-four moves, no more.', keys: 'CLICK / TAP A COLOR' },
+  { slug: 'hextris', title: 'Hextris', code: '03', blurb: 'Rotate the hexagon. Match three colors before the stack reaches the edge.', keys: '← → / A D · SPACE' },
+  { slug: 'suika', title: 'Watermelon', code: '04', blurb: 'Drop fruit into the jar. Two of a kind merge into the next one up.', keys: 'MOVE TO AIM · CLICK / TAP TO DROP' },
+  { slug: 'snake', title: 'Snake', code: '05', blurb: 'Collect the glowing cells without crossing your own trail.', keys: 'ARROWS / WASD', href: '/arcade/snake/' },
+  { slug: 'minesweeper', title: 'Minesweeper', code: '06', blurb: 'Clear the field with logic. Mark every hidden mine.', keys: 'CLICK / TAP · LONG PRESS TO FLAG' },
+  { slug: 'dino', title: 'Chrome Dino', code: '07', blurb: "Open Chrome's built-in offline runner.", keys: 'COPY URL · OPEN FROM ADDRESS BAR', href: '/arcade/dino/' },
+  { slug: 'battleship', title: 'Battleship', code: '08', blurb: 'Find the hidden fleet before the opponent sinks yours.', keys: 'CLICK / TAP TO FIRE' },
+  { slug: 'tetris', title: 'Tetris', code: '09', blurb: 'Stack falling pieces. Clear full rows before the well fills up.', keys: '← → ↓ · ↑ ROTATE · SPACE' },
+  { slug: 'flappy', title: 'Flappy Bird', code: '10', blurb: 'Flap through the gaps. One touch is all the control you get.', keys: 'SPACE / CLICK / TAP' },
+  { slug: 'tower', title: 'Tower Blocks', code: '11', blurb: 'Drop each block on the one below. Every miss trims the next one.', keys: 'SPACE / CLICK / TAP' },
+  { slug: 'bubbles', title: 'Bubble Shooter', code: '12', blurb: 'Aim, fire, and pop clusters of three before they reach the line.', keys: 'AIM · CLICK / DRAG TO FIRE' },
 ];
 
 function GamesHub() {

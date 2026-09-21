@@ -71,7 +71,10 @@ void main() {
 
   for (int i = 0; i < MAX_POINTS - 1; i++) {
     float index = float(i);
-    float active = 1.0 - step(uPointCount - 1.0, index);
+    // Trails are usually far shorter than MAX_POINTS; stop instead of shading
+    // dead segments for every pixel.
+    if (index > uPointCount - 2.0) break;
+    float active = 1.0;
     vec2 start = uPoints[i];
     vec2 end = uPoints[i + 1];
     vec2 toPixel = pixel - start;
@@ -180,6 +183,14 @@ const GlowCursor = ({
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
+    // A pointer trail has nothing to follow on touch devices, and it is exactly
+    // the kind of decoration reduced-motion asks us to drop. Skipping the WebGL
+    // context altogether is what saves the battery: hiding the canvas in CSS
+    // still leaves the render loop running.
+    const skip = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      || window.matchMedia('(pointer: coarse)').matches;
+    if (skip) return;
+
     const initialConfig = propsRef.current;
     const renderer = new Renderer({
       canvas,
@@ -231,10 +242,16 @@ const GlowCursor = ({
     let lastFrameTime = performance.now();
     let raf = 0;
     let destroyed = false;
+    let running = false;
+    let lastColor = initialConfig.color;
+    let lastSecondaryColor = initialConfig.secondaryColor;
 
+    // The canvas is fixed to the viewport, so its pixel count stays constant no
+    // matter how long the page is. Sizing it to the container made every extra
+    // screenful of content cost another screenful of fragment shading.
     const resize = () => {
-      width = Math.max(container.clientWidth, 1);
-      height = Math.max(container.clientHeight, 1);
+      width = Math.max(window.innerWidth, 1);
+      height = Math.max(window.innerHeight, 1);
       renderer.setSize(width, height);
       program.uniforms.uResolution.value = [width, height];
     };
@@ -253,19 +270,20 @@ const GlowCursor = ({
     };
 
     const updatePointer = event => {
-      const rect = container.getBoundingClientRect();
-      const x = clamp(event.clientX - rect.left, 0, rect.width);
-      const y = clamp(rect.height - (event.clientY - rect.top), 0, rect.height);
+      const x = clamp(event.clientX, 0, width);
+      const y = clamp(height - event.clientY, 0, height);
       if (!initialized) initializeTrail(x, y);
       target.x = x;
       target.y = y;
       pointerInside = true;
       lastInputTime = performance.now();
+      start();
     };
 
     const onPointerLeave = () => {
       pointerInside = false;
       lastInputTime = performance.now();
+      start();
     };
 
     const render = now => {
@@ -301,8 +319,14 @@ const GlowCursor = ({
       fade += (fadeTarget - fade) * Math.min(1, fadeStep * 7);
 
       program.uniforms.uPointCount.value = clamp(Math.round(config.trailLength), 2, MAX_POINTS);
-      program.uniforms.uColor.value = hexToRgb(config.color);
-      program.uniforms.uSecondaryColor.value = hexToRgb(config.secondaryColor);
+      if (config.color !== lastColor) {
+        lastColor = config.color;
+        program.uniforms.uColor.value = hexToRgb(config.color);
+      }
+      if (config.secondaryColor !== lastSecondaryColor) {
+        lastSecondaryColor = config.secondaryColor;
+        program.uniforms.uSecondaryColor.value = hexToRgb(config.secondaryColor);
+      }
       program.uniforms.uTrailWidth.value = Math.max(config.trailWidth, 0.1);
       program.uniforms.uTaper.value = clamp(config.trailTaper, 0, 1);
       program.uniforms.uGlowIntensity.value = Math.max(config.glowIntensity, 0);
@@ -317,24 +341,61 @@ const GlowCursor = ({
       program.uniforms.uFade.value = fade;
 
       renderer.render({ scene: mesh });
+
+      // Nothing is visible once the trail has faded, and nothing will change
+      // until the pointer moves again, so park the loop instead of burning a
+      // frame forever. updatePointer/onPointerLeave restart it.
+      if (fade < 0.002 && fadeTarget === 0) {
+        running = false;
+        raf = 0;
+        return;
+      }
       if (!destroyed) raf = requestAnimationFrame(render);
     };
 
-    const resizeObserver = new ResizeObserver(resize);
-    resizeObserver.observe(container);
-    container.addEventListener('pointermove', updatePointer);
-    container.addEventListener('pointerenter', updatePointer);
-    container.addEventListener('pointerleave', onPointerLeave);
+    const start = () => {
+      if (destroyed || running) return;
+      running = true;
+      lastFrameTime = performance.now();
+      raf = requestAnimationFrame(render);
+    };
+
+    const stop = () => {
+      running = false;
+      cancelAnimationFrame(raf);
+      raf = 0;
+    };
+
+    // A hidden tab throttles requestAnimationFrame but does not stop it; a
+    // backgrounded window keeps the trail alive for no one to see.
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        stop();
+        return;
+      }
+      lastInputTime = performance.now();
+      start();
+    };
+
+    const onResize = () => {
+      resize();
+      start();
+    };
+
+    window.addEventListener('resize', onResize);
+    window.addEventListener('pointermove', updatePointer, { passive: true });
+    window.addEventListener('pointerleave', onPointerLeave);
+    document.addEventListener('visibilitychange', onVisibilityChange);
     resize();
-    raf = requestAnimationFrame(render);
+    start();
 
     return () => {
       destroyed = true;
-      cancelAnimationFrame(raf);
-      resizeObserver.disconnect();
-      container.removeEventListener('pointermove', updatePointer);
-      container.removeEventListener('pointerenter', updatePointer);
-      container.removeEventListener('pointerleave', onPointerLeave);
+      stop();
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('pointermove', updatePointer);
+      window.removeEventListener('pointerleave', onPointerLeave);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       mesh.geometry.remove();
       program.remove();
     };
