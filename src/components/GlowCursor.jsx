@@ -192,12 +192,21 @@ const GlowCursor = ({
     if (skip) return;
 
     const initialConfig = propsRef.current;
-    const renderer = new Renderer({
-      canvas,
-      alpha: true,
-      dpr: Math.min(window.devicePixelRatio || 1, initialConfig.maxDevicePixelRatio)
-    });
+    // A browser hands out a limited number of WebGL contexts and refuses once
+    // they are gone — several tabs of this site is enough to hit it. The trail
+    // is decoration, so losing it has to cost nothing: without this guard the
+    // throw escapes the effect and React unmounts the whole page to a blank
+    // screen.
+    let renderer = null;
+    try {
+      renderer = new Renderer({
+        canvas,
+        alpha: true,
+        dpr: Math.min(window.devicePixelRatio || 1, initialConfig.maxDevicePixelRatio)
+      });
+    } catch { return; }
     const gl = renderer.gl;
+    if (!gl) return;
     gl.clearColor(0, 0, 0, 0);
 
     const pointData = Array(MAX_POINTS * 2).fill(0);
