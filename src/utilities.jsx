@@ -274,9 +274,8 @@ function JsonTool() {
   </main>;
 }
 
-// Always present, always the first three, in this order.
-const PINNED_CODES = ['CNY', 'USD', 'AUD'];
-const DEFAULT_CODES = [...PINNED_CODES, 'EUR', 'JPY', 'HKD'];
+// What a first visit starts with, in this order.
+const DEFAULT_CODES = ['CNY', 'USD', 'AUD', 'EUR', 'JPY', 'HKD'];
 const FX_CODES_KEY = 'd0u9-fx-codes';
 const FX_HISTORY_KEY = 'd0u9-fx-history';
 const HISTORY_LIMIT = 40;
@@ -296,14 +295,8 @@ function readStoredCodes() {
   try {
     const stored = JSON.parse(localStorage.getItem(FX_CODES_KEY));
     const clean = Array.isArray(stored) ? stored.filter(code => ISO_CODES.includes(code)) : [];
-    return clean.length ? withPinned(clean) : DEFAULT_CODES;
+    return clean.length ? Array.from(new Set(clean)) : DEFAULT_CODES;
   } catch { return DEFAULT_CODES; }
-}
-
-// A stored list from an older build, or one edited by hand, can be missing a
-// pinned code or have it out of position.
-function withPinned(codes) {
-  return [...PINNED_CODES, ...Array.from(new Set(codes)).filter(code => !PINNED_CODES.includes(code))];
 }
 
 function readStoredHistory() {
@@ -566,7 +559,8 @@ function CurrencyTool() {
   const remove = (code) => {
     setPair(current => current.filter(item => item !== code));
     setCodes(current => {
-      if (PINNED_CODES.includes(code)) return current;
+      // The grid always keeps one card: there is nothing to convert from zero.
+      if (current.length <= 1) return current;
       const next = current.filter(item => item !== code);
       if (code === base) setBase(next[0]);
       return next;
@@ -578,7 +572,6 @@ function CurrencyTool() {
   // Pointer events rather than HTML5 drag-and-drop: the cards must reorder by
   // touch too, and dragstart/dragover never fire on touch screens.
   const startDrag = (code, event) => {
-    if (PINNED_CODES.includes(code)) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     setDragCode(code);
@@ -591,8 +584,7 @@ function CurrencyTool() {
       return event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
     });
     const target = hovered?.dataset.code;
-    // Pinned cards are not a valid drop target: they keep their slots.
-    if (!target || target === dragCode || PINNED_CODES.includes(target)) return;
+    if (!target || target === dragCode) return;
     setCodes(current => {
       const from = current.indexOf(dragCode), to = current.indexOf(target);
       if (from < 0 || to < 0) return current;
@@ -667,7 +659,7 @@ function CurrencyTool() {
         <div className="fx-main">
           <div className="fx-grid" ref={listRef}>
             {codes.map(code => <article
-              className={`fx-card ${code === base ? 'active' : ''} ${code === dragCode ? 'dragging' : ''} ${PINNED_CODES.includes(code) ? 'pinned' : ''} ${pair.includes(code) ? 'picked' : ''}`}
+              className={`fx-card ${code === base ? 'active' : ''} ${code === dragCode ? 'dragging' : ''} ${pair.includes(code) ? 'picked' : ''}`}
               data-code={code}
               key={code}
             >
@@ -686,18 +678,16 @@ function CurrencyTool() {
                   {pair.includes(code) && <span className="fx-pick-badge mono" aria-hidden="true">{pair.indexOf(code) + 1}</span>}
                 </button>
                 <div className="fx-card-tools">
-                  {PINNED_CODES.includes(code)
-                    ? <span className="fx-pin" title="Pinned" aria-label={`${code} is pinned`}>★</span>
-                    : <button
-                        className="fx-handle"
-                        onPointerDown={event => startDrag(code, event)}
-                        onPointerMove={moveDrag}
-                        onPointerUp={endDrag}
-                        onPointerCancel={endDrag}
-                        aria-label={`Reorder ${code}`}
-                        title="Drag to reorder"
-                      >⠿</button>}
-                  {!PINNED_CODES.includes(code) && <button className="fx-remove" onClick={() => remove(code)} aria-label={`Remove ${code}`}>×</button>}
+                  <button
+                    className="fx-handle"
+                    onPointerDown={event => startDrag(code, event)}
+                    onPointerMove={moveDrag}
+                    onPointerUp={endDrag}
+                    onPointerCancel={endDrag}
+                    aria-label={`Reorder ${code}`}
+                    title="Drag to reorder"
+                  >⠿</button>
+                  {codes.length > 1 && <button className="fx-remove" onClick={() => remove(code)} aria-label={`Remove ${code}`}>×</button>}
                 </div>
               </div>
               <input

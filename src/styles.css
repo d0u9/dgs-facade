@@ -622,8 +622,6 @@ a {
 .fx-handle { padding: 2px 4px; border: 0; background: transparent; color: #46594f; cursor: grab; font-size: 17px; line-height: 1; touch-action: none; }
 .fx-handle:hover { color: var(--accent); }
 .fx-handle:active { cursor: grabbing; }
-.fx-pin { padding: 2px 4px; color: #3f5a4c; font-size: 13px; line-height: 1; cursor: default; }
-.fx-card.pinned.active .fx-pin { color: rgba(141, 243, 185, .55); }
 .fx-remove { padding: 2px 2px; border: 0; background: transparent; color: #3d4e45; cursor: pointer; font-size: 17px; line-height: 1; }
 .fx-remove:hover:not(:disabled) { color: var(--danger); }
 .fx-remove:disabled { opacity: .3; cursor: not-allowed; }
