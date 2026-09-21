@@ -47,10 +47,30 @@ button,a { font:inherit; }
 .v2048-medal-2048 { --medal-color:#ffe66b; }
 .v2048-medal-4096 { --medal-color:#ff82d4; }
 #board { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; width:100%; margin:0 auto; padding:10px; border:1px solid #294438; border-radius:12px; background:#09120d; touch-action:none; }
-.cell { aspect-ratio:1; display:flex; align-items:center; justify-content:center; border-radius:8px; background:#0f1914; color:transparent; font-size:clamp(16px,4vw,28px); font-weight:800; transition:background .1s,color .1s; }
+/* SITE PATCH: a merge is the only moment two tiles collide, so it gets an
+   impact: the tile squashes, flashes white, and throws a shockwave ring. */
+.cell { position:relative; aspect-ratio:1; display:flex; align-items:center; justify-content:center; border-radius:8px; background:#0f1914; color:transparent; font-size:clamp(16px,4vw,28px); font-weight:800; transition:background .1s,color .1s; }
 .c2{background:#132219;color:#c9efda}.c4{background:#17343a;color:#d7f6f7}.c8{background:#17465a;color:#e0f7ff}.c16{background:#3b3565;color:#f0edff}.c32{background:#67365c;color:#ffeafa}.c64{background:#7a3f3f;color:#fff0ed}.c128{background:#6a5725;color:#fff7dc;font-size:clamp(13px,3.5vw,24px)}.c256{background:#8df3b9;color:#07100b;font-size:clamp(13px,3.5vw,24px)}.c512{background:#7ed7ff;color:#07100b;font-size:clamp(13px,3.5vw,24px)}.c1024{background:#ffe28a;color:#171205;font-size:clamp(11px,3vw,20px)}.c2048{background:#ff8fc6;color:#190710;font-size:clamp(11px,3vw,20px)}.cbig{background:#c4b5fd;color:#0d0918;font-size:clamp(10px,2.5vw,18px)}
+.cell.merged { z-index:1; animation:v2048-impact .22s cubic-bezier(.25,.9,.3,1) both; }
+@keyframes v2048-impact {
+  0% { transform:scale(.93); }
+  55% { transform:scale(1.035); }
+  100% { transform:scale(1); }
+}
+/* A thin ring leaving the tile, and a short white veil over it: enough to read
+   as an impact at a glance, small enough not to break the grid. */
+.cell.merged .shock { position:absolute; inset:0; border-radius:8px; pointer-events:none;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.7), 0 0 10px rgba(255,255,255,.28);
+  animation:v2048-shock .34s cubic-bezier(.2,.7,.3,1) both; }
+@keyframes v2048-shock {
+  from { opacity:.75; transform:scale(1); }
+  to { opacity:0; transform:scale(1.16); }
+}
+.cell.merged::after { content:""; position:absolute; z-index:-1; inset:0; border-radius:8px;
+  background:#fff; pointer-events:none; animation:v2048-flash .2s ease-out both; }
+@keyframes v2048-flash { from { opacity:.3; } to { opacity:0; } }
 #msg { position:fixed; inset:0; z-index:20; display:none; align-items:center; justify-content:center; flex-direction:column; gap:16px; background:rgba(5,8,6,.82); backdrop-filter:blur(14px); }
 #msg h2 { margin:0; font-size:36px; } #msg p { margin:0; color:var(--muted); }
 @media(max-width:820px){.v2048-intro{grid-template-columns:1fr;align-content:center;align-items:start;gap:22px}.v2048-summary{min-width:0;display:grid;grid-template-columns:auto auto minmax(140px,1fr);align-items:center;gap:14px}.v2048-actions,.v2048-note{margin-top:0}}
 @media(max-width:600px){.v2048-page{width:min(calc(100% - 22px),1180px)}.v2048-topbar{min-height:60px}.v2048-status span{display:none}.v2048-intro{min-height:calc(100svh - 60px);grid-template-columns:auto minmax(0,1fr);gap:14px;padding:36px 0}.v2048-back{width:44px;padding:0}.v2048-back span:last-child{display:none}.v2048-summary{display:block;grid-column:1/-1;min-width:0}.v2048-actions{margin-top:12px;flex-wrap:wrap}.v2048-note{margin-top:10px;white-space:normal}.v2048-copy h1{font-size:clamp(52px,16vw,78px)}.v2048-stage{padding:20px 0}}
-@media(prefers-reduced-motion:reduce){.v2048-scroll-cue span:last-child,.v2048-medal-pop{animation:none}}
+@media(prefers-reduced-motion:reduce){.v2048-scroll-cue span:last-child,.v2048-medal-pop,.cell.merged,.cell.merged .shock,.cell.merged::after{animation:none}.cell.merged .shock,.cell.merged::after{display:none}}
