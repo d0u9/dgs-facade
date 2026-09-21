@@ -8,7 +8,7 @@
 :root { color-scheme: dark; --bg:#050610; --line:rgba(37,244,238,.16); --line-strong:rgba(37,244,238,.32); --text:#edf7f1; --muted:#8da499; --accent:#25f4ee; --accent-2:#fe2c55; --mono:ui-monospace,SFMono-Regular,Menlo,monospace; --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
 html,body { min-width:320px; min-height:100%; margin:0; overflow-x:hidden; overscroll-behavior-x:none; background:var(--bg); }
 body { overflow-y:auto; color:var(--text); font-family:var(--sans); }
-.ag-page { --game-accent:var(--accent); --court-ratio:1; --court-gutter:16px; width:min(1180px,calc(100% - 40px)); height:100svh; min-height:0; margin:0 auto; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; scroll-snap-type:y mandatory; scrollbar-width:none; }
+.ag-page { --game-accent:var(--accent); --court-ratio:1; --court-gutter:16px; width:min(1180px,calc(100% - 40px)); height:100vh; height:100svh; min-height:0; margin:0 auto; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; scroll-snap-type:y mandatory; scrollbar-width:none; }
 .ag-page::-webkit-scrollbar { display:none; }
 .ag-topbar { min-height:76px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); scroll-snap-align:start; scroll-snap-stop:always; }
 .ag-topbar-right { display:flex; align-items:center; gap:14px; }
@@ -26,7 +26,7 @@ body { overflow-y:auto; color:var(--text); font-family:var(--sans); }
 .ag-scroll-cue span:last-child { color:var(--game-accent); font-size:15px; animation:ag-scroll-cue 1.8s ease-in-out infinite; }
 @keyframes ag-scroll-cue { 0%,100%{transform:translateY(-2px)} 50%{transform:translateY(4px)} }
 
-.ag-game-shell { height:100svh; min-height:0; display:grid; grid-template-rows:auto minmax(0,1fr) auto; justify-items:center; gap:8px; overflow:hidden; padding:16px 0 20px; scroll-snap-align:start; scroll-snap-stop:always; }
+.ag-game-shell { height:100vh; height:100svh; min-height:0; display:grid; grid-template-rows:auto minmax(0,1fr) auto; justify-items:center; gap:8px; overflow:hidden; padding:16px 0 20px; scroll-snap-align:start; scroll-snap-stop:always; }
 .ag-toolbar { width:100%; max-width:900px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .ag-hud { display:flex; gap:8px; }
 .ag-hud > div { min-width:76px; padding:7px 11px; border:1px solid var(--line); border-radius:12px; background:rgba(10,18,13,.66); backdrop-filter:blur(12px); }
@@ -39,9 +39,12 @@ body { overflow-y:auto; color:var(--text); font-family:var(--sans); }
 .ag-btn:hover { border-color:var(--game-accent); color:var(--game-accent); }
 
 /* The vendor scripts each draw into a fixed backing store, so the court keeps
-   that ratio and fills whichever stage dimension runs out first. */
-.ag-stage { width:100%; max-width:900px; height:100%; min-height:0; display:grid; place-items:center; container-type:size; touch-action:none; }
-.ag-court { position:relative; height:min(100cqh, (100cqw - var(--court-gutter)) / var(--court-ratio)); aspect-ratio:var(--court-ratio); border:1px solid var(--line-strong); border-radius:6px; overflow:hidden; box-shadow:0 0 18px color-mix(in srgb, var(--game-accent) 22%, transparent), inset 0 0 24px color-mix(in srgb, var(--game-accent) 6%, transparent); }
+   that ratio and fills whichever stage dimension runs out first. The max-*
+   caps and the clipped stage matter on browsers without container query
+   units, where the court's height falls back to its aspect ratio and would
+   otherwise grow over the controls below the board. */
+.ag-stage { width:100%; max-width:900px; height:100%; min-height:0; display:grid; place-items:center; container-type:size; overflow:hidden; touch-action:none; }
+.ag-court { position:relative; max-width:100%; max-height:100%; height:min(100cqh, (100cqw - var(--court-gutter)) / var(--court-ratio)); aspect-ratio:var(--court-ratio); border:1px solid var(--line-strong); border-radius:6px; overflow:hidden; box-shadow:0 0 18px color-mix(in srgb, var(--game-accent) 22%, transparent), inset 0 0 24px color-mix(in srgb, var(--game-accent) 6%, transparent); }
 .ag-court canvas { display:block; width:100%; height:100%; }
 
 /* Watermelon runs the board to both edges on a phone, where the page's side
