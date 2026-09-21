@@ -27,6 +27,12 @@ Rules:
   scale bar is wrong on a pitched map anyway.
 - `getBounds()` on `moveend` runs only when the "only in current map view"
   filter is on. Turning the filter on reads the bounds once immediately.
+- The camera gestures added on top of MapLibre's own (right-drag zoom, middle-drag tilt,
+  Shift + wheel tilt) only call `zoomTo`/`setPitch`, which write the transform. Keep any new
+  gesture on that side of the line: nothing in a per-frame drag handler may unproject.
+- The elevation profile's hover readout reads the pre-computed point array and sets React
+  state. It does not call `queryTerrainElevation`, which would stall the GPU once per pointer
+  event. Elevations come from the track file, so the readout must stay on that array.
 - `Marker` also reads the depth buffer to fade markers behind terrain, but
   MapLibre throttles that to once per 100 ms, which is acceptable.
 

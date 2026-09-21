@@ -1254,13 +1254,13 @@ a {
   /* The card shares a 400px-tall stage with the map, so everything in it gives up a few
      pixels: the profile keeps its shape at 52px, and the head stops being a heading. */
   .tracks-profile-wrap { padding: 10px 0 13px 34px; }
-  .tracks-profile { height: 52px; }
+  .tracks-profile { height: 44px; }
   .tracks-detail-head .tracks-item-meta { font-size: 9px; }
   .tracks-shell .tracks-detail .btn { padding: 4px 8px; font-size: 10px; }
   .tracks-play { margin: 6px 0 0; gap: 6px; }
   .tracks-play .btn, .tracks-play .tracks-input { font-size: 10px; }
   .tracks-play-time { font-size: 10px; }
-  .tracks-profile { height: 48px; }
+  .tracks-profile { height: 40px; }
 }
 .tracks-playhead { --chip: var(--accent); width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid var(--chip); box-shadow: 0 0 10px var(--chip); pointer-events: none; }
 .tracks-playhead.air { width: 8px; height: 8px; border: 0; background: var(--chip); opacity: .7; }

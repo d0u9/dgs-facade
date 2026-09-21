@@ -419,7 +419,7 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
       attributionControl: { compact: true },
     });
     mapRef.current = map;
-    // Google Earth: right-drag zooms and Shift + wheel tilts. Keep MapLibre's
+    // Google Earth: right-drag zooms, middle-drag tilts and Shift + wheel tilts. Keep MapLibre's
     // left-drag pan, Ctrl + drag orbit, and two-finger pinch/rotate/tilt.
     const canvas = map.getCanvas();
     let rightDrag = null;
@@ -438,6 +438,25 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
       event.stopImmediatePropagation();
       rightDrag = { y: event.clientY };
     };
+    // Google Earth tilts on a middle-button drag. MapLibre binds nothing to that button, so it
+    // is free, and it saves reaching for Ctrl or Shift on a desktop mouse.
+    let midDrag = null;
+    const endMidDrag = () => { midDrag = null; };
+    const moveMidDrag = (event) => {
+      if (!midDrag) return;
+      if (!(event.buttons & 4)) { endMidDrag(); return; }
+      const dy = event.clientY - midDrag.y;
+      midDrag.y = event.clientY;
+      if (dy) map.setPitch(Math.max(0, Math.min(map.getMaxPitch(), map.getPitch() - dy * 0.25)));
+      event.preventDefault();
+    };
+    const startMidDrag = (event) => {
+      if (!is3dRef.current || event.button !== 1) return;
+      // Chrome and Firefox open autoscroll on a middle press unless the mousedown is cancelled.
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      midDrag = { y: event.clientY };
+    };
     const tiltWheel = (event) => {
       if (!is3dRef.current || !event.shiftKey) return;
       event.preventDefault();
@@ -450,10 +469,13 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
     };
     const mapElement = containerRef.current;
     mapElement.addEventListener('mousedown', startRightDrag, true);
+    mapElement.addEventListener('mousedown', startMidDrag, true);
     mapElement.addEventListener('wheel', tiltWheel, { capture: true, passive: false });
     mapElement.addEventListener('contextmenu', suppressRightMenu);
     window.addEventListener('mousemove', moveRightDrag);
     window.addEventListener('mouseup', endRightDrag);
+    window.addEventListener('mousemove', moveMidDrag);
+    window.addEventListener('mouseup', endMidDrag);
     // Compact attribution still opens expanded on wide screens; start it folded into the ⓘ button.
     map.once('load', () => containerRef.current?.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show'));
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
@@ -502,10 +524,13 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
     return () => {
       ro.disconnect();
       mapElement.removeEventListener('mousedown', startRightDrag, true);
+      mapElement.removeEventListener('mousedown', startMidDrag, true);
       mapElement.removeEventListener('wheel', tiltWheel, true);
       mapElement.removeEventListener('contextmenu', suppressRightMenu);
       window.removeEventListener('mousemove', moveRightDrag);
       window.removeEventListener('mouseup', endRightDrag);
+      window.removeEventListener('mousemove', moveMidDrag);
+      window.removeEventListener('mouseup', endMidDrag);
       map.remove();
     };
   }, []);
@@ -1098,16 +1123,21 @@ const TrackList = memo(function TrackList({ items, selected, onSelect, onOpenFil
 
 const PROFILE_W = 300;
 const PROFILE_H = 70;
+// The line is drawn inside this much vertical padding, so the axis labels have to use the same
+// number to sit on the min and max they name.
+const PROFILE_PAD = 4;
 
 function Profile({ geom, playT, onScrub, spans = [] }) {
   const scrubFrame = useRef(null);
   const pendingTime = useRef(null);
   const onScrubRef = useRef(onScrub);
   onScrubRef.current = onScrub;
+  const [hover, setHover] = useState(null);
   useEffect(() => () => {
     if (scrubFrame.current != null) cancelAnimationFrame(scrubFrame.current);
     scrubFrame.current = null;
   }, [geom]);
+  useEffect(() => { setHover(null); }, [geom]);
   const data = useMemo(() => {
     if (!geom?.coords || geom.coords.every((c) => c[2] == null)) return null;
     let d = 0;
@@ -1122,29 +1152,36 @@ function Profile({ geom, playT, onScrub, spans = [] }) {
     const maxE = Math.max(...pts.map((p) => p[1]));
     const minE = Math.min(...pts.map((p) => p[1]));
     const x = (dist) => (dist / (d || 1)) * PROFILE_W;
-    const y = (e) => PROFILE_H - 4 - ((e - minE) / (maxE - minE || 1)) * (PROFILE_H - 8);
+    const y = (e) => PROFILE_H - PROFILE_PAD - ((e - minE) / (maxE - minE || 1)) * (PROFILE_H - PROFILE_PAD * 2);
     const line = pts.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`).join('');
-    return { pts, line, x, total: d };
+    return { pts, line, x, y, total: d, minE, maxE };
   }, [geom]);
   if (!data) return null;
   const W = PROFILE_W;
   const H = PROFILE_H;
-  const { x, line } = data;
+  const { x, y, line, pts, total, minE, maxE } = data;
   let cursor = null;
   if ((playT != null || onScrub) && geom.times) {
     const i = geom.times.findIndex((t) => t >= (playT ?? 0));
-    cursor = x(data.pts[i < 0 ? data.pts.length - 1 : i][0]);
+    cursor = x(pts[i < 0 ? pts.length - 1 : i][0]);
   }
+  // The axis is distance, so a reading is the sample nearest along the track, not the nearest
+  // point in the plot.
+  const indexAt = (dist) => {
+    let lo = 0;
+    let hi = pts.length - 1;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (pts[m][0] < dist) lo = m + 1; else hi = m; }
+    return lo;
+  };
+  const fractionAt = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+  };
   const scrub = (e) => {
     if (!onScrub || (e.type === 'pointermove' && !e.currentTarget.hasPointerCapture(e.pointerId))) return;
     if (e.type === 'pointerdown') e.currentTarget.setPointerCapture(e.pointerId);
-    const r = e.currentTarget.getBoundingClientRect();
-    const target = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * data.total;
-    const { pts } = data;
-    let lo = 0;
-    let hi = pts.length - 1;
-    while (lo < hi) { const m = (lo + hi) >> 1; if (pts[m][0] < target) lo = m + 1; else hi = m; }
-    const t = geom.times[lo];
+    const i = indexAt(fractionAt(e) * total);
+    const t = geom.times?.[i];
     if (t == null) return;
     pendingTime.current = t;
     // Pointer events can arrive faster than paint. One seek per frame keeps the
@@ -1154,19 +1191,42 @@ function Profile({ geom, playT, onScrub, spans = [] }) {
       onScrubRef.current?.(pendingTime.current);
     });
   };
+  // Reading the profile is the one thing it is for, so the readout follows the pointer whether
+  // or not the track can be scrubbed.
+  const track = (e) => {
+    const i = indexAt(fractionAt(e) * total);
+    setHover({ i, x: x(pts[i][0]), y: y(pts[i][1]) });
+    scrub(e);
+  };
   // A stop covers no distance, so on a distance axis it is a line rather than a band. Drawing
   // it at a minimum width is what makes it visible before playback reaches it.
   const bands = spans.map((span) => {
-    const x0 = x(data.pts[span.i0][0]);
-    const w = Math.max(2, x(data.pts[span.i1][0]) - x0);
+    const x0 = x(pts[span.i0][0]);
+    const w = Math.max(2, x(pts[span.i1][0]) - x0);
     return { x: x0, w, key: span.from };
   });
-  return <svg className={`tracks-profile${onScrub ? ' scrub' : ''}`} onPointerDown={scrub} onPointerMove={scrub} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-label="elevation profile">
-    <path d={`${line}L${W},${H}L0,${H}Z`} className="tracks-profile-fill" />
-    {bands.map((b) => <rect key={b.key} x={b.x} y="0" width={b.w} height={H} className="tracks-profile-idle" />)}
-    <path d={line} className="tracks-profile-line" vectorEffect="non-scaling-stroke" />
-    {cursor != null && <line x1={cursor} x2={cursor} y1="0" y2={H} className="tracks-profile-cursor" vectorEffect="non-scaling-stroke" />}
-  </svg>;
+  const midE = (minE + maxE) / 2;
+  const ticks = [maxE, midE, minE];
+  return <div className="tracks-profile-wrap">
+    <div className="tracks-profile-plot">
+      <svg className={`tracks-profile${onScrub ? ' scrub' : ''}`} onPointerDown={track} onPointerMove={track} onPointerLeave={() => setHover(null)} onPointerCancel={() => setHover(null)} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-label="elevation profile">
+        {ticks.map((e, i) => <line key={i} x1="0" x2={W} y1={y(e)} y2={y(e)} className="tracks-profile-grid" vectorEffect="non-scaling-stroke" />)}
+        <path d={`${line}L${W},${H}L0,${H}Z`} className="tracks-profile-fill" />
+        {bands.map((b) => <rect key={b.key} x={b.x} y="0" width={b.w} height={H} className="tracks-profile-idle" />)}
+        <path d={line} className="tracks-profile-line" vectorEffect="non-scaling-stroke" />
+        {cursor != null && <line x1={cursor} x2={cursor} y1="0" y2={H} className="tracks-profile-cursor" vectorEffect="non-scaling-stroke" />}
+        {hover && <line x1={hover.x} x2={hover.x} y1="0" y2={H} className="tracks-profile-hover" vectorEffect="non-scaling-stroke" />}
+      </svg>
+      {/* The plot is stretched to the card's width, so text has to live outside the SVG to keep
+          its shape. Every label is placed in percent of the same box the line is drawn in. */}
+      {ticks.map((e, i) => <span key={i} className="tracks-profile-ytick mono" style={{ top: `${(y(e) / H) * 100}%` }}>{fmtEle(Math.round(e))}</span>)}
+      {[0, 0.5, 1].map((f) => <span key={f} className="tracks-profile-xtick mono" style={{ left: `${f * 100}%`, transform: `translate(${f * -100}%, 2px)` }}>{fmtDist(Math.round(total * f))}</span>)}
+      {hover && <span className="tracks-profile-readout mono" style={{ left: `${Math.min(88, Math.max(12, (hover.x / W) * 100))}%` }}>
+        {fmtEle(Math.round(pts[hover.i][1]))} · {fmtDist(Math.round(pts[hover.i][0]))}
+      </span>}
+      {hover && <span className="tracks-profile-dot" style={{ left: `${(hover.x / W) * 100}%`, top: `${(hover.y / H) * 100}%` }} />}
+    </div>
+  </div>;
 }
 
 function Detail({ item, geom, onClose, playT, setPlayT, playing, setPlaying, rate, setRate, inWorkspace, onToggleWorkspace, spans, idle }) {
