@@ -688,6 +688,16 @@ a {
 .fx-chart-title { color: var(--muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
 .fx-chart-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .fx-chart-figure { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 4px; }
+.fx-chart-plot { position: relative; min-height: 0; cursor: crosshair; touch-action: none; }
+.fx-chart-cursor { position: absolute; inset: 0; pointer-events: none; }
+.fx-chart-crosshair { position: absolute; background: rgba(141, 243, 185, .28); }
+.fx-chart-crosshair.vertical { top: 0; bottom: 0; width: 1px; }
+.fx-chart-crosshair.horizontal { left: 0; right: 0; height: 1px; }
+.fx-chart-dot { position: absolute; width: 7px; height: 7px; margin: -4px 0 0 -4px; border: 1px solid var(--bg, #050610); border-radius: 999px; background: var(--accent); box-shadow: 0 0 12px rgba(141, 243, 185, .6); }
+.fx-chart-tip { position: absolute; z-index: 2; display: grid; gap: 2px; padding: 5px 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: rgba(6, 14, 10, .94); box-shadow: 0 10px 26px rgba(0, 0, 0, .45); pointer-events: none; transform: translate(10px, -50%); white-space: nowrap; }
+.fx-chart-tip.flip { transform: translate(calc(-100% - 10px), -50%); }
+.fx-chart-tip-date { color: var(--muted); font-size: 9px; letter-spacing: .08em; }
+.fx-chart-tip-rate { color: var(--text); font-size: 11px; font-variant-numeric: tabular-nums; }
 .fx-chart-readout { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .fx-chart-value { color: var(--text); font-size: 15px; font-variant-numeric: tabular-nums; }
 .fx-chart-change { font-size: 10px; letter-spacing: .04em; }

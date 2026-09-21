@@ -351,7 +351,10 @@ function fitStyle(text) {
 const CHART_W = 720, CHART_H = 180, CHART_PAD = { top: 12, right: 12, bottom: 20, left: 52 };
 
 function RateChart({ series, from, to }) {
-  const { path, area, low, high, first, last, lastValue, change } = useMemo(() => {
+  const [hover, setHover] = useState(null);
+  const plotRef = useRef(null);
+
+  const { path, area, low, high, first, last, lastValue, change, coords } = useMemo(() => {
     const values = series.points.map(point => point.value);
     const low = Math.min(...values), high = Math.max(...values);
     // A flat series would divide by zero; give it a band so the line sits mid-height.
@@ -363,8 +366,16 @@ function RateChart({ series, from, to }) {
     const path = series.points.map((point, index) => `${index ? 'L' : 'M'}${x(index).toFixed(2)} ${y(point.value).toFixed(2)}`).join(' ');
     const area = `${path} L${x(series.points.length - 1).toFixed(2)} ${CHART_PAD.top + innerH} L${x(0).toFixed(2)} ${CHART_PAD.top + innerH} Z`;
     const firstValue = series.points[0].value, lastValue = series.points[series.points.length - 1].value;
+    // The svg is stretched with preserveAspectRatio="none", so a viewBox
+    // coordinate maps to a plain percentage of the box in both axes. The
+    // crosshair is drawn in HTML on top of it and lands on the same pixel.
+    const coords = series.points.map((point, index) => ({
+      ...point,
+      left: (x(index) / CHART_W) * 100,
+      top: (y(point.value) / CHART_H) * 100
+    }));
     return {
-      path, area, low, high,
+      path, area, low, high, coords,
       first: series.points[0].date,
       last: series.points[series.points.length - 1].date,
       lastValue,
@@ -372,17 +383,50 @@ function RateChart({ series, from, to }) {
     };
   }, [series]);
 
+  const track = (event) => {
+    const box = plotRef.current?.getBoundingClientRect();
+    if (!box || !box.width) return;
+    const ratio = ((event.clientX - box.left) / box.width) * CHART_W;
+    const innerW = CHART_W - CHART_PAD.left - CHART_PAD.right;
+    const position = ((ratio - CHART_PAD.left) / innerW) * (coords.length - 1);
+    setHover(Math.max(0, Math.min(coords.length - 1, Math.round(position))));
+  };
+
+  const point = hover === null ? null : coords[hover];
+
   return <div className="fx-chart-figure">
     <div className="fx-chart-readout mono">
       <span className="fx-chart-value">1 {from} = {formatAmount(lastValue)} {to}</span>
       <span className={`fx-chart-change ${change >= 0 ? 'up' : 'down'}`}>{change >= 0 ? '+' : ''}{change.toFixed(2)}% over {series.points.length} readings</span>
     </div>
-    <svg className="fx-chart-svg" viewBox={`0 0 ${CHART_W} ${CHART_H}`} preserveAspectRatio="none" role="img" aria-label={`${from} to ${to} rate history`}>
-      <line className="fx-chart-grid" x1={CHART_PAD.left} x2={CHART_W - CHART_PAD.right} y1={CHART_PAD.top} y2={CHART_PAD.top} />
-      <line className="fx-chart-grid" x1={CHART_PAD.left} x2={CHART_W - CHART_PAD.right} y1={CHART_H - CHART_PAD.bottom} y2={CHART_H - CHART_PAD.bottom} />
-      <path className="fx-chart-area" d={area} />
-      <path className="fx-chart-line" d={path} />
-    </svg>
+    <div
+      className="fx-chart-plot"
+      ref={plotRef}
+      onPointerMove={track}
+      onPointerDown={track}
+      onPointerLeave={() => setHover(null)}
+      onPointerCancel={() => setHover(null)}
+    >
+      <svg className="fx-chart-svg" viewBox={`0 0 ${CHART_W} ${CHART_H}`} preserveAspectRatio="none" role="img" aria-label={`${from} to ${to} rate history`}>
+        <line className="fx-chart-grid" x1={CHART_PAD.left} x2={CHART_W - CHART_PAD.right} y1={CHART_PAD.top} y2={CHART_PAD.top} />
+        <line className="fx-chart-grid" x1={CHART_PAD.left} x2={CHART_W - CHART_PAD.right} y1={CHART_H - CHART_PAD.bottom} y2={CHART_H - CHART_PAD.bottom} />
+        <path className="fx-chart-area" d={area} />
+        <path className="fx-chart-line" d={path} />
+      </svg>
+      {point && <div className="fx-chart-cursor" aria-hidden="true">
+        <span className="fx-chart-crosshair vertical" style={{ left: `${point.left}%` }} />
+        <span className="fx-chart-crosshair horizontal" style={{ top: `${point.top}%` }} />
+        <span className="fx-chart-dot" style={{ left: `${point.left}%`, top: `${point.top}%` }} />
+      </div>}
+      {point && <div
+        className={`fx-chart-tip mono ${point.left > 62 ? 'flip' : ''}`}
+        style={{ left: `${point.left}%`, top: `${point.top}%` }}
+        role="status"
+      >
+        <span className="fx-chart-tip-date">{point.date}</span>
+        <span className="fx-chart-tip-rate">1 {from} = {formatAmount(point.value)} {to}</span>
+      </div>}
+    </div>
     <div className="fx-chart-axis mono">
       <span>{first}</span>
       <span>low {formatAmount(low)} · high {formatAmount(high)}</span>
