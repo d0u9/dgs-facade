@@ -3,7 +3,11 @@
    game screen with an external HUD. Standalone entry, so no shared reset. */
 *, *::before, *::after { box-sizing: border-box; }
 :root { color-scheme: dark; --bg:#050610; --line:rgba(37,244,238,.16); --line-strong:rgba(37,244,238,.32); --text:#edf7f1; --muted:#8da499; --accent:#25f4ee; --accent-2:#fe2c55; --mono:ui-monospace,SFMono-Regular,Menlo,monospace; --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-html,body { min-width:320px; min-height:100%; margin:0; overflow-x:hidden; overscroll-behavior-x:none; background:var(--bg); }
+/* A double tap on a game page should never zoom the page: on a phone the
+   second tap of a quick pair lands on the board, not on a zoom gesture.
+   touch-action intersects down the tree, so the boards that ask for
+   touch-action:none keep it. */
+html,body { min-width:320px; min-height:100%; margin:0; overflow-x:hidden; overscroll-behavior-x:none; background:var(--bg); touch-action:manipulation; }
 body { overflow-y:auto; color:var(--text); font-family:var(--sans); }
 .tetris-page { width:min(1180px,calc(100% - 40px)); height:100svh; min-height:0; margin:0 auto; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; scroll-snap-type:y mandatory; scrollbar-width:none; }
 .tetris-page::-webkit-scrollbar { display:none; }
