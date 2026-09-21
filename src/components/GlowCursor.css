@@ -5,8 +5,10 @@
   overflow: hidden;
 }
 
+/* Fixed to the viewport: the trail follows the pointer, which never leaves the
+   viewport, so a taller page must not mean a taller (more expensive) canvas. */
 .glow-cursor__canvas {
-  position: absolute;
+  position: fixed;
   inset: 0;
   display: block;
   width: 100%;
