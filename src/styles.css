@@ -589,8 +589,9 @@ a {
 .fx-shell .codec-card { background: var(--panel-strong); }
 .fx-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 .fx-body:has(.fx-picker) { grid-template-columns: minmax(0, 1fr) minmax(250px, 320px); }
+.fx-main { min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .fx-grid { min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); align-content: start; gap: 14px; padding: 16px; }
-.fx-card { position: relative; display: grid; gap: 10px; padding: 16px 18px 14px; border: 1px solid var(--line); border-radius: 20px; background: rgba(8, 16, 11, .6); transition: border-color .2s ease, background .2s ease, transform .2s ease; }
+.fx-card { --fx-num-size: clamp(24px, 3.1vw, 32px); position: relative; display: grid; gap: 10px; padding: 16px 18px 14px; border: 1px solid var(--line); border-radius: 20px; background: rgba(8, 16, 11, .6); transition: border-color .2s ease, background .2s ease, transform .2s ease; }
 .fx-card:hover { border-color: var(--line-strong); }
 .fx-card.active { border-color: rgba(141, 243, 185, .38); background: rgba(141, 243, 185, .07); box-shadow: 0 0 0 1px rgba(141, 243, 185, .12), 0 18px 44px rgba(0, 0, 0, .36); }
 .fx-card.dragging { opacity: .55; transform: scale(.98); }
@@ -608,7 +609,7 @@ a {
 .fx-remove { padding: 2px 2px; border: 0; background: transparent; color: #3d4e45; cursor: pointer; font-size: 17px; line-height: 1; }
 .fx-remove:hover:not(:disabled) { color: var(--danger); }
 .fx-remove:disabled { opacity: .3; cursor: not-allowed; }
-.fx-input { width: 100%; padding: 4px 0 6px; border: 0; border-bottom: 1px solid var(--line); outline: 0; background: transparent; color: var(--text); font-family: var(--code-font-family); font-size: clamp(24px, 3.1vw, 32px); font-variant-numeric: tabular-nums; letter-spacing: -.01em; text-align: right; }
+.fx-input { width: 100%; padding: 4px 0 6px; border: 0; border-bottom: 1px solid var(--line); outline: 0; background: transparent; color: var(--text); font-family: var(--code-font-family); font-size: var(--fx-num-size); font-variant-numeric: tabular-nums; letter-spacing: -.01em; text-align: right; }
 .fx-input:focus { border-bottom-color: rgba(141, 243, 185, .5); }
 .fx-input::placeholder { color: #33453b; }
 .fx-card.active .fx-input { color: var(--accent); text-shadow: 0 0 26px rgba(141, 243, 185, .3); }
@@ -624,6 +625,42 @@ a {
 .fx-option .mono { color: var(--accent); font-family: var(--code-font-family); font-size: 12px; }
 .fx-option-name { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
 .fx-empty { padding: 14px 16px; color: var(--muted); font-size: 11px; }
+
+/* Source picker: the reading on screen is only meaningful with the feed and
+   the time it was fetched next to it, so both are shown per option. */
+.fx-sources { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: rgba(8, 16, 11, .45); }
+.fx-source { display: grid; gap: 5px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: transparent; color: var(--text); cursor: pointer; text-align: left; }
+.fx-source:hover { border-color: var(--line-strong); }
+.fx-source.active { border-color: rgba(141, 243, 185, .38); background: rgba(141, 243, 185, .07); }
+.fx-source-head { display: flex; align-items: center; gap: 8px; }
+.fx-source-label { color: var(--text); font-family: var(--code-font-family); font-size: 12px; letter-spacing: .04em; }
+.fx-source.active .fx-source-label { color: var(--accent); }
+.fx-source-tag { padding: 1px 6px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
+.fx-source-note { color: var(--muted); font-size: 11px; line-height: 1.45; }
+.fx-source-when { color: #5c7166; font-size: 10px; letter-spacing: .04em; }
+
+/* History: newest first, each row reading base-first so it matches what was
+   typed (1 USD = 7.1 CNY = 1.5 AUD). */
+.fx-history { display: grid; grid-template-rows: auto minmax(0, 1fr); max-height: 34vh; border-top: 1px solid var(--line); background: rgba(6, 12, 9, .5); }
+.fx-history-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--line); }
+.fx-history-title { color: var(--muted); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+.fx-history-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 4px 0; list-style: none; }
+.fx-history-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 0 10px 0 16px; }
+/* Half the weight of --line: rows wrap to two lines on narrow cards, so they
+   need a separator, but a full-strength rule would out-shout the numbers. */
+.fx-history-row + .fx-history-row { border-top: 1px solid rgba(173, 255, 211, .06); }
+.fx-history-row:hover { background: rgba(141, 243, 185, .05); }
+.fx-history-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; padding: 7px 0; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; text-align: left; }
+.fx-history-leg { display: inline-flex; align-items: center; gap: 5px; }
+.fx-history-leg .mono { font-family: var(--code-font-family); font-variant-numeric: tabular-nums; }
+.fx-history-leg.base .mono { color: var(--accent); }
+.fx-history-flag { font-size: 14px; line-height: 1; }
+.fx-history-eq { color: #46594f; }
+.fx-history-meta { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.fx-history-source { padding: 1px 6px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 9px; letter-spacing: .06em; }
+.fx-history-when { color: #5c7166; font-size: 10px; white-space: nowrap; }
+.fx-history-remove { padding: 2px 4px; border: 0; background: transparent; color: #3d4e45; cursor: pointer; font-size: 15px; line-height: 1; }
+.fx-history-remove:hover { color: var(--danger); }
 
 .dino-launch-card { max-width: 900px; margin: 0 auto; padding: 28px; border: 1px solid var(--line); border-radius: 24px; background: rgba(10,18,14,.82); box-shadow: 0 24px 80px rgba(0,0,0,.24); }
 .dino-launch-card > label { display: block; margin-bottom: 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
@@ -1019,7 +1056,7 @@ a {
   .fx-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 10px; }
   .fx-card { padding: 12px 14px 10px; border-radius: 16px; }
   .fx-flag { font-size: 26px; }
-  .fx-input { font-size: 28px; }
+  .fx-card { --fx-num-size: 28px; }
   .battle-fields { gap: 10px; }
   .battle-grid { width: 100%; margin: 0; }
 

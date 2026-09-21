@@ -4,18 +4,21 @@
 // from a CORS-enabled source and cached in localStorage. A build-time snapshot
 // was deliberately rejected: deploys are slow, so the rates would lag.
 //
-// Primary source is @fawazahmed0/currency-api served over the jsDelivr CDN,
-// which has mainland-China points of presence and needs no API key. Fallback
-// is Frankfurter, which serves the European Central Bank's daily reference
-// rates directly but is hosted outside China.
+// Several sources are offered because none of them is right everywhere: the
+// jsDelivr copy of @fawazahmed0/currency-api has mainland-China points of
+// presence, Frankfurter serves the European Central Bank's own daily reference
+// rates but is hosted outside China, and open.er-api.com is a third opinion
+// with its own update clock. The picker defaults to the jsDelivr copy; the
+// reading the numbers came from is always named in the toolbar.
 
-const PRIMARY_HOSTS = [
+const FALLBACK_URL = 'https://api.frankfurter.dev/v1/latest?base=USD';
+const NAME_HOSTS = [
   'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1',
   'https://latest.currency-api.pages.dev/v1'
 ];
-const FALLBACK_URL = 'https://api.frankfurter.dev/v1/latest?base=USD';
 
-export const RATES_CACHE_KEY = 'd0u9-fx-rates';
+export const RATES_CACHE_PREFIX = 'd0u9-fx-rates';
+export const SOURCE_CACHE_KEY = 'd0u9-fx-source';
 export const NAMES_CACHE_KEY = 'd0u9-fx-names';
 export const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -34,6 +37,11 @@ export const FALLBACK_NAMES = {
   RUB: 'Russian Ruble', SEK: 'Swedish Krona', SGD: 'Singapore Dollar', THB: 'Thai Baht',
   TWD: 'New Taiwan Dollar', USD: 'US Dollar', VND: 'Vietnamese Dong'
 };
+
+
+function cacheKeyFor(sourceId) {
+  return `${RATES_CACHE_PREFIX}:${sourceId}`;
+}
 
 function readCache(key) {
   try {
@@ -56,53 +64,100 @@ async function getJson(url) {
   return response.json();
 }
 
-function fromPrimary(payload) {
+// Every source below is quoted against USD, so the app only ever stores one
+// USD-based table per source and cross-rates are computed from it.
+function fromCurrencyApi(payload) {
   const table = payload.usd || {};
   const rates = { USD: 1 };
   for (const [code, value] of Object.entries(table)) {
     const upper = code.toUpperCase();
     if (ISO_SET.has(upper) && Number.isFinite(value) && value > 0) rates[upper] = value;
   }
-  return { rates, date: payload.date, source: 'currency-api' };
+  return { rates, date: payload.date };
 }
 
-function fromFallback(payload) {
+function fromFrankfurter(payload) {
   const rates = { USD: 1 };
   for (const [code, value] of Object.entries(payload.rates || {})) {
     if (Number.isFinite(value) && value > 0) rates[code.toUpperCase()] = value;
   }
-  return { rates, date: payload.date, source: 'ECB / frankfurter' };
+  return { rates, date: payload.date };
 }
 
-// Every source below is quoted against USD, so the app only ever stores one
-// USD-based table and cross-rates are computed from it.
-export async function fetchRates() {
-  const errors = [];
-  for (const host of PRIMARY_HOSTS) {
-    try {
-      const parsed = fromPrimary(await getJson(`${host}/currencies/usd.json`));
-      if (Object.keys(parsed.rates).length > 1) {
-        const entry = { ...parsed, fetchedAt: Date.now() };
-        writeCache(RATES_CACHE_KEY, entry);
-        return entry;
-      }
-    } catch (error) { errors.push(error); }
+function fromErApi(payload) {
+  const rates = { USD: 1 };
+  for (const [code, value] of Object.entries(payload.rates || {})) {
+    if (Number.isFinite(value) && value > 0) rates[code.toUpperCase()] = value;
   }
-  try {
-    const entry = { ...fromFallback(await getJson(FALLBACK_URL)), fetchedAt: Date.now() };
-    writeCache(RATES_CACHE_KEY, entry);
-    return entry;
-  } catch (error) { errors.push(error); }
-  throw new Error(errors.length ? String(errors[errors.length - 1].message) : 'No rate source responded.');
+  // This source dates a reading by the moment it was published, not by the
+  // trading day, so the timestamp is trimmed back to a plain date.
+  const stamp = payload.time_last_update_utc ? new Date(payload.time_last_update_utc) : null;
+  const date = stamp && !Number.isNaN(stamp.getTime()) ? stamp.toISOString().slice(0, 10) : '';
+  return { rates, date, updatedAt: payload.time_last_update_utc || '' };
 }
 
-export function cachedRates() {
-  const entry = readCache(RATES_CACHE_KEY);
+export const SOURCES = [
+  {
+    id: 'currency-api',
+    label: 'currency-api',
+    description: 'Community mirror of ECB and other feeds, on the jsDelivr CDN. Reachable from mainland China.',
+    load: () => getJson('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json').then(fromCurrencyApi)
+  },
+  {
+    id: 'currency-api-pages',
+    label: 'currency-api (mirror)',
+    description: 'The same data served from Cloudflare Pages, for when jsDelivr is blocked.',
+    load: () => getJson('https://latest.currency-api.pages.dev/v1/currencies/usd.json').then(fromCurrencyApi)
+  },
+  {
+    id: 'frankfurter',
+    label: 'ECB / frankfurter',
+    description: "The European Central Bank's daily reference rates, published on working days around 16:00 CET.",
+    load: () => getJson(FALLBACK_URL).then(fromFrankfurter)
+  },
+  {
+    id: 'erapi',
+    label: 'open.er-api.com',
+    description: 'Open Exchange Rates API, refreshed once a day at 00:00 UTC.',
+    load: () => getJson('https://open.er-api.com/v6/latest/USD').then(fromErApi)
+  }
+];
+
+export const DEFAULT_SOURCE_ID = SOURCES[0].id;
+
+export function sourceById(id) {
+  return SOURCES.find(source => source.id === id) || SOURCES[0];
+}
+
+export function readStoredSourceId() {
+  try {
+    const stored = localStorage.getItem(SOURCE_CACHE_KEY);
+    return SOURCES.some(source => source.id === stored) ? stored : DEFAULT_SOURCE_ID;
+  } catch { return DEFAULT_SOURCE_ID; }
+}
+
+export function storeSourceId(id) {
+  try { localStorage.setItem(SOURCE_CACHE_KEY, id); } catch {}
+}
+
+// A source the user picked is used as asked: no silent failover, because a
+// reading from a source they did not choose would be labelled wrongly.
+export async function fetchRates(sourceId = DEFAULT_SOURCE_ID) {
+  const source = sourceById(sourceId);
+  const parsed = await source.load();
+  if (Object.keys(parsed.rates).length <= 1) throw new Error(`${source.label} returned no usable rates.`);
+  const entry = { ...parsed, sourceId: source.id, source: source.label, fetchedAt: Date.now() };
+  writeCache(cacheKeyFor(source.id), entry);
+  return entry;
+}
+
+export function cachedRates(sourceId = DEFAULT_SOURCE_ID) {
+  const entry = readCache(cacheKeyFor(sourceId));
   return entry && entry.rates && entry.rates.USD ? entry : null;
 }
 
 export async function fetchNames() {
-  for (const host of PRIMARY_HOSTS) {
+  for (const host of NAME_HOSTS) {
     try {
       const payload = await getJson(`${host}/currencies.json`);
       const names = {};

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client';
 import AmbientCursor from './components/AmbientCursor.jsx';
 import { CollectionCard, CollectionHero, LineNumberedField, PageHeader, ToolHeader } from './components/PageChrome.jsx';
-import { FALLBACK_NAMES, ISO_CODES, cachedNames, cachedRates, fetchNames, fetchRates, isStale } from './fx.js';
+import { DEFAULT_SOURCE_ID, FALLBACK_NAMES, ISO_CODES, SOURCES, cachedNames, cachedRates, fetchNames, fetchRates, isStale, readStoredSourceId, sourceById, storeSourceId } from './fx.js';
 import './styles.css';
 
 const TOOLS = [
@@ -278,6 +278,8 @@ function JsonTool() {
 const PINNED_CODES = ['CNY', 'USD', 'AUD'];
 const DEFAULT_CODES = [...PINNED_CODES, 'EUR', 'JPY', 'HKD'];
 const FX_CODES_KEY = 'd0u9-fx-codes';
+const FX_HISTORY_KEY = 'd0u9-fx-history';
+const HISTORY_LIMIT = 40;
 
 // Most currency codes are their ISO 3166 country code plus a unit letter, so
 // the flag falls out of the first two letters. These are the ones where that
@@ -304,6 +306,13 @@ function withPinned(codes) {
   return [...PINNED_CODES, ...Array.from(new Set(codes)).filter(code => !PINNED_CODES.includes(code))];
 }
 
+function readStoredHistory() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(FX_HISTORY_KEY));
+    return Array.isArray(stored) ? stored.filter(entry => entry && entry.base && Array.isArray(entry.legs)) : [];
+  } catch { return []; }
+}
+
 function sanitizeAmount(raw) {
   const cleaned = raw.replace(/[^\d.]/g, '');
   const [head, ...rest] = cleaned.split('.');
@@ -320,46 +329,110 @@ function formatAmount(value) {
   return value.toLocaleString('en-US', { maximumFractionDigits: digits });
 }
 
+// The amount fields are right-aligned single lines, so a long number would
+// otherwise run out of the card and off the screen. Shrinking by character
+// count is enough here: the font is monospaced, so width is proportional to
+// length. Ten characters is what the widest card fits at full size.
+const FIT_CHARS = 10;
+const MIN_FIT_SCALE = 0.42;
+
+function fitScale(text) {
+  const length = String(text || '').length;
+  if (length <= FIT_CHARS) return 1;
+  return Math.max(MIN_FIT_SCALE, FIT_CHARS / length);
+}
+
+function fitStyle(text) {
+  return { fontSize: `calc(var(--fx-num-size) * ${fitScale(text).toFixed(3)})` };
+}
+
 function CurrencyTool() {
   const [codes, setCodes] = useState(readStoredCodes);
   const [base, setBase] = useState(() => readStoredCodes()[0]);
   const [amount, setAmount] = useState('1');
-  const [rates, setRates] = useState(() => cachedRates());
+  const [sourceId, setSourceId] = useState(readStoredSourceId);
+  const [rates, setRates] = useState(() => cachedRates(readStoredSourceId()));
   const [names, setNames] = useState(() => (cachedNames()?.names) || FALLBACK_NAMES);
+  const [history, setHistory] = useState(readStoredHistory);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [choosingSource, setChoosingSource] = useState(false);
   const [query, setQuery] = useState('');
   const [copied, setCopied] = useState(false);
   const [dragCode, setDragCode] = useState(null);
   const listRef = useRef(null);
 
   useEffect(() => { try { localStorage.setItem(FX_CODES_KEY, JSON.stringify(codes)); } catch {} }, [codes]);
+  useEffect(() => { try { localStorage.setItem(FX_HISTORY_KEY, JSON.stringify(history)); } catch {} }, [history]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (id) => {
     setLoading(true);
-    try { setRates(await fetchRates()); setError(''); }
-    catch (err) { setError(err.message || 'Could not reach any rate source.'); }
+    try { setRates(await fetchRates(id)); setError(''); }
+    catch (err) { setError(err.message || 'Could not reach the rate source.'); }
     finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
     // Cached rates render instantly; a stale cache still refreshes in the
     // background so the visible numbers are never older than the TTL.
-    const cached = cachedRates();
-    if (!cached || isStale(cached)) load();
+    const cached = cachedRates(sourceId);
+    setRates(cached);
+    setError('');
+    if (!cached || isStale(cached)) load(sourceId);
+  }, [sourceId, load]);
+
+  useEffect(() => {
     const storedNames = cachedNames();
     if (!storedNames || isStale(storedNames)) {
       fetchNames().then(entry => { if (entry) setNames(entry.names); });
     }
-  }, [load]);
+  }, []);
+
+  const pickSource = (id) => {
+    storeSourceId(id);
+    setSourceId(id);
+    setChoosingSource(false);
+  };
 
   const table = rates?.rates;
-  const convert = (code) => {
+  const convert = useCallback((code) => {
     const value = Number(amount);
     if (!amount || !Number.isFinite(value) || !table || !table[base] || !table[code]) return '';
     return formatAmount(value * (table[code] / table[base]));
-  };
+  }, [amount, base, table]);
+
+  // A history entry is written once the typing stops, not per keystroke, so
+  // "1", "12", "123" leave one row rather than three. The entry always leads
+  // with the currency the amount was typed in, which is what makes it
+  // readable later: 1 USD = 7.1 CNY = 1.5 AUD.
+  useEffect(() => {
+    const value = Number(amount);
+    if (!amount || !Number.isFinite(value) || value === 0 || !table || !table[base]) return;
+    const timer = window.setTimeout(() => {
+      const legs = codes
+        .filter(code => code !== base && table[code])
+        .map(code => ({ code, value: formatAmount(value * (table[code] / table[base])) }));
+      if (!legs.length) return;
+      setHistory(current => {
+        const signature = `${sourceId}|${base}|${amount}|${legs.map(leg => leg.code).join(',')}`;
+        if (current[0] && current[0].signature === signature) return current;
+        const entry = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          signature,
+          at: Date.now(),
+          base,
+          amount: formatAmount(value),
+          legs,
+          source: rates?.source || '',
+          date: rates?.date || ''
+        };
+        return [entry, ...current].slice(0, HISTORY_LIMIT);
+      });
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [amount, base, codes, table, rates, sourceId]);
+
   const edit = (code, raw) => { setBase(code); setAmount(sanitizeAmount(raw)); };
   const remove = (code) => setCodes(current => {
     if (PINNED_CODES.includes(code)) return current;
@@ -367,6 +440,8 @@ function CurrencyTool() {
     if (code === base) setBase(next[0]);
     return next;
   });
+  const forget = (id) => setHistory(current => current.filter(entry => entry.id !== id));
+  const replay = (entry) => { setBase(entry.base); setAmount(sanitizeAmount(entry.amount)); };
 
   // Pointer events rather than HTML5 drag-and-drop: the cards must reorder by
   // touch too, and dragstart/dragover never fire on touch screens.
@@ -416,12 +491,13 @@ function CurrencyTool() {
     window.setTimeout(() => setCopied(false), 1200);
   };
 
+  const active = sourceById(sourceId);
   const status = error ? 'rates offline' : rates ? `rates ${rates.date}` : 'loading rates';
   const stat = error
     ? error
     : rates
       ? `${rates.source} · ${rates.date}${isStale(rates) ? ' · cached' : ''}`
-      : 'fetching latest rates…';
+      : `fetching ${active.label}…`;
 
   return <main className="tool-shell fx-shell">
     <ToolHeader backHref="/utilities/" backLabel="Utilities" eyebrow="04 / live conversion" title="Currency" status={status} />
@@ -429,52 +505,102 @@ function CurrencyTool() {
       <div className="codec-toolbar">
         <div className="codec-toolbar-left"><span className={`mono codec-stat ${error ? 'has-error' : ''}`}>{stat}</span></div>
         <div className="codec-toolbar-right">
-          <button className={`btn ${picking ? 'active' : ''}`} onClick={() => { setPicking(open => !open); setQuery(''); }} disabled={!table}>add</button>
-          <button className="btn" onClick={load} disabled={loading}>{loading ? 'loading' : 'refresh'}</button>
+          <button className={`btn ${choosingSource ? 'active' : ''}`} onClick={() => { setChoosingSource(open => !open); setPicking(false); }} title={`Rates from ${active.label}`}>source: {active.label}</button>
+          <button className={`btn ${picking ? 'active' : ''}`} onClick={() => { setPicking(open => !open); setChoosingSource(false); setQuery(''); }} disabled={!table}>add</button>
+          <button className="btn" onClick={() => load(sourceId)} disabled={loading}>{loading ? 'loading' : 'refresh'}</button>
           <button className="btn" onClick={() => setAmount('')} disabled={!amount}>clear</button>
           <button className="btn primary" onClick={copy} disabled={!table || !amount}>{copied ? 'copied' : 'copy'}</button>
         </div>
       </div>
-      <div className="fx-body">
-        <div className="fx-grid" ref={listRef}>
-          {codes.map(code => <article
-            className={`fx-card ${code === base ? 'active' : ''} ${code === dragCode ? 'dragging' : ''} ${PINNED_CODES.includes(code) ? 'pinned' : ''}`}
-            data-code={code}
-            key={code}
+      {choosingSource && <div className="fx-sources">
+        {SOURCES.map(option => {
+          const cached = cachedRates(option.id);
+          return <button
+            className={`fx-source ${option.id === sourceId ? 'active' : ''}`}
+            key={option.id}
+            onClick={() => pickSource(option.id)}
           >
-            <div className="fx-card-top">
-              <span className="fx-flag" aria-hidden="true">{flagFor(code)}</span>
-              <div className="fx-id">
-                <span className="fx-code mono">{code}</span>
-                <span className="fx-name">{names[code] || code}</span>
+            <span className="fx-source-head">
+              <span className="mono fx-source-label">{option.label}</span>
+              {option.id === sourceId && <span className="mono fx-source-tag">in use</span>}
+              {option.id === DEFAULT_SOURCE_ID && option.id !== sourceId && <span className="mono fx-source-tag">default</span>}
+            </span>
+            <span className="fx-source-note">{option.description}</span>
+            <span className="mono fx-source-when">{cached ? `${cached.date || 'no date'} · fetched ${new Date(cached.fetchedAt).toLocaleString()}` : 'not fetched yet'}</span>
+          </button>;
+        })}
+      </div>}
+      <div className="fx-body">
+        <div className="fx-main">
+          <div className="fx-grid" ref={listRef}>
+            {codes.map(code => <article
+              className={`fx-card ${code === base ? 'active' : ''} ${code === dragCode ? 'dragging' : ''} ${PINNED_CODES.includes(code) ? 'pinned' : ''}`}
+              data-code={code}
+              key={code}
+            >
+              <div className="fx-card-top">
+                <span className="fx-flag" aria-hidden="true">{flagFor(code)}</span>
+                <div className="fx-id">
+                  <span className="fx-code mono">{code}</span>
+                  <span className="fx-name">{names[code] || code}</span>
+                </div>
+                {PINNED_CODES.includes(code)
+                  ? <span className="fx-pin" title="Pinned" aria-label={`${code} is pinned`}>★</span>
+                  : <button
+                      className="fx-handle"
+                      onPointerDown={event => startDrag(code, event)}
+                      onPointerMove={moveDrag}
+                      onPointerUp={endDrag}
+                      onPointerCancel={endDrag}
+                      aria-label={`Reorder ${code}`}
+                      title="Drag to reorder"
+                    >⠿</button>}
+                {!PINNED_CODES.includes(code) && <button className="fx-remove" onClick={() => remove(code)} aria-label={`Remove ${code}`}>×</button>}
               </div>
-              {PINNED_CODES.includes(code)
-                ? <span className="fx-pin" title="Pinned" aria-label={`${code} is pinned`}>★</span>
-                : <button
-                    className="fx-handle"
-                    onPointerDown={event => startDrag(code, event)}
-                    onPointerMove={moveDrag}
-                    onPointerUp={endDrag}
-                    onPointerCancel={endDrag}
-                    aria-label={`Reorder ${code}`}
-                    title="Drag to reorder"
-                  >⠿</button>}
-              {!PINNED_CODES.includes(code) && <button className="fx-remove" onClick={() => remove(code)} aria-label={`Remove ${code}`}>×</button>}
+              <input
+                className="fx-input mono"
+                inputMode="decimal"
+                value={code === base ? amount : convert(code)}
+                style={fitStyle(code === base ? amount : convert(code))}
+                onChange={event => edit(code, event.target.value)}
+                onFocus={event => event.target.select()}
+                placeholder="0"
+                aria-label={`Amount in ${code}`}
+                disabled={!table}
+              />
+              <div className="fx-card-foot mono">
+                {code === base ? 'base currency' : table && table[code] && table[base] ? `1 ${base} = ${formatAmount(table[code] / table[base])} ${code}` : '—'}
+              </div>
+            </article>)}
+          </div>
+          <div className="fx-history">
+            <div className="fx-history-head">
+              <span className="mono fx-history-title">history{history.length ? ` · ${history.length}` : ''}</span>
+              <button className="btn" onClick={() => setHistory([])} disabled={!history.length}>clear all</button>
             </div>
-            <input
-              className="fx-input mono"
-              inputMode="decimal"
-              value={code === base ? amount : convert(code)}
-              onChange={event => edit(code, event.target.value)}
-              onFocus={event => event.target.select()}
-              placeholder="0"
-              aria-label={`Amount in ${code}`}
-              disabled={!table}
-            />
-            <div className="fx-card-foot mono">
-              {code === base ? 'base currency' : table && table[code] && table[base] ? `1 ${base} = ${formatAmount(table[code] / table[base])} ${code}` : '—'}
-            </div>
-          </article>)}
+            {history.length
+              ? <ul className="fx-history-list">
+                  {history.map(entry => <li className="fx-history-row" key={entry.id}>
+                    <button className="fx-history-line" onClick={() => replay(entry)} title="Put this amount back in the converter">
+                      <span className="fx-history-leg base">
+                        <span className="fx-history-flag" aria-hidden="true">{flagFor(entry.base)}</span>
+                        <span className="mono">{entry.amount} {entry.base}</span>
+                      </span>
+                      {entry.legs.map(leg => <span className="fx-history-leg" key={leg.code}>
+                        <span className="fx-history-eq" aria-hidden="true">=</span>
+                        <span className="fx-history-flag" aria-hidden="true">{flagFor(leg.code)}</span>
+                        <span className="mono">{leg.value} {leg.code}</span>
+                      </span>)}
+                    </button>
+                    <span className="fx-history-meta mono">
+                      {entry.source && <span className="fx-history-source" title={entry.date ? `Rates dated ${entry.date}` : 'Rate source'}>{entry.source}{entry.date ? ` · ${entry.date}` : ''}</span>}
+                      <span className="fx-history-when">{new Date(entry.at).toLocaleTimeString()}</span>
+                    </span>
+                    <button className="fx-history-remove" onClick={() => forget(entry.id)} aria-label="Delete this entry">×</button>
+                  </li>)}
+                </ul>
+              : <div className="fx-empty mono">nothing converted yet</div>}
+          </div>
         </div>
         {picking && <aside className="fx-picker">
           <input className="fx-search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search code or name…" aria-label="Search currencies" autoFocus />
