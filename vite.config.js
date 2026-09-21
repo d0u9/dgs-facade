@@ -65,6 +65,7 @@ export default defineConfig({
         base64: resolve(import.meta.dirname, 'utilities/base64/index.html'),
         filediff: resolve(import.meta.dirname, 'utilities/filediff/index.html'),
         jsonformat: resolve(import.meta.dirname, 'utilities/jsonformat/index.html'),
+        currency: resolve(import.meta.dirname, 'utilities/currency/index.html'),
         hextris: resolve(import.meta.dirname, 'game/hextris/index.html'),
         minesweeper: resolve(import.meta.dirname, 'game/minesweeper/index.html'),
         dino: resolve(import.meta.dirname, 'game/dino/index.html'),

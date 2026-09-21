@@ -1,20 +1,22 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import AmbientCursor from './components/AmbientCursor.jsx';
 import { CollectionCard, CollectionHero, LineNumberedField, PageHeader, ToolHeader } from './components/PageChrome.jsx';
+import { FALLBACK_NAMES, ISO_CODES, cachedNames, cachedRates, fetchNames, fetchRates, isStale } from './fx.js';
 import './styles.css';
 
 const TOOLS = [
   { title: 'Base64', eyebrow: '01 / encode + decode', description: 'Convert text and Base64 locally, with full Unicode support.', href: '/utilities/base64/', glyph: 'Aa' },
   { title: 'File Diff', eyebrow: '02 / compare text', description: 'Compare two blocks of text and see line-by-line changes.', href: '/utilities/filediff/', glyph: '≠' },
   { title: 'JSON Formatter', eyebrow: '03 / format + validate', description: 'Pretty-print, minify, and validate JSON locally.', href: '/utilities/jsonformat/', glyph: '{}' },
+  { title: 'Currency', eyebrow: '04 / live conversion', description: 'Type in any currency and every other one follows.', href: '/utilities/currency/', glyph: '¤', meta: 'DAILY RATES' },
 ];
 
 function UtilitiesHub() {
   return <main className="section-shell utility-shell">
     <PageHeader section="utilities" />
     <CollectionHero eyebrow="browser utilities" title="Useful things." mutedTitle="Nothing leaves." description="Small tools that work entirely on this device. Your input is never uploaded or stored." />
-    <section className="collection-grid">{TOOLS.map(tool=><CollectionCard className="utility-card" eyebrow={tool.eyebrow} glyph={tool.glyph} title={tool.title} description={tool.description} meta="RUNS LOCALLY" href={tool.href} key={tool.href} />)}</section>
+    <section className="collection-grid">{TOOLS.map(tool=><CollectionCard className="utility-card" eyebrow={tool.eyebrow} glyph={tool.glyph} title={tool.title} description={tool.description} meta={tool.meta || "RUNS LOCALLY"} href={tool.href} key={tool.href} />)}</section>
     <footer className="footer"><span>processed on this device</span><a href="/">back home</a></footer>
   </main>;
 }
@@ -272,11 +274,231 @@ function JsonTool() {
   </main>;
 }
 
+// Always present, always the first three, in this order.
+const PINNED_CODES = ['CNY', 'USD', 'AUD'];
+const DEFAULT_CODES = [...PINNED_CODES, 'EUR', 'JPY', 'HKD'];
+const FX_CODES_KEY = 'd0u9-fx-codes';
+
+// Most currency codes are their ISO 3166 country code plus a unit letter, so
+// the flag falls out of the first two letters. These are the ones where that
+// rule gives a country that has no flag, or no country at all.
+const FLAG_OVERRIDES = { EUR: 'EU', ANG: 'CW', XCG: 'CW', XAF: '', XOF: '', XPF: '', XCD: '' };
+
+function flagFor(code) {
+  const country = FLAG_OVERRIDES[code] ?? code.slice(0, 2);
+  if (country.length !== 2) return '';
+  return String.fromCodePoint(...Array.from(country, char => 0x1f1a5 + char.charCodeAt(0)));
+}
+
+function readStoredCodes() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(FX_CODES_KEY));
+    const clean = Array.isArray(stored) ? stored.filter(code => ISO_CODES.includes(code)) : [];
+    return clean.length ? withPinned(clean) : DEFAULT_CODES;
+  } catch { return DEFAULT_CODES; }
+}
+
+// A stored list from an older build, or one edited by hand, can be missing a
+// pinned code or have it out of position.
+function withPinned(codes) {
+  return [...PINNED_CODES, ...Array.from(new Set(codes)).filter(code => !PINNED_CODES.includes(code))];
+}
+
+function sanitizeAmount(raw) {
+  const cleaned = raw.replace(/[^\d.]/g, '');
+  const [head, ...rest] = cleaned.split('.');
+  return rest.length ? `${head}.${rest.join('')}` : head;
+}
+
+// Small amounts need more decimals to stay meaningful (0.0091 USD), large ones
+// read better with fewer (12,406.71 JPY).
+function formatAmount(value) {
+  if (!Number.isFinite(value)) return '';
+  if (value === 0) return '0';
+  const magnitude = Math.abs(value);
+  const digits = magnitude >= 1000 ? 2 : magnitude >= 1 ? 4 : 6;
+  return value.toLocaleString('en-US', { maximumFractionDigits: digits });
+}
+
+function CurrencyTool() {
+  const [codes, setCodes] = useState(readStoredCodes);
+  const [base, setBase] = useState(() => readStoredCodes()[0]);
+  const [amount, setAmount] = useState('1');
+  const [rates, setRates] = useState(() => cachedRates());
+  const [names, setNames] = useState(() => (cachedNames()?.names) || FALLBACK_NAMES);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const [query, setQuery] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [dragCode, setDragCode] = useState(null);
+  const listRef = useRef(null);
+
+  useEffect(() => { try { localStorage.setItem(FX_CODES_KEY, JSON.stringify(codes)); } catch {} }, [codes]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setRates(await fetchRates()); setError(''); }
+    catch (err) { setError(err.message || 'Could not reach any rate source.'); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    // Cached rates render instantly; a stale cache still refreshes in the
+    // background so the visible numbers are never older than the TTL.
+    const cached = cachedRates();
+    if (!cached || isStale(cached)) load();
+    const storedNames = cachedNames();
+    if (!storedNames || isStale(storedNames)) {
+      fetchNames().then(entry => { if (entry) setNames(entry.names); });
+    }
+  }, [load]);
+
+  const table = rates?.rates;
+  const convert = (code) => {
+    const value = Number(amount);
+    if (!amount || !Number.isFinite(value) || !table || !table[base] || !table[code]) return '';
+    return formatAmount(value * (table[code] / table[base]));
+  };
+  const edit = (code, raw) => { setBase(code); setAmount(sanitizeAmount(raw)); };
+  const remove = (code) => setCodes(current => {
+    if (PINNED_CODES.includes(code)) return current;
+    const next = current.filter(item => item !== code);
+    if (code === base) setBase(next[0]);
+    return next;
+  });
+
+  // Pointer events rather than HTML5 drag-and-drop: the cards must reorder by
+  // touch too, and dragstart/dragover never fire on touch screens.
+  const startDrag = (code, event) => {
+    if (PINNED_CODES.includes(code)) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDragCode(code);
+  };
+  const moveDrag = (event) => {
+    if (!dragCode || !listRef.current) return;
+    const cards = Array.from(listRef.current.querySelectorAll('[data-code]'));
+    const hovered = cards.find(card => {
+      const box = card.getBoundingClientRect();
+      return event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
+    });
+    const target = hovered?.dataset.code;
+    // Pinned cards are not a valid drop target: they keep their slots.
+    if (!target || target === dragCode || PINNED_CODES.includes(target)) return;
+    setCodes(current => {
+      const from = current.indexOf(dragCode), to = current.indexOf(target);
+      if (from < 0 || to < 0) return current;
+      const next = [...current];
+      next.splice(to, 0, next.splice(from, 1)[0]);
+      return next;
+    });
+  };
+  const endDrag = (event) => {
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    setDragCode(null);
+  };
+
+  const available = useMemo(() => {
+    if (!table) return [];
+    const needle = query.trim().toUpperCase();
+    return ISO_CODES
+      .filter(code => table[code] && !codes.includes(code))
+      .filter(code => !needle || code.includes(needle) || (names[code] || '').toUpperCase().includes(needle))
+      .slice(0, 60);
+  }, [table, codes, names, query]);
+
+  const copy = async () => {
+    if (!table) return;
+    const lines = codes.map(code => `${code} ${convert(code)}`).join('\n');
+    await navigator.clipboard.writeText(lines);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
+  };
+
+  const status = error ? 'rates offline' : rates ? `rates ${rates.date}` : 'loading rates';
+  const stat = error
+    ? error
+    : rates
+      ? `${rates.source} · ${rates.date}${isStale(rates) ? ' · cached' : ''}`
+      : 'fetching latest rates…';
+
+  return <main className="tool-shell fx-shell">
+    <ToolHeader backHref="/utilities/" backLabel="Utilities" eyebrow="04 / live conversion" title="Currency" status={status} />
+    <section className="tool-panel"><div className="codec-card">
+      <div className="codec-toolbar">
+        <div className="codec-toolbar-left"><span className={`mono codec-stat ${error ? 'has-error' : ''}`}>{stat}</span></div>
+        <div className="codec-toolbar-right">
+          <button className={`btn ${picking ? 'active' : ''}`} onClick={() => { setPicking(open => !open); setQuery(''); }} disabled={!table}>add</button>
+          <button className="btn" onClick={load} disabled={loading}>{loading ? 'loading' : 'refresh'}</button>
+          <button className="btn" onClick={() => setAmount('')} disabled={!amount}>clear</button>
+          <button className="btn primary" onClick={copy} disabled={!table || !amount}>{copied ? 'copied' : 'copy'}</button>
+        </div>
+      </div>
+      <div className="fx-body">
+        <div className="fx-grid" ref={listRef}>
+          {codes.map(code => <article
+            className={`fx-card ${code === base ? 'active' : ''} ${code === dragCode ? 'dragging' : ''} ${PINNED_CODES.includes(code) ? 'pinned' : ''}`}
+            data-code={code}
+            key={code}
+          >
+            <div className="fx-card-top">
+              <span className="fx-flag" aria-hidden="true">{flagFor(code)}</span>
+              <div className="fx-id">
+                <span className="fx-code mono">{code}</span>
+                <span className="fx-name">{names[code] || code}</span>
+              </div>
+              {PINNED_CODES.includes(code)
+                ? <span className="fx-pin" title="Pinned" aria-label={`${code} is pinned`}>★</span>
+                : <button
+                    className="fx-handle"
+                    onPointerDown={event => startDrag(code, event)}
+                    onPointerMove={moveDrag}
+                    onPointerUp={endDrag}
+                    onPointerCancel={endDrag}
+                    aria-label={`Reorder ${code}`}
+                    title="Drag to reorder"
+                  >⠿</button>}
+              {!PINNED_CODES.includes(code) && <button className="fx-remove" onClick={() => remove(code)} aria-label={`Remove ${code}`}>×</button>}
+            </div>
+            <input
+              className="fx-input mono"
+              inputMode="decimal"
+              value={code === base ? amount : convert(code)}
+              onChange={event => edit(code, event.target.value)}
+              onFocus={event => event.target.select()}
+              placeholder="0"
+              aria-label={`Amount in ${code}`}
+              disabled={!table}
+            />
+            <div className="fx-card-foot mono">
+              {code === base ? 'base currency' : table && table[code] && table[base] ? `1 ${base} = ${formatAmount(table[code] / table[base])} ${code}` : '—'}
+            </div>
+          </article>)}
+        </div>
+        {picking && <aside className="fx-picker">
+          <input className="fx-search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search code or name…" aria-label="Search currencies" autoFocus />
+          <div className="fx-options">
+            {available.map(code => <button className="fx-option" key={code} onClick={() => { setCodes(current => [...current, code]); setQuery(''); }}>
+              <span className="fx-option-flag" aria-hidden="true">{flagFor(code)}</span>
+              <span className="mono">{code}</span>
+              <span className="fx-option-name">{names[code] || ''}</span>
+            </button>)}
+            {!available.length && <div className="fx-empty mono">no match</div>}
+          </div>
+        </aside>}
+      </div>
+    </div></section>
+  </main>;
+}
+
+
 function App(){
   const path = location.pathname;
   if (path.includes('/base64')) return <Base64Tool/>;
   if (path.includes('/filediff')) return <FileDiffTool/>;
   if (path.includes('/jsonformat')) return <JsonTool/>;
+  if (path.includes('/currency')) return <CurrencyTool/>;
   return <UtilitiesHub/>;
 }
 createRoot(document.getElementById('root')).render(<React.StrictMode><AmbientCursor><div className="site-shell"><div className="grid-noise"/><App/></div></AmbientCursor></React.StrictMode>);
