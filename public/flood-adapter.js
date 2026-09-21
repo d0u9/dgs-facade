@@ -18,14 +18,42 @@
     showBest();
   }).observe(message, { childList: true, characterData: true, subtree: true });
 
+  // The move limit no longer ends the game, so the failure needs an
+  // announcement of its own: a banner over the board that fades out and leaves
+  // play running underneath it.
+  var flash = document.getElementById('failFlash');
+  var flashTimer = 0, flashed = false;
+  function showFail() {
+    if (flashed) return;
+    flashed = true;
+    clearTimeout(flashTimer);
+    flash.classList.remove('is-out');
+    flash.classList.add('is-on');
+    flashTimer = setTimeout(function () {
+      flash.classList.add('is-out');
+      flashTimer = setTimeout(function () { flash.classList.remove('is-on', 'is-out'); }, 500);
+    }, 1400);
+  }
+  function hideFail() {
+    flashed = false;
+    clearTimeout(flashTimer);
+    flash.classList.remove('is-on', 'is-out');
+  }
+
+  new MutationObserver(function () {
+    if (/^Failed/.test(message.textContent) || /^failed/.test(message.textContent)) showFail();
+  }).observe(message, { childList: true, characterData: true, subtree: true });
+
   window.agHud.mapMessage(message, [
     [/^Pick a color.*/, 'ready'],
     [/^Solved in (\d+) moves!$/, 'solved in $1'],
-    [/^Out of moves.*/, 'out of moves']
+    [/^Failed at \d+ moves.*/, 'failed'],
+    [/^Failed — filled in (\d+) moves\.$/, 'failed in $1']
   ]);
 
   document.getElementById('restart').addEventListener('click', function () {
     window.colorFloodNewGame();
+    hideFail();
     showBest();
   });
 
