@@ -1,0 +1,10 @@
+[
+  {
+    "id": "northeast-trip",
+    "name": "东北之行",
+    "startDate": "2026-03-22",
+    "endDate": "2026-04-23",
+    "desc": "包含演示路线与航点，用于预览日期筛选和图层开关。",
+    "trackIds": ["v6m9n"]
+  }
+]

@@ -1,7 +1,7 @@
 // Converts raw track files in data/tracks/<type>/ into static JSON under public/tracks-data/.
 // index.json holds metadata for filtering; <id>.json holds geometry and is loaded on demand.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { extname, join, relative } from 'node:path';
+import { dirname, extname, join, relative } from 'node:path';
 import { DOMParser } from '@xmldom/xmldom';
 import { gpx, kml } from '@tmcw/togeojson';
 
@@ -383,6 +383,29 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
   if (pending.length || existsSync(join(srcDir, LEDGER))) writeLedger(srcDir, ledger, log);
 
   index.sort((a, b) => (b.start ?? '').localeCompare(a.start ?? ''));
+  const projectsFile = join(dirname(srcDir), 'projects.json');
+  if (existsSync(projectsFile)) {
+    const projects = JSON.parse(readFileSync(projectsFile, 'utf8'));
+    if (!Array.isArray(projects)) throw new Error('[tracks] projects must be an array');
+    const trackIds = new Set(index.map((it) => it.id));
+    const projectIds = new Set();
+    projects.forEach((project) => {
+      if (!project.id || !project.name || !Array.isArray(project.trackIds) || projectIds.has(project.id)) throw new Error('[tracks] invalid or duplicate project');
+      if (['startDate', 'endDate'].some((key) => project[key] != null && (typeof project[key] !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(project[key]) || Number.isNaN(Date.parse(project[key])))) || (project.startDate && project.endDate && project.startDate > project.endDate) || (project.desc != null && typeof project.desc !== 'string')) throw new Error(`[tracks] invalid project details: ${project.id}`);
+      projectIds.add(project.id);
+      project.trackIds.forEach((id) => { if (!trackIds.has(id)) throw new Error(`[tracks] project ${project.id} references missing track ${id}`); });
+    });
+  }
+  const placesFile = join(dirname(srcDir), 'places.json');
+  if (existsSync(placesFile)) {
+    const places = JSON.parse(readFileSync(placesFile, 'utf8'));
+    if (!Array.isArray(places)) throw new Error('[tracks] places must be an array');
+    const takenIds = new Set(index.map((it) => it.id));
+    places.forEach((place) => {
+      if (!/^[a-z0-9]{5}$/.test(place.id) || takenIds.has(place.id) || !place.name || !Number.isFinite(place.lon) || !Number.isFinite(place.lat) || Math.abs(place.lon) > 180 || Math.abs(place.lat) > 90 || (place.date && !/^\d{4}-\d{2}-\d{2}$/.test(place.date))) throw new Error('[tracks] invalid or duplicate place');
+      takenIds.add(place.id);
+    });
+  }
   log(`[tracks] ${index.filter((it) => it.featured).length} featured`);
   writeFileSync(join(outDir, 'index.json'), JSON.stringify({ generated: new Date().toISOString(), items: index }));
   log(`[tracks] ${index.length} items written to ${relative(process.cwd(), outDir)}`);
