@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="DGS demo" xmlns="http://www.topografix.com/GPX/1/1">
+  <wpt lat="45.7620" lon="126.6420"><name>示例 · 城区终点</name><desc>演示航点，并非真实到访记录。</desc><time>2026-04-23T11:00:00Z</time></wpt>
+  <trk><name>示例 · 城区短线</name><desc>演示路线，并非真实行程。</desc><trkseg>
+    <trkpt lat="45.7700" lon="126.6280"><time>2026-04-23T09:30:00Z</time></trkpt>
+    <trkpt lat="45.7660" lon="126.6360"><time>2026-04-23T10:15:00Z</time></trkpt>
+    <trkpt lat="45.7620" lon="126.6420"><time>2026-04-23T11:00:00Z</time></trkpt>
+  </trkseg></trk>
+</gpx>

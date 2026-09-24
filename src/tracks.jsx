@@ -5,6 +5,8 @@ import { MapboxOverlay } from '@deck.gl/mapbox';
 import { IconLayer, LineLayer, PathLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { PageHeader } from './components/PageChrome.jsx';
+import projects from '../data/projects.json';
+import places from '../data/places.json';
 import './styles.css';
 
 const TYPES = {
@@ -46,25 +48,16 @@ const typeOf = (t) => TYPES[t] ?? TYPES.other;
 // Roughly how wide a name is drawn, in ems: a CJK glyph takes a full one, a Latin letter about
 // half. Used to size the shelf under a waypoint's name, which has to match the text it carries.
 const textEms = (name) => [...String(name)].reduce((w, ch) => w + (/[\u2E80-\uFFEF]/.test(ch) ? 1 : 0.52), 0);
-// The shelf under a waypoint name. An icon rather than a line layer: a line in world
-// coordinates turns edge-on as the camera orbits, while an icon is a billboard and stays
-// across the screen. Drawn as one rounded stroke with a wider centre, so it reads as a shelf
-// resting on the leader rather than as a rule under the text. White and `mask: true`, so
-// deck tints it with the track's own colour.
-// The shelf under a waypoint's name: a hairline with rounded ends and a slight swell in the
-// middle, where the leader meets it. One icon, drawn wide and scaled down — deck sizes an icon
-// by its height and keeps its aspect, so asking for a width means asking for width/aspect.
-const SHELF_W = 256;
-const SHELF_H = 20;
-const SHELF_ASPECT = SHELF_W / SHELF_H;
-const SHELF_SVG = encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="${SHELF_W}" height="${SHELF_H}">`
-  + `<rect x="2" y="7" width="${SHELF_W - 4}" height="6" rx="3" fill="#fff"/>`
-  + `<rect x="${SHELF_W / 2 - 24}" y="4" width="48" height="12" rx="6" fill="#fff"/>`
-  + '</svg>',
-);
-const SHELF_ICON = { url: `data:image/svg+xml;charset=utf-8,${SHELF_SVG}`, width: SHELF_W, height: SHELF_H, anchorX: SHELF_W / 2, anchorY: SHELF_H / 2, mask: true };
-const shelfSize = (px) => px / SHELF_ASPECT;
+// Screen-aligned T bar: the shelf and stem are both 1.6 px, with no thick centre joint.
+const shelfIcons = new Map();
+function shelfIcon(name) {
+  if (shelfIcons.has(name)) return shelfIcons.get(name);
+  const width = Math.max(40, Math.ceil(textEms(name) * WPT_TEXT_PX * 0.85 + 8));
+  const svg = encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="12"><rect x="1" y="5.2" width="${width - 2}" height="1.6" rx="0.8" fill="#fff"/></svg>`);
+  const icon = { url: `data:image/svg+xml;charset=utf-8,${svg}`, width, height: 12, anchorX: width / 2, anchorY: 6, mask: true };
+  shelfIcons.set(name, icon);
+  return icon;
+}
 const hexToRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 
 function fmtDist(m) {
@@ -99,9 +92,6 @@ const ID_CHARS = 5;
 const SNAPS = ['peek', 'half', 'full'];
 const DEFAULT_SNAP = 'half';
 const DEFAULT_RATE = 60;
-// Past this the link is long enough that a chat app may wrap or cut it, and a cut link loses
-// whatever sat at the end. The map keeps every track; only the link stops at this many.
-const MAX_URL_TRACKS = 40;
 
 function readStoredWorkspace() {
   try {
@@ -155,6 +145,10 @@ function readUrl() {
   const p = new URLSearchParams(location.search);
   const list = (k) => (p.get(k) ? p.get(k).split(',') : []);
   const num = (k) => (p.has(k) && Number.isFinite(Number(p.get(k))) ? Number(p.get(k)) : null);
+  const browseMode = ['library', 'projects', 'places'].includes(p.get('mode')) ? p.get('mode') : 'library';
+  const activeProject = projects.some((project) => project.id === p.get('project')) ? p.get('project') : null;
+  const projectDay = /^\d{4}-\d{2}-\d{2}$/.test(p.get('day') ?? '') ? p.get('day') : null;
+  const month = (key) => /^(?:[0-9]|1[01])$/.test(p.get(key) ?? '') ? Number(p.get(key)) : null;
   return {
     filters: {
       types: list('type'), kinds: list('kind'), q: p.get('q') ?? '', from: p.get('from') ?? '', to: p.get('to') ?? '',
@@ -169,6 +163,13 @@ function readUrl() {
     playing: p.get('play') === '1',
     rate: num('r') ?? DEFAULT_RATE,
     snap: SNAPS.includes(p.get('panel')) ? p.get('panel') : DEFAULT_SNAP,
+    browseMode,
+    activeProject: browseMode === 'projects' ? activeProject : null,
+    projectDay: browseMode === 'projects' && activeProject ? projectDay : null,
+    projectVisibility: { tracks: p.get('tracks') !== '0', waypoints: p.get('waypoints') !== '0' },
+    libraryYear: p.get('ly'), libraryMonth: month('lm'),
+    placesYear: p.get('py'), placesMonth: month('pm'),
+    filterOpen: p.get('filter') === '1',
     camera: readCamera(p.get('at')),
     is3d: p.get('3d') === '1',
     // Default to Amap for zh-CN visitors, whose OpenStreetMap coverage and access are poor.
@@ -176,19 +177,35 @@ function readUrl() {
   };
 }
 
-function writeUrl(filters, selected, is3d, amap, workspace, camera, play, snap) {
+function writeUrl(filters, selected, is3d, amap, workspace, camera, play, snap, browseMode, activeProject, projectDay, projectVisibility, libraryCalendar, placesCalendar, filterOpen) {
   const p = new URLSearchParams();
   if (filters.types.length) p.set('type', filters.types.join(','));
   if (filters.kinds.length) p.set('kind', filters.kinds.join(','));
   ['q', 'from', 'to', 'dmin', 'dmax', 'altmin'].forEach((k) => filters[k] && p.set(k, filters[k]));
   if (filters.inView) p.set('view', '1');
   if (selected) p.set('sel', selected);
-  if (workspace.length) p.set('ws', workspace.slice(0, MAX_URL_TRACKS).join(''));
+  p.set('ws', workspace.join(''));
   if (camera) p.set('at', camera);
   if (play.t != null) p.set('t', String(Math.round(play.t * 10) / 10));
   if (play.playing) p.set('play', '1');
   if (play.rate !== DEFAULT_RATE) p.set('r', String(play.rate));
   if (snap !== DEFAULT_SNAP) p.set('panel', snap);
+  if (browseMode !== 'library') p.set('mode', browseMode);
+  if (browseMode === 'library') {
+    if (libraryCalendar.year) p.set('ly', libraryCalendar.year);
+    if (libraryCalendar.month != null) p.set('lm', String(libraryCalendar.month));
+    if (filterOpen) p.set('filter', '1');
+  }
+  if (browseMode === 'places') {
+    if (placesCalendar.year) p.set('py', placesCalendar.year);
+    if (placesCalendar.month != null) p.set('pm', String(placesCalendar.month));
+  }
+  if (browseMode === 'projects' && activeProject) {
+    p.set('project', activeProject);
+    if (projectDay) p.set('day', projectDay);
+    if (!projectVisibility.tracks) p.set('tracks', '0');
+    if (!projectVisibility.waypoints) p.set('waypoints', '0');
+  }
   if (is3d) p.set('3d', '1');
   // Always written, never left to the reader's own default. Amap tiles are in GCJ-02 and the
   // track coordinates are shifted to match, so the camera in `at` means one place on Amap and
@@ -235,6 +252,13 @@ function applyFilters(items, f, viewBounds) {
 // ---------- data ----------
 
 const geomCache = new Map();
+const visitedPlaces = places.map((place) => ({
+  id: place.id, name: place.name, desc: place.desc ?? null, start: place.date ?? null,
+  type: 'other', kind: 'waypoint', visitedPlace: true, source: `place-${place.id}`,
+  points: 1, distance: null, bbox: [place.lon, place.lat, place.lon, place.lat],
+  lon: place.lon, lat: place.lat,
+}));
+visitedPlaces.forEach((place) => geomCache.set(place.id, Promise.resolve({ waypoints: [{ name: place.name, lon: place.lon, lat: place.lat, ele: null, desc: place.desc }] })));
 function loadGeometry(id) {
   if (!geomCache.has(id)) geomCache.set(id, fetch(`/tracks-data/${id}.json`).then((r) => r.json()));
   return geomCache.get(id);
@@ -712,7 +736,6 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
         if (d.src === (focusSource ?? selSource)) return 255;
         return 120;
       };
-      const shelfPx = (d) => shelfSize(Math.max(52, textEms(d.name) * WPT_TEXT_PX + 18));
       const pick = (info) => info.object && onSelectRef.current(info.object.id);
       // The leader is thin and slightly translucent: it has to say where the point is without
       // becoming the brightest thing on a dark hillside. The shelf and the name carry the weight.
@@ -731,8 +754,8 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
         updateTriggers: { getFillColor: [selected, focusSource] },
       }));
       layers.push(new IconLayer({
-        id: 'wpt-shelf', data: wpts, getPosition: (d) => [d.lon, d.lat, d.top], getIcon: () => SHELF_ICON,
-        getColor: (d) => [...hexToRgb(d.color), alpha(d)], getSize: shelfPx, sizeUnits: 'pixels',
+        id: 'wpt-shelf', data: wpts, getPosition: (d) => [d.lon, d.lat, d.top], getIcon: (d) => shelfIcon(d.name),
+        getColor: (d) => [...hexToRgb(d.color), alpha(d)], getSize: 12, sizeUnits: 'pixels',
         billboard: true, pickable: true, onClick: pick,
         updateTriggers: { getColor: [selected, focusSource] },
       }));
@@ -972,7 +995,7 @@ function TrackRow({ it, selected, onSelect, inWorkspace, onToggleWorkspace }) {
       <span className="tracks-swatch" />
       <span className="tracks-item-main">
         <span className="tracks-item-name">{it.name}{it.featured && <span className="tracks-star" title="featured">★</span>}</span>
-        <span className="tracks-item-meta mono">{typeOf(it.type).label.toLowerCase()} · {KINDS[it.kind].toLowerCase()} · {fmtDate(it.start)}</span>
+        <span className="tracks-item-meta mono">{it.visitedPlace ? 'place' : `${typeOf(it.type).label.toLowerCase()} · ${KINDS[it.kind].toLowerCase()}`} · {fmtDate(it.start)}</span>
       </span>
       <span className="tracks-item-dist mono">{it.kind === 'waypoint' ? `${it.points} pts` : fmtDist(it.distance)}</span>
     </button>
@@ -1057,7 +1080,7 @@ function TriCheck({ on, total, onChange, label }) {
 }
 
 // Year tabs + month strip narrow the list, so any track is two clicks away instead of a long scroll.
-const TrackList = memo(function TrackList({ items, selected, onSelect, onOpenFile, focusSource, workspace, onSetMany, onToggleWorkspace }) {
+const TrackList = memo(function TrackList({ items, selected, onSelect, onOpenFile, focusSource, workspace, onSetMany, onToggleWorkspace, year, setYear, month, setMonth }) {
   const years = useMemo(() => {
     const counts = new Map();
     items.forEach((it) => {
@@ -1069,8 +1092,6 @@ const TrackList = memo(function TrackList({ items, selected, onSelect, onOpenFil
     });
     return [...counts.entries()].sort(([a], [b]) => (a === 'undated') - (b === 'undated') || b.localeCompare(a));
   }, [items]);
-  const [year, setYear] = useState(null);
-  const [month, setMonth] = useState(null);
   // Selecting a track leaves the year and month where the visitor put them.
   const activeYear = years.some(([y]) => y === year) ? year : years[0]?.[0];
 
@@ -1256,15 +1277,16 @@ function Detail({ item, geom, onClose, playT, setPlayT, playing, setPlaying, rat
   return <div className="tracks-detail">
     <div className="tracks-detail-head">
       <div>
-        <div className="tracks-item-meta mono" style={{ color: typeOf(item.type).color }}>{typeOf(item.type).label} · {KINDS[item.kind]}</div>
+        <div className="tracks-item-meta mono" style={{ color: typeOf(item.type).color }}>{item.visitedPlace ? 'Place' : `${typeOf(item.type).label} · ${KINDS[item.kind]}`}</div>
         <h2>{item.name}</h2>
       </div>
       <div className="tracks-detail-actions">
-        <button className={`btn ${inWorkspace ? 'active' : ''}`} onClick={() => onToggleWorkspace(item.id)} aria-pressed={inWorkspace}>{inWorkspace ? '× off map' : '+ on map'}</button>
+        {!item.visitedPlace && <button className={`btn ${inWorkspace ? 'active' : ''}`} onClick={() => onToggleWorkspace(item.id)} aria-pressed={inWorkspace}>{inWorkspace ? '× off map' : '+ on map'}</button>}
         <button className="btn" onClick={onClose} aria-label="close">✕</button>
       </div>
     </div>
     <div className="tracks-item-meta tracks-detail-sub mono">{fmtDate(item.start)}</div>
+    {item.desc && <p className="tracks-place-desc">{item.desc}</p>}
     {/* On a phone the card shares the screen with the map, and six figures at reading size take
         more of it than the map can spare. They fold into one line there, which still carries the
         two that answer "what is this track" — the button is hidden at desk width, where the
@@ -1301,21 +1323,21 @@ const mapFileName = (file) => file.find((it) => it.kind !== 'waypoint')?.name ||
 
 function PanelHead({
   mapItems, onOpenFile, filterCount, filterOpen, setFilterOpen,
-  onClearWorkspace, onSetMany, starter, onStart, q, setQ,
+  onClearWorkspace, onSetMany, starter, onStart, q, setQ, browseMode, setBrowseMode, placeCount,
 }) {
   const mapFiles = groupBySource(mapItems);
   return <>
     <div className="tracks-mapbar">
       <div className="tracks-scope mono">
-        <span className="tracks-scope-label">✦ map {mapFiles.length || ''}</span>
+        <span className="tracks-scope-label">{browseMode === 'places' ? `● places ${placeCount}` : `✦ map ${mapFiles.length || ''}`}</span>
         <span className="tracks-scope-actions tracks-modes">
-          {mapItems.length > 0 && <button className="btn" onClick={onClearWorkspace} title="take every track off the map">clear</button>}
-          <button className={`btn ${filterOpen ? 'active' : ''}`} onClick={() => setFilterOpen(!filterOpen)} aria-expanded={filterOpen}>
+          {browseMode !== 'places' && mapItems.length > 0 && <button className="btn" onClick={onClearWorkspace} title="take every track off the map">clear</button>}
+          {browseMode === 'library' && <button className={`btn ${filterOpen ? 'active' : ''}`} onClick={() => setFilterOpen(!filterOpen)} aria-expanded={filterOpen}>
             filter{filterCount > 0 && <span className="tracks-badge">{filterCount}</span>}
-          </button>
+          </button>}
         </span>
       </div>
-      {mapItems.length
+      {browseMode === 'places' ? null : mapItems.length
         ? <div className="tracks-chipstrip">
             {mapFiles.map((file) => (
               <span key={file[0].source ?? file[0].id} className="tracks-mapchip" style={{ '--chip': typeOf(file[0].type).color }}>
@@ -1331,12 +1353,96 @@ function PanelHead({
             {starter && <button className="btn" onClick={onStart}>{starter.label}</button>}
           </div>}
     </div>
-    <div className="tracks-row tracks-search">
-      <input className="tracks-input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="search track name…" aria-label="search tracks" />
+    <div className="tracks-view-switch mono" role="group" aria-label="browse tracks">
+      <button className={browseMode === 'library' ? 'active' : ''} onClick={() => setBrowseMode('library')}>library</button>
+      <button className={browseMode === 'projects' ? 'active' : ''} onClick={() => setBrowseMode('projects')}>projects</button>
+      <button className={browseMode === 'places' ? 'active' : ''} onClick={() => setBrowseMode('places')}>places</button>
     </div>
+    {browseMode === 'library' && <div className="tracks-row tracks-search">
+      <input className="tracks-input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="search track name…" aria-label="search tracks" />
+    </div>}
   </>;
 }
 
+const projectDay = (it) => it.start ? it.start.slice(0, 10) : null;
+const projectVisible = (it, visibility, day) => (it.kind === 'waypoint' ? visibility.waypoints : visibility.tracks) && (!day || projectDay(it) === day);
+
+function ProjectsView({ activeProject, workspace, items, visibility, setVisibility, day, setDay, onOpen, onBack, selected, onSelect, onOpenFile, focusSource, onSetMany, onToggleWorkspace }) {
+  const project = projects.find((p) => p.id === activeProject);
+  const projectItems = project ? items.filter((it) => project.trackIds.includes(it.id)) : [];
+  const visibleItems = projectItems.filter((it) => projectVisible(it, visibility, day));
+  const dated = projectItems.map(projectDay).filter(Boolean).sort();
+  const firstDay = project?.startDate ?? dated[0];
+  const lastDay = project?.endDate ?? dated.at(-1);
+  const days = [];
+  if (firstDay && lastDay) {
+    for (let date = new Date(`${firstDay}T12:00:00Z`); date.toISOString().slice(0, 10) <= lastDay; date.setUTCDate(date.getUTCDate() + 1)) {
+      const value = date.toISOString().slice(0, 10);
+      days.push({ value, month: date.toLocaleDateString(undefined, { month: 'short', timeZone: 'UTC' }), date: date.getUTCDate(), count: projectItems.filter((it) => projectDay(it) === value).length });
+    }
+  }
+  const period = (p) => {
+    const display = (value) => value && new Date(`${value}T12:00:00Z`).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+    return p.startDate && p.endDate ? `${display(p.startDate)} — ${display(p.endDate)}` : display(p.startDate || p.endDate);
+  };
+  return <div className="tracks-projects">
+    {project ? <>
+      <div className="tracks-project-actions"><button className="btn" onClick={onBack}>‹ all projects</button><span className="mono">curated project</span></div>
+      <div className="tracks-project-heading"><div><strong>{project.name}</strong>{period(project) && <span className="mono">{period(project)}</span>}<span className="mono">{projectItems.length} items · {fmtDist(projectItems.reduce((sum, it) => sum + (it.distance ?? 0), 0))}</span>{project.desc && <p className="tracks-project-desc">{project.desc}</p>}</div></div>
+      <div className="tracks-project-filters">
+        <div className="tracks-project-toggles" role="group" aria-label="project layers">
+          <button className={visibility.tracks ? 'active' : ''} aria-pressed={visibility.tracks} onClick={() => setVisibility((v) => ({ ...v, tracks: !v.tracks }))}>tracks</button>
+          <button className={visibility.waypoints ? 'active' : ''} aria-pressed={visibility.waypoints} onClick={() => setVisibility((v) => ({ ...v, waypoints: !v.waypoints }))}>waypoints</button>
+        </div>
+        {days.length > 0 && <div className="tracks-project-calendar" aria-label="project days">
+          <button className={`tracks-project-day all ${!day ? 'active' : ''}`} onClick={() => setDay(null)} aria-pressed={!day}>all days</button>
+          {days.map((entry) => <button key={entry.value} className={`tracks-project-day ${day === entry.value ? 'active' : ''}`} onClick={() => setDay(day === entry.value ? null : entry.value)} aria-pressed={day === entry.value} aria-label={entry.value}>
+            <strong>{entry.date}</strong><span className="mono">{entry.month}</span>{entry.count > 0 && <i aria-label={`${entry.count} items`} />}
+          </button>)}
+        </div>}
+        <div className="mono tracks-project-result">{visibleItems.length} items shown</div>
+      </div>
+      <div className="tracks-project-list">{visibleItems.length ? <ul className="tracks-list">{groupBySource(visibleItems).map((group) => group.length === 1
+        ? <TrackRow key={group[0].id} it={group[0]} selected={selected} onSelect={onSelect} inWorkspace={workspace.includes(group[0].id)} onToggleWorkspace={onToggleWorkspace} />
+        : <FileGroup key={group[0].source} items={group} selected={selected} onSelect={onSelect} onOpenFile={onOpenFile} focusSource={focusSource} workspace={new Set(workspace)} onSetMany={onSetMany} onToggleWorkspace={onToggleWorkspace} />)}</ul> : <div className="tracks-empty mono">no items for this day and layer selection</div>}</div>
+    </> : <div className="tracks-project-list">{projects.length ? projects.map((p) => <button className="tracks-project-card" key={p.id} onClick={() => onOpen(p.id)}>
+      <span className="tracks-project-card-body"><strong>{p.name}</strong>{period(p) && <span className="tracks-project-period mono">{period(p)}</span>}{p.desc && <span className="tracks-project-desc">{p.desc}</span>}<span className="tracks-project-count mono">{p.trackIds.length} tracks</span></span><span className="tracks-project-arrow" aria-hidden="true">›</span>
+    </button>) : <div className="tracks-empty mono">no projects published yet</div>}</div>}
+  </div>;
+}
+
+function PlacesView({ items, selected, onSelect, year, setYear, month, setMonth }) {
+  const years = useMemo(() => {
+    const counts = new Map();
+    items.forEach((it) => counts.set(yearOf(it), (counts.get(yearOf(it)) ?? 0) + 1));
+    return [...counts.entries()].sort(([a], [b]) => (a === 'undated') - (b === 'undated') || b.localeCompare(a));
+  }, [items]);
+  const activeYear = years.some(([y]) => y === year) ? year : years[0]?.[0];
+  const inYear = items.filter((it) => yearOf(it) === activeYear);
+  const monthCounts = Array(12).fill(0);
+  inYear.forEach((it) => { const m = monthOf(it); if (m != null) monthCounts[m] += 1; });
+  const shown = inYear.filter((it) => month == null || monthOf(it) === month);
+  return <div className="tracks-browse">
+    {items.length > 0 && <div className="tracks-nav">
+      <div className="tracks-years-bar">
+        {years.map(([y, count]) => <span key={y} className={`tracks-year-tab ${y === activeYear ? 'active' : ''}`}>
+          <button className="tracks-year-btn" onClick={() => { setYear(y); setMonth(null); }}>{y}<span className="mono">{count}</span></button>
+        </span>)}
+      </div>
+      {activeYear !== 'undated' && <div className="tracks-months">
+        {MONTHS.map((label, m) => <button key={label} disabled={!monthCounts[m]} className={`tracks-month ${month === m ? 'active' : ''}`} onClick={() => setMonth(month === m ? null : m)} title={`${monthCounts[m]} places`}>
+          <span>{label}</span><span className="mono">{monthCounts[m] || ''}</span>
+        </button>)}
+      </div>}
+      <div className="tracks-nav-foot mono">{month == null ? `${activeYear} · all months` : `${MONTHS[month]} ${activeYear}`} · {shown.length} places</div>
+    </div>}
+    <div className="tracks-groups"><ul className="tracks-list">{shown.map((it) => <li key={it.id}>
+      <button className={`tracks-item ${selected === it.id ? 'active' : ''}`} onClick={() => onSelect(it.id)}>
+        <span className="tracks-swatch" /><span className="tracks-item-main"><span className="tracks-item-name">{it.name}</span><span className="tracks-item-meta mono">{fmtDate(it.start)}</span></span>
+      </button>
+    </li>)}</ul></div>
+  </div>;
+}
 // ---------- page ----------
 
 function TracksApp() {
@@ -1346,6 +1452,12 @@ function TracksApp() {
   const [filters, setFilters] = useState(initial.filters);
   const [selected, setSelected] = useState(initial.selected);
   const [workspace, setWorkspace] = useState(initial.workspace);
+  const [browseMode, setBrowseMode] = useState(initial.browseMode);
+  const [activeProject, setActiveProject] = useState(initial.activeProject);
+  const [projectVisibility, setProjectVisibility] = useState(initial.projectVisibility);
+  const [projectDayFilter, setProjectDayFilter] = useState(initial.projectDay);
+  const [libraryCalendar, setLibraryCalendar] = useState({ year: initial.libraryYear, month: initial.libraryMonth });
+  const [placesCalendar, setPlacesCalendar] = useState({ year: initial.placesYear, month: initial.placesMonth });
   const [camera, setCamera] = useState(initial.camera ? new URLSearchParams(location.search).get('at') : null);
   const inWorkspace = useMemo(() => new Set(workspace), [workspace]);
   const [is3d, setIs3d] = useState(initial.is3d);
@@ -1356,7 +1468,7 @@ function TracksApp() {
   const [rate, setRate] = useState(initial.rate);
   // Bottom-sheet snap points on mobile; on desktop "peek" collapses the side column.
   const [snap, setSnap] = useState(initial.snap);
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(initial.filterOpen);
   // Tracks a link asked for that the library no longer has. Saying so beats a link that
   // quietly opens on fewer tracks than the sender saw.
   const [dropped, setDropped] = useState(0);
@@ -1365,35 +1477,42 @@ function TracksApp() {
 
   useEffect(() => {
     fetch('/tracks-data/index.json').then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
-      .then((d) => setItems(d.items)).catch(() => setError('Track index not found. Add files to data/tracks/ and rebuild.'));
+      .then((d) => setItems([...d.items, ...visitedPlaces])).catch(() => setError('Track index not found. Add files to data/tracks/ and rebuild.'));
   }, []);
 
   const activeBounds = filters.inView ? viewBounds : null;
-  const filtered = useMemo(() => (items ? applyFilters(items, filters, activeBounds) : []), [items, filters, activeBounds]);
+  const libraryItems = useMemo(() => (items ?? []).filter((it) => !it.visitedPlace), [items]);
+  const placeItems = useMemo(() => (items ?? []).filter((it) => it.visitedPlace), [items]);
+  const filtered = useMemo(() => applyFilters(libraryItems, filters, activeBounds), [libraryItems, filters, activeBounds]);
   // Map fitting ignores the view filter, otherwise panning would refit the map.
   // Debounced so typing in the filters doesn't restart the fit animation on every keystroke.
   const fitKey = useDebounced(useMemo(() => JSON.stringify(workspace), [workspace]), 350);
   const activeFilterCount = useMemo(() => Object.keys(DEFAULT_FILTERS).filter((k) => JSON.stringify(filters[k]) !== JSON.stringify(DEFAULT_FILTERS[k])).length, [filters]);
-  const counts = useMemo(() => (items ?? []).reduce((acc, it) => ({ ...acc, [it.type]: (acc[it.type] ?? 0) + 1 }), {}), [items]);
-  const featured = useMemo(() => (items ?? []).filter((it) => it.featured), [items]);
+  const counts = useMemo(() => libraryItems.reduce((acc, it) => ({ ...acc, [it.type]: (acc[it.type] ?? 0) + 1 }), {}), [libraryItems]);
+  const featured = useMemo(() => libraryItems.filter((it) => it.featured), [libraryItems]);
   // What "start here" means, in order: the curated set, the whole library while it is small,
   // else the newest year. Featured is one source of a starting set now, not the only one.
   const starter = useMemo(() => {
-    if (!items?.length) return null;
+    if (!libraryItems.length) return null;
     if (featured.length) return { label: `★ add ${Math.min(featured.length, MAX_BULK)} featured`, items: featured.slice(0, MAX_BULK) };
-    if (items.length <= 20) return { label: `add all ${items.length}`, items };
-    const y = yearOf(byRecent(items)[0]);
-    const inYear = byRecent(items.filter((it) => yearOf(it) === y)).slice(0, MAX_BULK);
+    if (libraryItems.length <= 20) return { label: `add all ${libraryItems.length}`, items: libraryItems };
+    const y = yearOf(byRecent(libraryItems)[0]);
+    const inYear = byRecent(libraryItems.filter((it) => yearOf(it) === y)).slice(0, MAX_BULK);
     return { label: `add ${y} · ${inYear.length}`, items: inYear };
-  }, [items, featured]);
+  }, [libraryItems, featured]);
   // One rule for the map: it draws the workspace, nothing else. The list browses everything.
   // Geometry is fetched for what the map draws, so browsing a large library costs no requests.
   const onMap = useMemo(() => (items ? items.filter((it) => inWorkspace.has(it.id)) : []), [items, inWorkspace]);
+  const projectMap = useMemo(() => {
+    const project = projects.find((p) => p.id === activeProject);
+    return project ? libraryItems.filter((it) => project.trackIds.includes(it.id) && projectVisible(it, projectVisibility, projectDayFilter)) : [];
+  }, [activeProject, libraryItems, projectVisibility, projectDayFilter]);
   // The selected track is drawn even when it is not in the workspace, so a list tap always shows something.
   const shown = useMemo(() => {
     const sel = items?.find((it) => it.id === selected);
-    return sel && !onMap.includes(sel) ? [...onMap, sel] : onMap;
-  }, [onMap, selected, items]);
+    const base = browseMode === 'places' ? placeItems : browseMode === 'projects' && activeProject ? projectMap : onMap;
+    return sel && !base.includes(sel) ? [...base, sel] : base;
+  }, [onMap, selected, items, browseMode, placeItems, activeProject, projectMap]);
   const geoms = useGeometries(shown);
   const selItem = items?.find((it) => it.id === selected) ?? null;
   const selGeom = selected ? geoms[selected] : null;
@@ -1410,7 +1529,7 @@ function TracksApp() {
     return () => clearTimeout(timeout);
   }, [playing, playT]);
   const play = useMemo(() => ({ t: selected ? linkT : null, playing, rate }), [selected, linkT, playing, rate]);
-  useEffect(() => { writeUrl(filters, selected, is3d, amap, workspace, camera, play, snap); }, [filters, selected, is3d, amap, workspace, camera, play, snap]);
+  useEffect(() => { writeUrl(filters, selected, is3d, amap, workspace, camera, play, snap, browseMode, activeProject, projectDayFilter, projectVisibility, libraryCalendar, placesCalendar, filterOpen); }, [filters, selected, is3d, amap, workspace, camera, play, snap, browseMode, activeProject, projectDayFilter, projectVisibility, libraryCalendar, placesCalendar, filterOpen]);
 
   // A link's workspace is the sender's, not the visitor's: it is kept only once the visitor
   // changes it, so opening a shared link does not wipe the set they had saved.
@@ -1425,11 +1544,11 @@ function TracksApp() {
   // than leaving a button that looks like it did nothing.
   const onCopyLink = useCallback(async () => {
     let ok = false;
-    writeUrl(filters, selected, is3d, amap, workspace, camera, { t: selected ? playT : null, playing, rate }, snap);
+    writeUrl(filters, selected, is3d, amap, workspace, camera, { t: selected ? playT : null, playing, rate }, snap, browseMode, activeProject, projectDayFilter, projectVisibility, libraryCalendar, placesCalendar, filterOpen);
     try { await navigator.clipboard.writeText(location.href); ok = true; } catch { ok = copyFallback(location.href); }
     setCopied(ok ? 'ok' : 'fail');
     setTimeout(() => setCopied(null), 1600);
-  }, [filters, selected, is3d, amap, workspace, camera, playT, playing, rate, snap]);
+  }, [filters, selected, is3d, amap, workspace, camera, playT, playing, rate, snap, browseMode, activeProject, projectDayFilter, projectVisibility, libraryCalendar, placesCalendar, filterOpen]);
 
   // Picking a file is its own kind of selection: every item of it goes on the map and the
   // camera frames the lot. A single track picked afterwards takes over, so the two never
@@ -1458,6 +1577,19 @@ function TracksApp() {
     setFocus((cur) => ({ source: group[0].source, key: (cur?.key ?? 0) + 1 }));
   }, [onSetMany]);
   const onClearWorkspace = useCallback(() => setWorkspace([]), []);
+  const openProject = useCallback((id) => {
+    const project = projects.find((p) => p.id === id);
+    if (!project) return;
+    const ids = project.trackIds;
+    setActiveProject(id);
+    setProjectVisibility({ tracks: true, waypoints: true });
+    setProjectDayFilter(null);
+    setWorkspace(ids);
+    setSelected(null);
+    setFocus(null);
+    setFitAllKey((n) => n + 1);
+    setSnap('half');
+  }, []);
   // First visit only: start from the same set the empty state offers, so a library with no
   // featured.json still opens on something. A cleared workspace stays cleared.
   const seeded = useRef(initial.seeded);
@@ -1550,7 +1682,7 @@ function TracksApp() {
 
   return <div className="tracks-shell">
     <div className="tracks-top">
-      <PageHeader section="tracks" status={items ? `${onMap.length} / ${items.length} on map` : 'loading'} />
+      <PageHeader section="tracks" status={items ? (browseMode === 'places' ? `${placeItems.length} places` : `${onMap.length} / ${libraryItems.length} on map`) : 'loading'} />
     </div>
     <div className={`tracks-body ${panelOpen ? '' : 'panel-closed'} sheet-${snap}`}>
       <aside className="tracks-panel">
@@ -1562,7 +1694,7 @@ function TracksApp() {
           aria-expanded={panelOpen}
         >
           <span className="tracks-grip" />
-          {snap === 'peek' ? `▴ swipe up · ${filtered.length} tracks` : snap === 'half' ? '▴ full · ▾ hide' : '▾ swipe down'}
+          {snap === 'peek' ? `▴ ${browseMode === 'places' ? `${placeItems.length} places` : browseMode === 'projects' ? (projects.find((p) => p.id === activeProject)?.name ?? 'projects') : `${filtered.length} tracks`}` : snap === 'half' ? '▴ full · ▾ hide' : '▾ swipe down'}
         </button>
         {error ? <div className="tracks-empty mono">{error}</div> : <>
           {dropped > 0 && <button className="tracks-notice mono" onClick={() => setDropped(0)}>
@@ -1580,12 +1712,19 @@ function TracksApp() {
             onStart={() => onAddAllToWorkspace(starter.items)}
             q={filters.q}
             setQ={(v) => setFilters((f) => ({ ...f, q: v }))}
+            browseMode={browseMode}
+            setBrowseMode={(mode) => { setBrowseMode(mode); setSelected(null); if (mode === 'places') setFitAllKey((n) => n + 1); }}
+            placeCount={placeItems.length}
           />
-          {filterOpen && <div className="tracks-filter-layer">
+          {browseMode === 'library' && filterOpen && <div className="tracks-filter-layer">
             <Filters filters={filters} setFilters={setFilters} counts={counts} />
             <button className="btn tracks-filter-done" onClick={() => setFilterOpen(false)}>done · {filtered.length} tracks</button>
           </div>}
-          <TrackList items={filtered} selected={selected} onSelect={selectItem} onOpenFile={onOpenFile} focusSource={focus?.source ?? null} workspace={inWorkspace} onSetMany={onSetMany} onToggleWorkspace={onToggleWorkspace} />
+          {browseMode === 'library'
+            ? <TrackList items={filtered} selected={selected} onSelect={selectItem} onOpenFile={onOpenFile} focusSource={focus?.source ?? null} workspace={inWorkspace} onSetMany={onSetMany} onToggleWorkspace={onToggleWorkspace} year={libraryCalendar.year} setYear={(year) => setLibraryCalendar((state) => ({ ...state, year }))} month={libraryCalendar.month} setMonth={(month) => setLibraryCalendar((state) => ({ ...state, month }))} />
+            : browseMode === 'projects'
+              ? <ProjectsView activeProject={activeProject} workspace={workspace} items={libraryItems} visibility={projectVisibility} setVisibility={(next) => { setProjectVisibility(next); setSelected(null); setFitAllKey((n) => n + 1); }} day={projectDayFilter} setDay={(next) => { setProjectDayFilter(next); setSelected(null); setFocus(null); setFitAllKey((n) => n + 1); }} onOpen={openProject} onBack={() => setActiveProject(null)} selected={selected} onSelect={selectItem} onOpenFile={onOpenFile} focusSource={focus?.source ?? null} onSetMany={onSetMany} onToggleWorkspace={onToggleWorkspace} />
+              : <PlacesView items={placeItems} selected={selected} onSelect={selectItem} year={placesCalendar.year} setYear={(year) => setPlacesCalendar((state) => ({ ...state, year }))} month={placesCalendar.month} setMonth={(month) => setPlacesCalendar((state) => ({ ...state, month }))} />}
         </>}
       </aside>
       <section className="tracks-stage">
