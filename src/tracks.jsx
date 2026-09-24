@@ -410,6 +410,7 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
   // A shared link carries the camera, so the first auto-fit would throw the view away.
   const skipFit = useRef(Boolean(initialCamera));
   const skipPitchReset = useRef(Boolean(initialCamera));
+  const skipPitchRaise = useRef(Boolean(initialCamera && is3d));
 
   useEffect(() => {
     const map = new maplibregl.Map({
@@ -549,7 +550,8 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
       if (map.hasControl(scale)) map.removeControl(scale);
       map.setTerrain({ source: 'dem', exaggeration: TERRAIN_EXAG });
       if (!map.getLayer('sky')) map.setSky?.({ 'sky-color': '#07101c', 'horizon-color': '#12301f', 'fog-color': '#050610', 'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.6, 'fog-ground-blend': 0.8 });
-      map.easeTo({ pitch: Math.max(map.getPitch(), 55), duration: 800 });
+      // Opening a saved 3D view must keep its pitch, including angles below 55°.
+      if (!skipPitchRaise.current) map.easeTo({ pitch: Math.max(map.getPitch(), 55), duration: 800 });
       ['wpt-label', 'wpt-dot'].forEach((id) => map.setLayoutProperty(id, 'visibility', 'none'));
     } else {
       if (!map.hasControl(scale)) map.addControl(scale, 'bottom-left');
@@ -559,6 +561,7 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
       if (!skipPitchReset.current) map.easeTo({ pitch: 0, bearing: 0, duration: 600 });
     }
     skipPitchReset.current = false;
+    skipPitchRaise.current = false;
   }, [is3d, ready]);
 
   useEffect(() => {
@@ -602,21 +605,21 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
     map.setPaintProperty('wpt-label', 'text-opacity', 1);
   }, [ground, selected, focusSource, ready]);
 
-  // The DEM streams in, so the height under a waypoint is not known at the moment its callout
-  // is first drawn. One re-read when the map settles is enough, and it stops once every
-  // waypoint has a height, so an idle map does no work.
+  // The DEM streams in, so waypoint and playhead heights may be unknown on the first draw.
+  // Re-read while a terrain height is missing; stop when the sampled heights are ready.
   const [terrainTick, setTerrainTick] = useState(0);
   const terrainPending = useRef(true);
-  // A waypoint outside the view never gets a DEM tile, so its height stays unknown and the
-  // retry would run on every idle for as long as the page is open. Give it a fixed budget.
+  const pinTerrainPending = useRef(false);
+  // A point outside the view may never get a DEM tile. Give retries a fixed budget.
   const terrainTries = useRef(0);
   const TERRAIN_TRIES = 12;
-  const needTerrain = is3d && ground.points.features.some((f) => f.properties.ele == null);
+  const needTerrain = is3d && (ground.points.features.some((f) => f.properties.ele == null) || Boolean(marker && !marker.air));
   // Turning terrain on raises the ground under every waypoint, and the DEM for the view is
   // usually not in memory yet at that moment, so the heights sampled in the old state are all
   // wrong. Start sampling again from the flip rather than waiting for something else to.
   useEffect(() => {
     terrainPending.current = true;
+    pinTerrainPending.current = Boolean(marker && !marker.air);
     terrainTries.current = 0;
     setTerrainTick((n) => n + 1);
   }, [is3d]);
@@ -638,12 +641,17 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
     // Only while a height is still missing: a tick redraws the deck layers, which makes the map
     // idle again, and an unconditional bump would spin that into a loop on a still map.
     const onIdle = () => {
-      if (!terrainPending.current || terrainTries.current >= TERRAIN_TRIES) return;
+      if ((!terrainPending.current && !pinTerrainPending.current) || terrainTries.current >= TERRAIN_TRIES) return;
       terrainTries.current += 1;
       setTerrainTick((n) => n + 1);
     };
+    // A DEM tile may arrive after the idle retry budget. Refresh the pin when it does.
+    const onDem = (event) => {
+      if (event.sourceId === 'dem' && pinTerrainPending.current) setTerrainTick((n) => n + 1);
+    };
     map.on('idle', onIdle);
-    return () => map.off('idle', onIdle);
+    map.on('sourcedata', onDem);
+    return () => { map.off('idle', onIdle); map.off('sourcedata', onDem); };
   }, [ready, needTerrain]);
 
   // Stable data reference: deck only rebuilds GPU buffers when this array changes.
@@ -672,6 +680,7 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
         updateTriggers: { getColor: selected, getWidth: selected },
       }),
     ];
+    terrainPending.current = false;
     // In 3D every waypoint gets the playhead's pin: a stem down to the terrain, a head, and the
     // name floating at the top of the stem, where nothing on the ground is drawn over it.
     if (is3dRef.current && ground.points.features.length) {
@@ -746,18 +755,27 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
     }
     if (marker && !marker.air && is3dRef.current) {
       const [lon, lat] = pos;
-      const top = marker.topEle + floatMetres(PIN_FLOAT_PX, lat, mapRef.current?.getZoom() ?? 12);
-      // Pin: stem from the floating head straight down to the point on the terrain.
-      const groundZ = mapRef.current?.queryTerrainElevation([lon, lat]) ?? 0;
+      const sampled = mapRef.current?.queryTerrainElevation([lon, lat]);
+      // The DEM can return zero before its tile arrives. GPS elevation keeps the pin near
+      // the track until the terrain sample is ready.
+      pinTerrainPending.current = sampled == null || (sampled === 0 && marker.ele > 0);
+      const groundZ = pinTerrainPending.current ? marker.ele * TERRAIN_EXAG : sampled;
+      const top = groundZ + floatMetres(PIN_FLOAT_PX, lat, mapRef.current?.getZoom() ?? 12);
+      // Head, stem and foot use the same terrain sample, so they cannot split on refresh.
       layers.push(new LineLayer({
         id: 'playhead-stem', data: [marker], getSourcePosition: () => [lon, lat, top], getTargetPosition: () => [lon, lat, groundZ],
         getColor: (d) => [...hexToRgb(d.color), 190], getWidth: 2, widthUnits: 'pixels',
       }));
       layers.push(new ScatterplotLayer({
+        id: 'playhead-foot', data: [marker], getPosition: () => [lon, lat, groundZ], getFillColor: [255, 255, 255],
+        getLineColor: (d) => hexToRgb(d.color), stroked: true, lineWidthUnits: 'pixels', getLineWidth: 3,
+        radiusUnits: 'pixels', getRadius: 7,
+      }));
+      layers.push(new ScatterplotLayer({
         id: 'playhead-head', data: [marker], getPosition: () => [lon, lat, top], getFillColor: (d) => hexToRgb(d.color),
         getLineColor: [255, 255, 255], stroked: true, lineWidthUnits: 'pixels', getLineWidth: 2, radiusUnits: 'pixels', getRadius: 8,
       }));
-    }
+    } else pinTerrainPending.current = false;
     if (marker?.air) {
       const [lon, lat] = pos;
       // Drop line from the aircraft to the ground below it (terrain height in 3D, sea level in 2D).
@@ -778,7 +796,7 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
     if (!ready) return;
     // Ground marker (or shadow under an airborne one) is a DOM marker: it follows terrain and
     // moving it per frame is cheap, unlike re-tiling a GeoJSON source.
-    if (!marker) {
+    if (!marker || (is3d && !marker.air)) {
       groundMarkerRef.current?.remove();
       groundMarkerRef.current = null;
       return;
@@ -791,7 +809,7 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
     el.className = `tracks-playhead ${marker.air ? 'air' : ''} ${marker.idle ? 'idle' : ''}`;
     el.style.setProperty('--chip', marker.color);
     groundMarkerRef.current.setLngLat(pos.slice(0, 2));
-  }, [marker, ready, proj]);
+  }, [marker, ready, proj, is3d]);
 
   // Zoom the camera to a set of tracks. `forSelection` reserves the space the detail card covers.
   const fitTo = useCallback((target, forSelection) => {
@@ -1504,11 +1522,8 @@ function TracksApp() {
     const p = positionAt(selGeom, playT);
     if (!p) return null;
     const air = typeOf(selItem.type).air;
-    // Non-airborne tracks get a pin in 3D: the head hangs over the track's own high point
-    // (terrain exaggeration included) and the stem reaches down to the surface. How far over
-    // is decided by the map, which knows the zoom.
-    const topEle = (selItem.maxEle ?? 0) * TERRAIN_EXAG;
-    return { position: air ? p : [p[0], p[1]], color: typeOf(selItem.type).color, air, topEle, idle: Boolean(idle) };
+    // Keep the point's elevation for the first frame, before the DEM has loaded.
+    return { position: air ? p : [p[0], p[1]], ele: p[2] ?? 0, color: typeOf(selItem.type).color, air, idle: Boolean(idle) };
   }, [playT, selGeom, selItem, idle]);
 
   const onViewChange = useCallback((b) => setViewBounds(b), []);
