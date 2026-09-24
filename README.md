@@ -55,6 +55,11 @@ footer, or game score-storage keys. For example:
 
 Keep all existing keys when editing the real file, then rebuild the site.
 
+Set `site.siteUrl` to the public origin (for example, `https://www.example.com`)
+to emit absolute canonical URLs, social image URLs, and `sitemap.xml`. Leave it
+empty for local builds or deployments without a fixed public domain. `SITE_URL`
+can set the same value for one build without changing the file.
+
 ## Tracks
 
 `/tracks/` draws GPX, KML and GeoJSON files from `data/tracks/<type>/` on a
