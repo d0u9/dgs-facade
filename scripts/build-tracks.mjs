@@ -1,7 +1,7 @@
 // Converts raw track files in data/tracks/<type>/ into static JSON under public/tracks-data/.
 // index.json holds metadata for filtering; <id>.json holds geometry and is loaded on demand.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { basename, extname, join, relative } from 'node:path';
+import { extname, join, relative } from 'node:path';
 import { DOMParser } from '@xmldom/xmldom';
 import { gpx, kml } from '@tmcw/togeojson';
 
@@ -271,16 +271,16 @@ function readFeatured(srcDir, log) {
 export function buildTracks({ srcDir, outDir, log = console.log }) {
   mkdirSync(outDir, { recursive: true });
   const featured = readFeatured(srcDir, log);
-  const isFeatured = (meta) => [meta.id, meta.name, meta.source].some((v) => v && featured.has(String(v).toLowerCase()));
+  const isFeatured = (meta, source) => [meta.id, meta.name, source].some((v) => v && featured.has(String(v).toLowerCase()));
 
   // Every track is built before any id is handed out: assignment reads the whole set, and
   // sorting the files makes a fresh ledger come out the same way on any machine.
   const pending = [];
   walk(srcDir).sort().forEach((file) => {
     const source = relative(srcDir, file);
+    const sourceId = `s${fnv1a(source).toString(36)}`;
     const folder = source.split(/[\\/]/)[0];
     const folderType = normalizeType(folder) ?? 'other';
-    const fileName = basename(file, extname(file));
     let collection;
     try { collection = parseFile(file); } catch (error) { log(`[tracks] skip ${file}: ${error.message}`); return; }
     if (!collection?.features) return;
@@ -297,12 +297,12 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
         waypoints.push({ name: props.name ?? `WP ${waypoints.length + 1}`, type, lon: round(lon, 6), lat: round(lat, 6), ele: ele != null ? round(ele, 1) : null, time: props.time ?? null, desc: props.desc ?? null });
         return;
       }
-      const name = props.name ?? (collection.features.length > 1 ? `${fileName} ${fi + 1}` : fileName);
-      const item = buildLineItem(feature, { name, type, kind, source, desc: props.desc ?? null, start: props.time ?? null });
+      const name = String(props.name ?? '').trim() || `Track ${fi + 1}`;
+      const item = buildLineItem(feature, { name, type, kind, source: sourceId, desc: props.desc ?? null, start: props.time ?? null });
       if (!item) return;
       if (props.featured === true || props.featured === 'true') item.meta.featured = true;
       fileLines.push(item.meta);
-      pending.push({ srcKey: `${source}#${fi}`, fp: item.fp, meta: item.meta, payload: item.geometry });
+      pending.push({ srcKey: `${source}#${fi}`, privateSource: source, fp: item.fp, meta: item.meta, payload: item.geometry });
     });
 
     if (waypoints.length) {
@@ -315,7 +315,7 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
       const lineStarts = fileLines.map((m) => m.start).filter(Boolean).sort();
       const lineEnds = fileLines.map((m) => m.end).filter(Boolean).sort();
       const meta = {
-        name: `${fileName} waypoints`, type: folderType, kind: 'waypoint', source, desc: null,
+        name: waypoints.length === 1 ? waypoints[0].name : 'Waypoints', type: folderType, kind: 'waypoint', source: sourceId, desc: null,
         points: waypoints.length,
         start: times.length ? new Date(times[0]).toISOString() : lineStarts[0] ?? null,
         end: times.length ? new Date(times[times.length - 1]).toISOString() : lineEnds[lineEnds.length - 1] ?? null,
@@ -326,7 +326,7 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
         bbox: [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)],
       };
       const fp = fingerprint('waypoint', waypoints.map((w) => [w.lon, w.lat]));
-      pending.push({ srcKey: `${source}#waypoints`, fp, meta, payload: { waypoints } });
+      pending.push({ srcKey: `${source}#waypoints`, privateSource: source, fp, meta, payload: { waypoints } });
     }
   });
 
@@ -364,7 +364,7 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
 
   const index = [];
   pending.forEach((item) => {
-    if (isFeatured(item.meta)) item.meta.featured = true;
+    if (isFeatured(item.meta, item.privateSource)) item.meta.featured = true;
     index.push(item.meta);
     writeFileSync(join(outDir, `${item.meta.id}.json`), JSON.stringify(item.payload));
   });

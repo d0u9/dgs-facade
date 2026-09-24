@@ -215,7 +215,7 @@ function applyFilters(items, f, viewBounds) {
   return items.filter((it) => {
     if (f.types.length && !f.types.includes(it.type)) return false;
     if (f.kinds.length && !f.kinds.includes(it.kind)) return false;
-    if (q && !`${it.name} ${it.source} ${it.desc ?? ''}`.toLowerCase().includes(q)) return false;
+    if (q && !`${it.name} ${it.desc ?? ''}`.toLowerCase().includes(q)) return false;
     if (from || to) {
       const t = it.start ? Date.parse(it.start) : null;
       if (t == null || (from && t < from) || (to && t >= to)) return false;
@@ -964,7 +964,6 @@ function TrackRow({ it, selected, onSelect, inWorkspace, onToggleWorkspace }) {
 // A GPX file often holds one recording and its waypoints, or several sub-tracks. They are
 // separate items on the map, so the list nests them under the file they came from: one tick
 // draws the whole file, and the submenu picks out a single sub-track or the waypoint set.
-const fileLabel = (source) => String(source).split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
 const KIND_ORDER = { track: 0, plan: 1, waypoint: 2 };
 
 function FileGroup({ items, selected, onSelect, onOpenFile, focusSource, workspace, onSetMany, onToggleWorkspace }) {
@@ -975,9 +974,8 @@ function FileGroup({ items, selected, onSelect, onOpenFile, focusSource, workspa
   const [open, setOpen] = useState(false);
   const lines = items.filter((it) => it.kind !== 'waypoint');
   const wpts = items.filter((it) => it.kind === 'waypoint');
-  // One recording plus its waypoints is the common file: the recording's own name says more
-  // than the file name does. A file of several tracks has no such name, so it takes the file's.
-  const label = lines.length === 1 ? lines[0].name : fileLabel(items[0].source);
+  // A track name labels the file. Waypoint-only files use a waypoint name.
+  const label = lines[0]?.name || wpts[0]?.name || 'Untitled track';
   // A file of one recording has nothing to choose between: picking it picks that recording, so
   // the submenu would only repeat the row. It opens on the caret, and on nothing else. A file
   // of several tracks does open, because there the submenu is how you get at one of them.
@@ -1248,7 +1246,7 @@ function Detail({ item, geom, onClose, playT, setPlayT, playing, setPlaying, rat
         <button className="btn" onClick={onClose} aria-label="close">✕</button>
       </div>
     </div>
-    <div className="tracks-item-meta tracks-detail-sub mono">{fmtDate(item.start)} · {item.source}</div>
+    <div className="tracks-item-meta tracks-detail-sub mono">{fmtDate(item.start)}</div>
     {/* On a phone the card shares the screen with the map, and six figures at reading size take
         more of it than the map can spare. They fold into one line there, which still carries the
         two that answer "what is this track" — the button is hidden at desk width, where the
@@ -1277,18 +1275,21 @@ function Detail({ item, geom, onClose, playT, setPlayT, playing, setPlaying, rat
   </div>;
 }
 
-// The map's contents get their own place in the panel instead of an adjective on every row:
-// a track is on the map when its chip is up here, and the × takes it off again.
+// The map's contents get their own place in the panel. One chip represents one GPX file,
+// even when that file contains several tracks or waypoints.
 // That leaves the list below free to be the library, with one job: add tracks.
 // Filters live behind a button: on a phone they would otherwise push the list off-screen.
+const mapFileName = (file) => file.find((it) => it.kind !== 'waypoint')?.name || file[0].name;
+
 function PanelHead({
-  mapItems, onSelect, filterCount, filterOpen, setFilterOpen,
-  onClearWorkspace, onToggleWorkspace, starter, onStart, q, setQ,
+  mapItems, onOpenFile, filterCount, filterOpen, setFilterOpen,
+  onClearWorkspace, onSetMany, starter, onStart, q, setQ,
 }) {
+  const mapFiles = groupBySource(mapItems);
   return <>
     <div className="tracks-mapbar">
       <div className="tracks-scope mono">
-        <span className="tracks-scope-label">✦ map {mapItems.length || ''}</span>
+        <span className="tracks-scope-label">✦ map {mapFiles.length || ''}</span>
         <span className="tracks-scope-actions tracks-modes">
           {mapItems.length > 0 && <button className="btn" onClick={onClearWorkspace} title="take every track off the map">clear</button>}
           <button className={`btn ${filterOpen ? 'active' : ''}`} onClick={() => setFilterOpen(!filterOpen)} aria-expanded={filterOpen}>
@@ -1298,12 +1299,12 @@ function PanelHead({
       </div>
       {mapItems.length
         ? <div className="tracks-chipstrip">
-            {mapItems.map((it) => (
-              <span key={it.id} className="tracks-mapchip" style={{ '--chip': typeOf(it.type).color }}>
-                <button className="tracks-mapchip-name" onClick={() => onSelect(it.id)} title={it.name}>
-                  <span className="tracks-swatch" /><span className="tracks-mapchip-label">{it.name}</span>
+            {mapFiles.map((file) => (
+              <span key={file[0].source ?? file[0].id} className="tracks-mapchip" style={{ '--chip': typeOf(file[0].type).color }}>
+                <button className="tracks-mapchip-name" onClick={() => onOpenFile(file)} title={mapFileName(file)}>
+                  <span className="tracks-swatch" /><span className="tracks-mapchip-label">{mapFileName(file)}</span>
                 </button>
-                <button className="tracks-mapchip-x" onClick={() => onToggleWorkspace(it.id)} aria-label={`take ${it.name} off the map`} title="take off the map">×</button>
+                <button className="tracks-mapchip-x" onClick={() => onSetMany(file.map((it) => it.id), false)} aria-label={`take ${mapFileName(file)} off the map`} title="take file off the map">×</button>
               </span>
             ))}
           </div>
@@ -1313,7 +1314,7 @@ function PanelHead({
           </div>}
     </div>
     <div className="tracks-row tracks-search">
-      <input className="tracks-input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="search name or file…" aria-label="search tracks" />
+      <input className="tracks-input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="search track name…" aria-label="search tracks" />
     </div>
   </>;
 }
@@ -1557,8 +1558,8 @@ function TracksApp() {
             filterOpen={filterOpen}
             setFilterOpen={setFilterOpen}
             mapItems={onMap}
-            onSelect={selectItem}
-            onToggleWorkspace={onToggleWorkspace}
+            onOpenFile={(file) => onOpenFile(items.filter((it) => it.source === file[0].source))}
+            onSetMany={onSetMany}
             onClearWorkspace={onClearWorkspace}
             starter={starter}
             onStart={() => onAddAllToWorkspace(starter.items)}
