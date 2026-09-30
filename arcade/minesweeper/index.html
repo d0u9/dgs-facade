@@ -1,5 +1,34 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="description" content="Clear the field with logic and mark every hidden mine."><meta name="referrer" content="no-referrer"><title>Minesweeper — DGS</title><link rel="stylesheet" href="/vendor-minesweeper.css"></head><body>
-<main class="mine-page"><header class="mine-topbar"><a class="mine-brand" href="/" aria-label="DGS home"><i class="mine-mark" aria-hidden="true"></i><span>DGS / PLAYGROUND</span></a><div class="mine-status"><i aria-hidden="true"></i><span>GAME ONLINE</span></div></header>
-<section class="mine-intro" aria-labelledby="game-title"><a class="mine-back" href="/arcade/" aria-label="Back to arcade"><span>←</span><span>arcade</span></a><div class="mine-copy"><div class="mine-eyebrow">logic puzzle</div><h1 id="game-title">Minesweeper</h1><p>Clear the field with logic. Mark every hidden mine without triggering one.</p></div><div class="mine-summary"><div class="stats"><div class="stat"><div class="l">Mines</div><div class="v" id="mineCount">0</div></div><div class="stat"><div class="l">Time</div><div class="v" id="timer">0</div></div><div class="stat"><div class="l">Best</div><div class="v" id="bestTime">—</div></div></div><div class="mine-actions"><button class="play-btn" onclick="newGame()">new game</button><a class="mine-exit" href="/arcade/">exit</a></div><div class="mine-note">click / tap · right click / long press to flag</div></div><div class="mine-scroll-cue" aria-hidden="true"><span>scroll down to play</span><span>↓</span></div></section>
-<section class="mine-stage" aria-label="Minesweeper play area"><div class="mine-stage-hud" aria-label="Current game statistics"><span class="mine-gesture-hint">top edge: swipe to return</span><div><span>Mines</span><strong id="mineCountStage">0</strong></div><div><span>Time</span><strong id="timerStage">0</strong></div><div><span>Best</span><strong id="bestTimeStage">—</strong></div></div><div class="mine-play"><div class="toolbar" role="group" aria-label="Difficulty"><button class="diff-btn active" data-d="beginner">Beginner 9×9</button><button class="diff-btn" data-d="intermediate">Intermediate 16×16</button><button class="diff-btn" data-d="expert">Expert 30×16</button></div><div class="mine-board-wrap"><div id="board" data-difficulty="beginner"></div></div></div></section></main>
-<div id="overlay" role="dialog" aria-modal="true" aria-labelledby="ovTitle"><h2 id="ovTitle"></h2><p id="ovSub"></p><button class="play-btn" onclick="newGame()">Play Again</button></div><script src="/vendor-minesweeper.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <!-- arcade:head -->
+  <link rel="stylesheet" href="/vendor-minesweeper.css">
+</head>
+<body>
+<main data-arcade="minesweeper">
+  <!-- arcade:intro -->
+  <section class="ag-game-shell">
+    <div class="ag-toolbar">
+      <div class="ag-hud" aria-label="Current game status">
+        <div><span>mines</span><strong id="mineCount">0</strong></div>
+        <div><span>time</span><strong id="timer">0</strong></div>
+        <div><span>best</span><strong id="bestTime">—</strong></div>
+      </div>
+      <div class="ag-buttons"><button class="ag-btn" type="button" onclick="newGame()">new game</button></div>
+    </div>
+    <div class="ms-stage">
+      <!-- board/mineCount/timer/bestTime and .diff-btn are what the game script looks up. -->
+      <div class="ms-difficulty" role="group" aria-label="Difficulty">
+        <button class="ag-btn diff-btn active" type="button" data-d="beginner">beginner 9×9</button>
+        <button class="ag-btn diff-btn" type="button" data-d="intermediate">intermediate 16×16</button>
+        <button class="ag-btn diff-btn" type="button" data-d="expert">expert 30×16</button>
+      </div>
+      <div class="ms-board-wrap"><div id="board" data-difficulty="beginner"></div></div>
+    </div>
+    <p class="ag-hint">top edge: swipe to return</p>
+  </section>
+</main>
+<div id="overlay" role="dialog" aria-modal="true" aria-labelledby="ovTitle"><h2 id="ovTitle"></h2><p id="ovSub"></p><button class="ag-btn" type="button" onclick="newGame()">play again</button></div>
+<script src="/vendor-minesweeper.js"></script>
+</body>
+</html>
