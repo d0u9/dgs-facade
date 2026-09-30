@@ -32,7 +32,12 @@
   {
     "slug": "hextris", "title": "Hextris", "code": "03",
     "blurb": "Rotate the hexagon. Match three colors before the stack reaches the edge.",
-    "keys": "← → / A D · SPACE"
+    "keys": "← → / A D · SPACE",
+    "page": {
+      "accent": "#25f4ee",
+      "description": "Play the open-source Hextris locally in your browser.",
+      "intro": "Rotate the hexagon. Match three colors before the stack reaches the edge."
+    }
   },
   {
     "slug": "suika", "title": "Watermelon", "code": "04",

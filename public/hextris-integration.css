@@ -1,33 +1,10 @@
-/* This page has no shared reset with the rest of the site (it's a standalone
-   entry loading the vendor game), so box-sizing defaults to content-box —
-   every element below that combines a height (100svh, etc.) with padding was
-   silently growing past that height by the padding amount, which is what was
-   overflowing .hextris-page's scroll-snap sections and surfacing as a page
-   scrollbar. */
-*, *::before, *::after { box-sizing: border-box; }
-:root { color-scheme: dark; --bg:#050610; --line:rgba(37,244,238,.16); --line-strong:rgba(37,244,238,.32); --text:#edf7f1; --muted:#8da499; --accent:#25f4ee; --accent-2:#fe2c55; }
-/* A double tap on a game page should never zoom the page: on a phone the
-   second tap of a quick pair lands on the board, not on a zoom gesture.
-   touch-action intersects down the tree, so the boards that ask for
-   touch-action:none keep it. */
+/* Hextris on the shared arcade shell (see docs/arcade.md). The shell
+   supplies the page, top bar and intro; this sheet styles the game screen. */
+/* The vendor style.css loads after the arcade shell and sets its own body
+   font, background and overflow:hidden, so the shell's page rules are
+   repeated here to win the cascade. */
 html,body { min-width:320px; min-height:100%; overflow-x:hidden; overscroll-behavior-x:none; background:var(--bg); touch-action:manipulation; }
 body { overflow-y:auto; color:var(--text); font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-.hextris-page { width:min(1180px,calc(100% - 40px)); height:100svh; min-height:0; margin:0 auto; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; overscroll-behavior-x:none; scroll-snap-type:y mandatory; scrollbar-width:none; }
-.hextris-page::-webkit-scrollbar { display:none; }
-.hextris-topbar { min-height:76px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); scroll-snap-align:start; scroll-snap-stop:always; }
-.hextris-brand,.hextris-status { display:flex; align-items:center; gap:10px; color:var(--muted); font:12px ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.06em; text-decoration:none; }
-.hextris-mark,.hextris-status i { width:8px; height:8px; border:1px solid var(--accent); transform:rotate(45deg); box-shadow:0 0 14px rgba(37,244,238,.55); }
-.hextris-status i { border:0; border-radius:50%; background:var(--accent); }
-.hextris-intro { position:relative; min-height:calc(100svh - 76px); display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:24px; padding:54px 0; border-bottom:1px solid var(--line); }
-.hextris-back,.hextris-exit { min-height:44px; display:inline-flex; align-items:center; gap:8px; padding:0 15px; border:1px solid var(--line); border-radius:999px; background:rgba(8,15,11,.72); color:var(--text); text-decoration:none; font:12px ui-monospace,SFMono-Regular,Menlo,monospace; }
-.hextris-eyebrow { margin-bottom:10px; color:var(--accent); font:12px ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.12em; text-transform:uppercase; }
-.hextris-copy h1 { margin:0; font:600 clamp(58px,8vw,104px)/.9 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; letter-spacing:-.07em; }
-.hextris-copy p { margin:20px 0 0; color:var(--muted); font:clamp(15px,1.5vw,18px)/1.6 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-.hextris-actions { display:flex; align-items:center; gap:14px; }
-.hextris-keys { color:#607369; font:9px ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.05em; white-space:nowrap; }
-.hextris-scroll-cue { position:absolute; bottom:22px; left:50%; display:flex; align-items:center; gap:10px; color:var(--muted); font:10px ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.1em; text-transform:uppercase; transform:translateX(-50%); }
-.hextris-scroll-cue span:last-child { color:var(--accent); font-size:15px; animation:scroll-cue 1.8s ease-in-out infinite; }
-@keyframes scroll-cue { 0%,100%{transform:translateY(-2px)} 50%{transform:translateY(4px)} }
 /* Controls (help/pause/restart) and the score/best/state HUD share one row now:
    controls at the start, HUD at the end. This also reclaims the vertical space
    a separate controls row used to take, which was pushing the stage tall enough
@@ -76,14 +53,6 @@ body { overflow-y:auto; color:var(--text); font-family:ui-sans-serif,-apple-syst
 #hextris-stage #restart { bottom:18px; left:50%; }
 #hextris-stage .centeredHeader { font-size:clamp(28px,5vw,56px); }
 @media (max-width:600px) {
-  .hextris-page { width:min(calc(100% - 22px),1180px); }
-  .hextris-topbar { min-height:60px; }
-  .hextris-status span { display:none; }
-  .hextris-intro { min-height:calc(100svh - 60px); grid-template-columns:auto minmax(0,1fr); gap:14px; padding:36px 0; }
-  .hextris-back { width:44px; padding:0; justify-content:center; }
-  .hextris-back span:last-child { display:none; }
-  .hextris-actions { grid-column:1/-1; justify-content:space-between; }
-  .hextris-copy h1 { font-size:clamp(52px,16vw,78px); }
   .hextris-game-shell { padding:12px 0 16px; gap:6px; }
   .hextris-toolbar { flex-wrap:wrap; gap:6px; }
   .hextris-gesture-hint { order:3; width:100%; }
@@ -94,4 +63,3 @@ body { overflow-y:auto; color:var(--text); font-family:ui-sans-serif,-apple-syst
   .hextris-controls #restartBtn { width:40px; height:40px; }
   #hextris-stage { border-radius:22px; }
 }
-@media (prefers-reduced-motion:reduce) { .hextris-scroll-cue span:last-child { animation:none; } }
