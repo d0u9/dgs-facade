@@ -10,7 +10,7 @@
       "rules": [
         "Connect two numbers horizontally, vertically or diagonally with only empty cells between. Numbers also connect in reading order across row ends when every cell between is empty.",
         "Touching pairs score 1, pairs farther apart score 4. Each emptied row scores 10 and disappears. Clearing the board scores 150 and opens the next, larger stage.",
-        "Add copies the remaining numbers onto the end of the board, up to five times per stage. The badge shows how many remain; the latest copies are blue. Undo is unlimited."
+        "Add copies the remaining numbers onto the end of the board and rearranges the copies to reduce identical neighbours, up to five times per stage. The badge shows how many remain; the latest copies are blue. Undo is unlimited."
       ]
     }
   },

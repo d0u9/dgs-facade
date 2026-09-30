@@ -13,7 +13,7 @@ test('legal paths skip holes, reject blockers and include diagonal and row wrap'
   assert.deepEqual(matches([3, 0, 6]), []);
 });
 
-test('clearing removes only empty rows; Add copies active numbers in order', () => {
+test('clearing removes only empty rows; Add copies active values', () => {
   assert.deepEqual(remove([1, 9, ...empty(7), 4, 6], [0, 1]), [4, 6]);
   assert.deepEqual(append([1, 0, 9]), [1, 0, 9, 1, 9]);
   assert.equal(ADD_LIMIT, 5);
@@ -64,4 +64,61 @@ test('generated boards across levels and stages replay their verified route', ()
       }
     }
   }
+});
+
+function equalNeighbours(board, start = 0) {
+  let count = 0;
+  for (let b = start; b < board.length; b++) for (let a = 0; a < b; a++) {
+    const dr = Math.floor(b / 9) - Math.floor(a / 9);
+    const dc = Math.abs(b % 9 - a % 9);
+    if (board[b] && board[a] === board[b] && (b - a === 1 || (dr <= 1 && dc <= 1))) count++;
+  }
+  return count;
+}
+
+test('boards cover all digits with bounded frequency and reproducible solutions', () => {
+  for (let level = 0; level < 3; level++) for (let seed = 1; seed <= 40; seed++) {
+    const g = generate(level, seed, 3);
+    assert.equal(new Set(g.board).size, 9);
+    const cap = Math.ceil(g.board.length / 9) + 1;
+    for (let n = 1; n <= 9; n++) assert.ok(g.board.filter(x => x === n).length <= cap);
+    replay(g.board, g.path);
+  }
+  assert.deepEqual(generate(1, 731), generate(1, 731));
+});
+
+test('Add preserves cells and frequencies, is deterministic, and reduces identical neighbours', () => {
+  let before = 0, after = 0;
+  for (let seed = 1; seed <= 60; seed++) {
+    const g = generate(2, seed, 4);
+    let b = g.board;
+    for (const step of g.path.slice(0, 10)) b = remove(b, step.pair);
+    const plain = b.concat(b.filter(Boolean));
+    const added = append(b);
+    if (matches(plain).length) assert.ok(matches(added).length);
+    assert.deepEqual(added.slice(0, b.length), b);
+    assert.deepEqual(added.slice(b.length).sort(), b.filter(Boolean).sort());
+    assert.deepEqual(added, append(b));
+    const oldCount = equalNeighbours(plain, b.length);
+    const newCount = equalNeighbours(added, b.length);
+    assert.ok(newCount <= oldCount);
+    before += oldCount; after += newCount;
+  }
+  assert.ok(before > 0);
+  assert.ok(after < before * 0.5, `${after} vs ${before}`);
+  assert.deepEqual(append([5, 0, 5]), [5, 0, 5, 5, 5]);
+  assert.deepEqual(append([]), []);
+});
+
+test('solver and gameplay agree on rearranged Add results', () => {
+  const original = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const result = solve(original, 1, 12000);
+  assert.equal(result.status, 'solved');
+  assert.ok(result.path.some(step => step.add));
+  let b = original;
+  for (const step of result.path) {
+    if (step.add) b = append(b);
+    else { assert.ok(matches(b).some(p => p.join() === step.pair.join())); b = remove(b, step.pair); }
+  }
+  assert.equal(b.length, 0);
 });

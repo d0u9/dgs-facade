@@ -196,7 +196,7 @@ $('add').onclick = () => {
   board = append(board);
   fresh = board.map((_, i) => i >= before);
   adds--;
-  render('Remaining numbers copied onto the end of the board.');
+  render('Remaining numbers copied and rearranged to reduce matching neighbours.');
 };
 
 start(1);
