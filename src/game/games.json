@@ -17,7 +17,12 @@
   {
     "slug": "2048", "title": "2048", "code": "01", "href": "/arcade/2048/",
     "blurb": "Join matching tiles and keep the board alive.",
-    "keys": "ARROWS / WASD · SWIPE"
+    "keys": "ARROWS / WASD · SWIPE",
+    "page": {
+      "tag": "number puzzle", "accent": "#8df3b9",
+      "description": "Join matching tiles and reach 2048.",
+      "intro": "Join matching tiles. Reach 2048, or keep going until the board runs out of space."
+    }
   },
   {
     "slug": "flood", "title": "Color Flood", "code": "02",
