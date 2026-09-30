@@ -93,6 +93,7 @@ body { overflow-y:auto; color:var(--text); font-family:var(--sans); }
   .ag-back { width:44px; padding:0; justify-content:center; }
   .ag-back span:last-child { display:none; }
   .ag-actions { grid-column:1/-1; justify-content:space-between; }
+  .ag-keys { white-space:normal; text-align:right; }
   .ag-copy h1 { font-size:clamp(52px,16vw,78px); }
   .ag-game-shell { padding:12px 0 16px; gap:6px; }
   .ag-toolbar { flex-direction:column; gap:6px; }

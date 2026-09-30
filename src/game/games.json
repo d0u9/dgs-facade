@@ -52,7 +52,12 @@
   {
     "slug": "minesweeper", "title": "Minesweeper", "code": "06",
     "blurb": "Clear the field with logic. Mark every hidden mine.",
-    "keys": "CLICK / TAP · LONG PRESS TO FLAG"
+    "keys": "CLICK / TAP · RIGHT CLICK / LONG PRESS TO FLAG",
+    "page": {
+      "tag": "logic puzzle", "accent": "#8df3b9",
+      "description": "Clear the field with logic and mark every hidden mine.",
+      "intro": "Clear the field with logic. Mark every hidden mine without triggering one."
+    }
   },
   {
     "slug": "dino", "title": "Chrome Dino", "code": "07", "href": "/arcade/dino/",
