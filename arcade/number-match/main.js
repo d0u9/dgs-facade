@@ -7,6 +7,7 @@ let board = [];
 let adds = ADD_LIMIT;
 let score = 0;
 let stage = 1;
+let level = 1;
 let selected = null;
 let hinted = [];
 let history = [];
@@ -138,7 +139,7 @@ async function start(nextStage) {
   board = [];
   fresh = [];
   render('Building a board with a verified solution…');
-  const reply = await ask({ type: 'generate', level: Number($('difficulty').value), stage, seed: Date.now() });
+  const reply = await ask({ type: 'generate', level, stage, seed: Date.now() });
   if (!reply) return;
   board = reply.board;
   busy = false;
@@ -168,7 +169,14 @@ async function hint() {
 }
 
 $('new').onclick = () => start(1);
-$('difficulty').onchange = () => start(1);
+for (const btn of $('difficulty').querySelectorAll('button')) {
+  btn.onclick = () => {
+    if (btn.getAttribute('aria-pressed') === 'true') return;
+    level = Number(btn.dataset.level);
+    for (const other of $('difficulty').querySelectorAll('button')) other.setAttribute('aria-pressed', String(other === btn));
+    start(1);
+  };
+}
 $('next').onclick = () => start(stage + 1);
 $('hint').onclick = hint;
 $('undo').onclick = () => {

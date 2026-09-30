@@ -5,7 +5,6 @@
 </head>
 <body>
 <main data-arcade="suika">
-  <!-- arcade:topbar-extra --><button class="ag-btn" id="restart" type="button">new game</button><!-- /arcade:topbar-extra -->
   <!-- arcade:intro -->
   <section class="ag-game-shell ag-bleed">
     <div class="ag-toolbar">
@@ -15,6 +14,7 @@
         <div><span>next</span><strong><img id="next" class="ag-next-fruit" src="/arcade/suika/assets/img/circle0.png" alt="Next fruit"></strong></div>
         <div><span>state</span><strong id="message">ready</strong></div>
       </div>
+      <div class="ag-buttons"><button class="ag-btn primary" id="restart" type="button">new game</button></div>
     </div>
     <div class="ag-stage">
       <!-- game/score/best/next/message are ids the vendor script looks up; it
@@ -23,7 +23,7 @@
         <div class="ag-overlay" id="gameover" hidden>
           <p class="ag-overlay-title">Game over</p>
           <p class="ag-overlay-score"><span>score</span><strong id="final">0</strong></p>
-          <button class="ag-btn" id="again" type="button">play again</button>
+          <button class="ag-btn primary" id="again" type="button">play again</button>
         </div>
       </div>
     </div>

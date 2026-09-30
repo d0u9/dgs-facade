@@ -8,8 +8,8 @@
 <main data-arcade="tetris">
   <!-- arcade:intro -->
   <section class="tetris-game-shell">
-    <div class="tetris-toolbar">
-      <div class="tetris-stage-hud" aria-label="Current game status">
+    <div class="ag-toolbar">
+      <div class="ag-hud" aria-label="Current game status">
         <div id="menu" class="tetris-next"><span>next</span><canvas id="upcoming"></canvas><p hidden>score <span id="score">00000</span></p><p hidden>rows <span id="rows">0</span></p></div>
         <div><span>score</span><strong id="tetrisScoreValue">0</strong></div>
         <div><span>rows</span><strong id="tetrisRowsValue">0</strong></div>
@@ -26,7 +26,7 @@
         </div>
       </div>
     </div>
-    <p class="tetris-gesture-hint">tap rotate · drag move · flick down drop</p>
+    <p class="ag-hint">tap rotate · drag move · flick down drop</p>
   </section>
 </main>
 <script src="/arcade/tetris/stats.js"></script><script src="/arcade/tetris/tetris.js"></script>

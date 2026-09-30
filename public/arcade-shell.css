@@ -9,13 +9,13 @@
 /* A double tap on a game page should never zoom the page: on a phone the
    second tap of a quick pair lands on the board, not on a zoom gesture.
    touch-action intersects down the tree, so the boards that ask for
-   touch-action:none keep it. */
+   touch-action:none keep it. The intersection restarts at each scroll
+   container, so .ag-page (which scrolls) repeats it below. */
 html,body { min-width:320px; min-height:100%; margin:0; overflow-x:hidden; overscroll-behavior-x:none; background:var(--bg); touch-action:manipulation; }
 body { overflow-y:auto; color:var(--text); font-family:var(--sans); }
-.ag-page { --game-accent:var(--accent); --court-ratio:1; --court-gutter:16px; width:min(1180px,calc(100% - 40px)); height:100vh; height:100svh; min-height:0; margin:0 auto; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; scroll-snap-type:y mandatory; scrollbar-width:none; }
+.ag-page { --game-accent:var(--accent); --court-ratio:1; --court-gutter:16px; width:min(1180px,calc(100% - 40px)); height:100vh; height:100svh; min-height:0; margin:0 auto; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; scroll-snap-type:y mandatory; scrollbar-width:none; touch-action:manipulation; }
 .ag-page::-webkit-scrollbar { display:none; }
 .ag-topbar { min-height:76px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); scroll-snap-align:start; scroll-snap-stop:always; }
-.ag-topbar-right { display:flex; align-items:center; gap:14px; }
 .ag-brand,.ag-status { display:flex; align-items:center; gap:10px; color:var(--muted); font:12px var(--mono); letter-spacing:.06em; text-decoration:none; }
 .ag-mark,.ag-status i { width:8px; height:8px; border:1px solid var(--game-accent); transform:rotate(45deg); box-shadow:0 0 14px color-mix(in srgb, var(--game-accent) 55%, transparent); }
 .ag-status i { border:0; border-radius:50%; background:var(--game-accent); }
@@ -43,16 +43,31 @@ body { overflow-y:auto; color:var(--text); font-family:var(--sans); }
 .ag-hud span { display:block; color:var(--muted); font:9px var(--mono); letter-spacing:.12em; text-transform:uppercase; }
 .ag-hud strong { display:block; margin-top:2px; color:var(--game-accent); font:500 15px var(--mono); text-transform:lowercase; text-shadow:0 0 8px currentColor; }
 .ag-hud > div:last-child strong { color:var(--accent-2); }
-.ag-buttons { display:flex; gap:8px; }
+/* Every toolbar orders its controls the same way: game options (a .ag-seg
+   picker) first, other actions next, and the primary "new game" button last,
+   in the accent color. The HUD sits on the left, the buttons on the right. */
+.ag-buttons { display:flex; align-items:center; gap:8px; }
 .ag-btn { min-height:38px; padding:0 14px; border:1px solid var(--line); border-radius:999px; background:rgba(8,15,11,.72); color:var(--text); font:11px var(--mono); letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
 .ag-btn:hover { border-color:var(--game-accent); color:var(--game-accent); }
+.ag-btn:focus-visible,.ag-seg button:focus-visible { outline:2px solid var(--game-accent); outline-offset:3px; }
+.ag-btn:disabled { opacity:.35; cursor:default; }
+.ag-btn:disabled:hover { border-color:var(--line); color:var(--text); }
+.ag-btn.primary { border-color:color-mix(in srgb, var(--game-accent) 55%, transparent); color:var(--game-accent); }
+.ag-btn.primary:hover { background:color-mix(in srgb, var(--game-accent) 14%, rgba(8,15,11,.72)); }
+.ag-btn.ag-icon { width:38px; padding:0; display:inline-grid; place-items:center; font-size:14px; letter-spacing:0; }
+/* A segmented picker for a game option such as difficulty or board size. The
+   chosen button carries .active or aria-pressed="true". */
+.ag-seg { display:inline-flex; gap:2px; padding:3px; border:1px solid var(--line); border-radius:999px; background:rgba(8,15,11,.72); }
+.ag-seg button { min-height:30px; padding:0 11px; border:0; border-radius:999px; background:transparent; color:var(--muted); font:11px var(--mono); letter-spacing:.06em; text-transform:uppercase; cursor:pointer; }
+.ag-seg button:hover { color:var(--game-accent); }
+.ag-seg button.active,.ag-seg button[aria-pressed="true"] { background:var(--game-accent); color:#06140e; }
 
 /* The vendor scripts each draw into a fixed backing store, so the court keeps
    that ratio and fills whichever stage dimension runs out first. The max-*
    caps and the clipped stage matter on browsers without container query
    units, where the court's height falls back to its aspect ratio and would
    otherwise grow over the controls below the board. */
-.ag-stage { width:100%; max-width:900px; height:100%; min-height:0; display:grid; place-items:center; container-type:size; overflow:hidden; touch-action:none; }
+.ag-stage { width:100%; max-width:900px; height:100%; min-height:0; display:grid; place-items:start center; padding-top:clamp(0px,1.5svh,12px); container-type:size; overflow:hidden; touch-action:none; }
 .ag-court { position:relative; max-width:100%; max-height:100%; height:min(100cqh, (100cqw - var(--court-gutter)) / var(--court-ratio)); aspect-ratio:var(--court-ratio); border:1px solid var(--line-strong); border-radius:6px; overflow:hidden; box-shadow:0 0 18px color-mix(in srgb, var(--game-accent) 22%, transparent), inset 0 0 24px color-mix(in srgb, var(--game-accent) 6%, transparent); }
 .ag-court canvas { display:block; width:100%; height:100%; }
 
@@ -95,8 +110,13 @@ body { overflow-y:auto; color:var(--text); font-family:var(--sans); }
   .ag-actions { grid-column:1/-1; justify-content:space-between; }
   .ag-keys { white-space:normal; text-align:right; }
   .ag-copy h1 { font-size:clamp(52px,16vw,78px); }
-  .ag-game-shell { padding:12px 0 16px; gap:6px; }
-  .ag-toolbar { flex-direction:column; gap:6px; }
+  /* Stacked toolbar on phones: the HUD, then the buttons centered under it.
+     The spacing scales with the screen height, so a tall phone gets room to
+     breathe and a short one gives that room back to the board. */
+  .ag-game-shell { padding:clamp(12px,2.5svh,24px) 0 16px; gap:6px; }
+  .ag-toolbar { flex-direction:column; gap:clamp(10px,2svh,18px); margin-bottom:clamp(0px,1.5svh,12px); }
+  .ag-buttons { justify-content:center; gap:10px; }
+  .ag-seg button { padding:0 9px; }
   .ag-hud > div { min-width:0; padding:5px 8px; }
   .ag-hud strong { font-size:13px; }
   .ag-swatches .swatch { width:38px; height:38px; }

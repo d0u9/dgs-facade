@@ -5,45 +5,24 @@
    repeated here to win the cascade. */
 html,body { min-width:320px; min-height:100%; overflow-x:hidden; overscroll-behavior-x:none; background:var(--bg); touch-action:manipulation; }
 body { overflow-y:auto; color:var(--text); font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-/* Controls (help/pause/restart) and the score/best/state HUD share one row now:
-   controls at the start, HUD at the end. This also reclaims the vertical space
-   a separate controls row used to take, which was pushing the stage tall enough
-   to make .hextris-page's own scroll-snap overflow visible. */
-.hextris-game-shell { height:100svh; min-height:0; display:grid; grid-template-rows:auto minmax(0,1fr); justify-items:center; gap:8px; overflow:hidden; padding:16px 0 20px; scroll-snap-align:start; scroll-snap-stop:always; }
-.hextris-toolbar { width:100%; max-width:900px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.hextris-gesture-hint { margin-right:auto; color:var(--muted); font:9px ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.05em; text-transform:uppercase; pointer-events:none; }
-.hextris-stage-hud { display:flex; gap:8px; }
-.hextris-stage-hud > div { min-width:76px; padding:7px 11px; border:1px solid var(--line); border-radius:12px; background:rgba(10,18,13,.66); backdrop-filter:blur(12px); }
-.hextris-stage-hud > div:last-child { border-color:rgba(254,44,85,.35); }
-.hextris-stage-hud span { display:block; color:var(--muted); font:9px ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.12em; text-transform:uppercase; }
-.hextris-stage-hud strong { display:block; margin-top:2px; color:var(--accent); font:500 15px ui-monospace,SFMono-Regular,Menlo,monospace; text-transform:capitalize; }
-.hextris-stage-hud > div:last-child strong { color:var(--accent-2); }
-.hextris-controls { display:flex; gap:8px; }
-/* The vendor stylesheet positions these by bare ID (#openSideBar etc, position:fixed,
-   pinned to the viewport corners) with higher specificity than a plain class+tag rule
-   would have, so the overrides below are ID-scoped too to reliably win the cascade
-   now that these controls live in the external strip instead of the old #hextris-stage
-   corners. These are buttons rather than the vendor's old standalone SVG images;
-   the src attribute remains as the game engine's pause/resume state marker. */
+/* Help, pause and new game sit in the shell toolbar's button group, after
+   the HUD. The vendor stylesheet pins these buttons to the viewport corners
+   by bare id (position:fixed, 72px squares), so the resets below are id
+   scoped to win the cascade. The src attribute stays as the engine's
+   pause/resume marker; the glyphs below follow it. */
 .hextris-controls #openSideBar,
 .hextris-controls #pauseBtn,
-.hextris-controls #restartBtn { position:static; display:grid; place-items:center; width:48px; height:48px; margin:0; padding:0; box-sizing:border-box; border:1px solid var(--line); border-radius:12px; background:rgba(10,18,13,.66); color:var(--accent); cursor:pointer; z-index:auto; backdrop-filter:blur(12px); font:500 18px/1 ui-monospace,SFMono-Regular,Menlo,monospace; transition:border-color .2s ease, background .2s ease, transform .2s ease, opacity .2s ease; }
+.hextris-controls #restartBtn { position:static; display:inline-grid; place-items:center; width:38px; height:38px; margin:0; z-index:auto; }
+.hextris-controls #restartBtn { width:auto; padding:0 14px; }
 .hextris-controls #openSideBar::before { content:"?"; }
 .hextris-controls #openSideBar[src$="btn_back.svg"]::before { content:"←"; }
-.hextris-controls #pauseBtn::before { content:"Ⅱ"; font-size:15px; letter-spacing:-2px; }
-.hextris-controls #pauseBtn[src$="btn_resume.svg"]::before { content:"▶"; font-size:14px; letter-spacing:0; }
-.hextris-controls #restartBtn::before { content:"↻"; }
-.hextris-controls #restartBtn { border-color:rgba(254,44,85,.35); }
-.hextris-controls #openSideBar:hover,
-.hextris-controls #pauseBtn:hover { border-color:var(--line-strong); background:rgba(37,244,238,.14); transform:translateY(-1px); opacity:.85; }
-.hextris-controls #restartBtn:hover { border-color:rgba(254,44,85,.6); background:rgba(254,44,85,.14); color:var(--accent-2); transform:translateY(-1px); opacity:.85; }
-.hextris-controls #openSideBar:focus-visible,
-.hextris-controls #pauseBtn:focus-visible,
-.hextris-controls #restartBtn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.hextris-controls #pauseBtn::before { content:"Ⅱ"; letter-spacing:-2px; }
+.hextris-controls #pauseBtn[src$="btn_resume.svg"]::before { content:"▶"; letter-spacing:0; }
+.hextris-game-shell { height:100svh; min-height:0; display:grid; grid-template-rows:auto minmax(0,1fr) auto; justify-items:center; gap:8px; overflow:hidden; padding:16px 0 20px; scroll-snap-align:start; scroll-snap-stop:always; }
 #hextris-stage { position:relative; width:100%; max-width:900px; height:min(100%,760px); min-height:0; margin:0 auto; overflow:hidden; border:1px solid var(--line-strong); border-radius:30px; background:#050806; box-shadow:0 28px 80px rgba(0,0,0,.44); isolation:isolate; touch-action:none; }
 #hextris-stage #canvas { position:absolute; inset:0; width:100%; height:100%; }
 #hextris-stage #helpScreen { position:absolute; inset:0; width:100%; height:100%; padding:0; border-radius:inherit; }
-/* Redundant with the "best" value in .hextris-stage-hud now. Kept in the DOM
+/* Redundant with the "best" value in the HUD now. Kept in the DOM
    (not display:none) because the vendor's set_score_pos() reads its offset()
    and offsetHeight to position the game-over card — hiding it visually only
    must not zero those out. */
@@ -54,12 +33,5 @@ body { overflow-y:auto; color:var(--text); font-family:ui-sans-serif,-apple-syst
 #hextris-stage .centeredHeader { font-size:clamp(28px,5vw,56px); }
 @media (max-width:600px) {
   .hextris-game-shell { padding:12px 0 16px; gap:6px; }
-  .hextris-toolbar { flex-wrap:wrap; gap:6px; }
-  .hextris-gesture-hint { order:3; width:100%; }
-  .hextris-stage-hud > div { min-width:60px; padding:5px 8px; }
-  .hextris-stage-hud strong { font-size:13px; }
-  .hextris-controls #openSideBar,
-  .hextris-controls #pauseBtn,
-  .hextris-controls #restartBtn { width:40px; height:40px; }
   #hextris-stage { border-radius:22px; }
 }

@@ -1,6 +1,6 @@
 /* Minesweeper board on the shared arcade shell (see docs/arcade.md). The
    shell supplies the page, intro and game screens; this sheet only styles
-   the difficulty picker, the board and the result overlay. */
+   the board and the result overlay. */
 
 /* The shell's phone title size is set for shorter names; "Minesweeper"
    needs a notch smaller to stay inside the screen. */
@@ -16,26 +16,16 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 14px;
-}
-
-.ms-difficulty {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-}
-
-.diff-btn.active {
-  border-color: var(--game-accent);
-  background: var(--game-accent);
-  color: #06140e;
+  padding-top: clamp(0px, 1.5svh, 12px);
 }
 
 .ms-board-wrap {
   max-width: 100%;
   overflow-x: auto;
+  /* A scroll container restarts touch-action, so repeat the shell's. */
+  touch-action: manipulation;
   scrollbar-width: none;
 }
 
@@ -113,8 +103,9 @@
   display: none;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 14px;
+  padding-top: clamp(0px, 1.5svh, 12px);
   background: rgba(5, 6, 16, .85);
   text-align: center;
 }

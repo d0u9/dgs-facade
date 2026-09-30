@@ -72,15 +72,35 @@ in the game's sheet, as `public/hextris-integration.css` does.
    - `<main data-arcade="slug">` becomes `<main class="ag-page">` with the
      accent color and court ratio.
    - `<!-- arcade:intro -->` becomes the top bar and the intro screen.
-   - To put a control in the top bar, wrap it in
-     `<!-- arcade:topbar-extra -->` and `<!-- /arcade:topbar-extra -->`.
-     Watermelon does this for its restart button.
 
 3. Add the page to `build.rollupOptions.input` in `vite.config.js`.
 4. Give the game a glyph in `glyph()` in `src/game/arcade.jsx`.
 
 Do not write the top bar, intro, `<title>` or description by hand. The build
 fails if a page names a `data-arcade` slug that has no `page` entry.
+
+## Toolbar buttons
+
+Every play screen has one `.ag-toolbar`: the `.ag-hud` on the left, then one
+`.ag-buttons` group on the right. Inside the group, keep this order:
+
+1. Game options, such as difficulty or board size, as one `.ag-seg` picker.
+   Mark the chosen button with `.active` or `aria-pressed="true"`.
+2. Other actions, such as share, start, help or pause, as plain `.ag-btn`.
+   Use `.ag-btn.ag-icon` for an icon-only button.
+3. The primary button last: `.ag-btn.primary`, labeled "new game".
+
+- Label the button that starts a fresh game "new game" in every game, not
+  "restart" or "new board". Result overlays use "play again", also `.primary`.
+- Put buttons only in the toolbar, never in the top bar or the intro.
+- Give a game at most one `.primary` button per screen area.
+- Do not restyle `.ag-btn` in a game's own stylesheet.
+- A row of in-game actions under the board, like Number Match's undo, hint
+  and add, is fine. Use the same `.ag-btn` classes there.
+
+On phones the toolbar stacks: the HUD on the first row, then the buttons
+centered under it, not pushed into a corner. The gaps grow with the screen
+height, so do not tighten them in a game's own stylesheet.
 
 ## Rules for the play screen
 

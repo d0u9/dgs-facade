@@ -1,13 +1,15 @@
 const SIZE=4;
 let grid,score,best=+localStorage.getItem('2048-best')||0;
 const medalLevels=[128,256,512,1024,2048,4096];
+// SITE PATCH: ?medals=classic or ?medals=crest overrides the medal style set on .v2048-medals in the page.
+const medalStyle=new URLSearchParams(location.search).get('medals');if(medalStyle==='classic'||medalStyle==='crest')document.querySelector('.v2048-medals').dataset.style=medalStyle;
 let highestMilestone=0;
 // SITE PATCH: cells that merged on the last move, as 'r,c' keys, so render can
 // play the impact animation on exactly those tiles.
 let mergedCells=new Set();
 function startGame(){grid=Array.from({length:SIZE},()=>Array(SIZE).fill(0));score=0;highestMilestone=0;mergedCells=new Set();addRandom();addRandom();document.getElementById('msg').style.display='none';render();}
 function addRandom(){const empty=[];for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++)if(!grid[r][c])empty.push([r,c]);if(!empty.length)return;const[r,c]=empty[Math.floor(Math.random()*empty.length)];grid[r][c]=Math.random()<.9?2:4;}
-function render(){document.getElementById('score').textContent=score;if(score>best){best=score;localStorage.setItem('2048-best',best);}document.getElementById('best').textContent=best;for(const level of medalLevels){const medal=document.getElementById('medal-'+level);const unlocked=level<=highestMilestone;const newlyUnlocked=unlocked&&medal.hidden;medal.hidden=!unlocked;if(newlyUnlocked){medal.classList.remove('v2048-medal-pop');void medal.offsetWidth;medal.classList.add('v2048-medal-pop');}else if(!unlocked)medal.classList.remove('v2048-medal-pop');}const b=document.getElementById('board');b.innerHTML='';for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){const v=grid[r][c];const d=document.createElement('div');d.className='cell'+(v?(' c'+(v>2048?'big':v)):'');d.textContent=v||'';
+function render(){document.getElementById('score').textContent=score;if(score>best){best=score;localStorage.setItem('2048-best',best);}document.getElementById('best').textContent=best;for(const level of medalLevels){const medal=document.getElementById('medal-'+level);const unlocked=level<=highestMilestone;const newlyUnlocked=unlocked&&!medal.classList.contains('earned');medal.classList.toggle('earned',unlocked);medal.setAttribute('aria-label',level+(unlocked?' reached':' not reached yet'));if(newlyUnlocked){medal.classList.remove('v2048-medal-pop');void medal.offsetWidth;medal.classList.add('v2048-medal-pop');}else if(!unlocked)medal.classList.remove('v2048-medal-pop');}const b=document.getElementById('board');b.innerHTML='';for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){const v=grid[r][c];const d=document.createElement('div');d.className='cell'+(v?(' c'+(v>2048?'big':v)):'');d.textContent=v||'';
 // SITE PATCH: a tile formed by a merge gets the impact class, which carries
 // the squash, the flash and the shockwave ring.
 if(mergedCells.has(r+','+c)){d.classList.add('merged');const w=document.createElement('i');w.className='shock';w.setAttribute('aria-hidden','true');d.appendChild(w);}
@@ -36,5 +38,8 @@ stage.addEventListener('touchmove',e=>{if(playingTouch)e.preventDefault();},{pas
 stage.addEventListener('touchend',e=>{if(!playingTouch)return;playingTouch=false;const touch=e.changedTouches[0],dx=touch.clientX-tx,dy=touch.clientY-ty;if(Math.max(Math.abs(dx),Math.abs(dy))<28)return;if(Math.abs(dx)>Math.abs(dy))move(dx>0?'right':'left');else move(dy>0?'down':'up');});
 stage.addEventListener('touchcancel',()=>{playingTouch=false;});
 document.getElementById('newBtn').addEventListener('click',startGame);
-document.getElementById('shareBtn').addEventListener('click',()=>{const txt=`I scored ${score} in 2048 on oriz.games!`;if(navigator.share)navigator.share({title:'2048',text:txt,url:location.href});else navigator.clipboard.writeText(txt);});
+
 startGame();
+// SITE PATCH: ?board=2048 opens a board that already holds a 2048 tile, so
+// the medal row can be checked without playing up to it.
+if(new URLSearchParams(location.search).get('board')==='2048'){grid=[[2048,1024,512,256],[16,32,64,128],[8,4,2,0],[2,0,0,0]];highestMilestone=2048;render();}
