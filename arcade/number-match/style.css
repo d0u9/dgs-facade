@@ -13,23 +13,6 @@
   max-width: 560px;
 }
 
-select.ag-btn {
-  appearance: none;
-  padding: 0 14px;
-  text-align: center;
-}
-
-.ag-btn:disabled {
-  opacity: .35;
-  cursor: default;
-}
-
-.ag-btn:disabled:hover {
-  border-color: var(--line);
-  color: var(--text);
-}
-
-.ag-btn:focus-visible,
 .nm-cell:focus-visible {
   outline: 2px solid var(--game-accent);
   outline-offset: 3px;
@@ -129,8 +112,6 @@ select.ag-btn {
 .nm-add {
   position: relative;
   margin-right: 8px;
-  border-color: var(--game-accent);
-  color: var(--game-accent);
 }
 
 .nm-badge {
@@ -145,18 +126,4 @@ select.ag-btn {
   color: #06140e;
   font: 700 10px/20px var(--mono);
   text-align: center;
-}
-
-@media (max-width: 600px) {
-  .nm-shell .ag-toolbar {
-    align-items: stretch;
-  }
-
-  .nm-shell .ag-buttons {
-    justify-content: space-between;
-  }
-
-  .nm-shell .ag-hud > div {
-    flex: 1;
-  }
 }

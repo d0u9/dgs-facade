@@ -8,17 +8,16 @@
 <main data-arcade="hextris">
   <!-- arcade:intro -->
   <section class="hextris-game-shell">
-    <div class="hextris-toolbar">
-      <div class="hextris-controls">
-        <button id="openSideBar" class="helpText" type="button" src="/arcade/hextris/images/btn_help.svg" aria-label="Help"></button>
-        <button id="pauseBtn" type="button" src="/arcade/hextris/images/btn_pause.svg" aria-label="Pause"></button>
-        <button id="restartBtn" type="button" src="/arcade/hextris/images/btn_restart.svg" aria-label="Restart"></button>
-      </div>
-      <span class="hextris-gesture-hint">top edge: swipe to return</span>
-      <div class="hextris-stage-hud" aria-label="Current game status">
+    <div class="ag-toolbar">
+      <div class="ag-hud" aria-label="Current game status">
         <div><span>score</span><strong id="hextrisScoreValue">0</strong></div>
         <div><span>best</span><strong id="hextrisBestValue">0</strong></div>
         <div><span>state</span><strong id="hextrisStateValue">ready</strong></div>
+      </div>
+      <div class="ag-buttons hextris-controls">
+        <button id="openSideBar" class="ag-btn ag-icon helpText" type="button" src="/arcade/hextris/images/btn_help.svg" aria-label="Help"></button>
+        <button id="pauseBtn" class="ag-btn ag-icon" type="button" src="/arcade/hextris/images/btn_pause.svg" aria-label="Pause"></button>
+        <button id="restartBtn" class="ag-btn primary" type="button" src="/arcade/hextris/images/btn_restart.svg">new game</button>
       </div>
     </div>
     <div id="hextris-stage">
@@ -26,6 +25,7 @@
       <div id="highScoreInGameText"><div id="highScoreInGameTextHeader">HIGH SCORE</div><div id="currentHighScore">0</div></div>
       <div id="gameoverscreen"><div id="container"><div id="gameOverBox" class="GOTitle">GAME OVER</div><div id="cScore">0</div><div id="highScoresTitle" class="GOTitle">HIGH SCORES</div><div class="score"><span class="scoreNum">1.</span> <div id="1place" style="display:inline">0</div></div><div class="score"><span class="scoreNum">2.</span> <div id="2place" style="display:inline">0</div></div><div class="score"><span class="scoreNum">3.</span> <div id="3place" style="display:inline">0</div></div></div><div id="bottomContainer"><img id="restart" src="/arcade/hextris/images/btn_restart.svg" height="57" alt="Restart"><div id="socialShare"></div><div id="buttonCont"></div></div></div>
     </div>
+    <p class="ag-hint">top edge: swipe to return</p>
   </section>
 </main>
 <script src="/arcade/hextris/vendor/hammer.min.js"></script><script src="/arcade/hextris/vendor/js.cookie.js"></script><script src="/arcade/hextris/vendor/jsonfn.min.js"></script><script src="/arcade/hextris/vendor/keypress.min.js"></script><script src="/arcade/hextris/vendor/jquery.js"></script>

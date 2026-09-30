@@ -1,29 +1,13 @@
 /* HTML5 Flappy Bird on the shared arcade shell (see docs/arcade.md). The shell
    supplies the page, top bar and intro; this sheet styles the game screen. */
 .flappy-game-shell { height:100svh; min-height:0; display:grid; grid-template-rows:auto minmax(0,1fr) auto; justify-items:center; gap:8px; overflow:hidden; padding:16px 0 20px; scroll-snap-align:start; scroll-snap-stop:always; }
-.flappy-toolbar { width:100%; max-width:900px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.flappy-stage-hud { display:flex; gap:8px; }
-.flappy-stage-hud > div { min-width:76px; padding:7px 11px; border:1px solid var(--line); border-radius:12px; background:rgba(10,18,13,.66); backdrop-filter:blur(12px); }
-.flappy-stage-hud > div:last-child { border-color:rgba(254,44,85,.35); }
-.flappy-stage-hud span { display:block; color:var(--muted); font:9px var(--mono); letter-spacing:.12em; text-transform:uppercase; }
-.flappy-stage-hud strong { display:block; margin-top:2px; color:var(--accent); font:500 15px var(--mono); text-transform:lowercase; text-shadow:0 0 8px currentColor; }
-.flappy-stage-hud > div:last-child strong { color:var(--accent-2); }
-.flappy-buttons { display:flex; gap:8px; }
-.flappy-btn { min-height:38px; padding:0 14px; border:1px solid var(--line); border-radius:999px; background:rgba(8,15,11,.72); color:var(--text); font:11px var(--mono); letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
-.flappy-btn:hover { border-color:var(--accent); color:var(--accent); }
 
 /* Vendor draws into a fixed 400x560 backing store, so the court keeps that
    ratio and fills whichever stage dimension runs out first. */
-#flappy-stage { width:100%; max-width:900px; height:100%; min-height:0; display:grid; place-items:center; container-type:size; touch-action:none; }
+#flappy-stage { width:100%; max-width:900px; height:100%; min-height:0; display:grid; place-items:start center; padding-top:clamp(0px,1.5svh,12px); container-type:size; touch-action:none; }
 .flappy-court { height:min(100cqh, (100cqw - 16px) * 1.4); aspect-ratio:400/560; border:1px solid var(--line-strong); border-radius:6px; overflow:hidden; box-shadow:0 0 18px rgba(37,244,238,.22), inset 0 0 24px rgba(37,244,238,.06); }
 .flappy-court #game { display:block; width:100%; height:100%; }
 
-.flappy-gesture-hint { display:none; margin:0; color:var(--muted); font:9px var(--mono); letter-spacing:.08em; text-transform:uppercase; text-align:center; }
-@media (pointer:coarse) { .flappy-gesture-hint { display:block; } }
-
 @media (max-width:600px) {
   .flappy-game-shell { padding:12px 0 16px; gap:6px; }
-  .flappy-toolbar { flex-direction:column; gap:6px; }
-  .flappy-stage-hud > div { min-width:0; padding:5px 8px; }
-  .flappy-stage-hud strong { font-size:13px; }
 }

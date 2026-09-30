@@ -14,21 +14,23 @@
         <div><span>time</span><strong id="timer">0</strong></div>
         <div><span>best</span><strong id="bestTime">—</strong></div>
       </div>
-      <div class="ag-buttons"><button class="ag-btn" type="button" onclick="newGame()">new game</button></div>
+      <div class="ag-buttons">
+        <div class="ag-seg" role="group" aria-label="Board size">
+          <button class="diff-btn active" type="button" data-d="beginner" title="Beginner, 10 mines">9×9</button>
+          <button class="diff-btn" type="button" data-d="intermediate" title="Intermediate, 40 mines">16×16</button>
+          <button class="diff-btn" type="button" data-d="expert" title="Expert, 99 mines">30×16</button>
+        </div>
+        <button class="ag-btn primary" type="button" onclick="newGame()">new game</button>
+      </div>
     </div>
     <div class="ms-stage">
-      <!-- board/mineCount/timer/bestTime and .diff-btn are what the game script looks up. -->
-      <div class="ms-difficulty" role="group" aria-label="Difficulty">
-        <button class="ag-btn diff-btn active" type="button" data-d="beginner">beginner 9×9</button>
-        <button class="ag-btn diff-btn" type="button" data-d="intermediate">intermediate 16×16</button>
-        <button class="ag-btn diff-btn" type="button" data-d="expert">expert 30×16</button>
-      </div>
+      <!-- board/mineCount/timer/bestTime and the .diff-btn size buttons are what the game script looks up. -->
       <div class="ms-board-wrap"><div id="board" data-difficulty="beginner"></div></div>
     </div>
     <p class="ag-hint">top edge: swipe to return</p>
   </section>
 </main>
-<div id="overlay" role="dialog" aria-modal="true" aria-labelledby="ovTitle"><h2 id="ovTitle"></h2><p id="ovSub"></p><button class="ag-btn" type="button" onclick="newGame()">play again</button></div>
+<div id="overlay" role="dialog" aria-modal="true" aria-labelledby="ovTitle"><h2 id="ovTitle"></h2><p id="ovSub"></p><button class="ag-btn primary" type="button" onclick="newGame()">play again</button></div>
 <script src="/vendor-minesweeper.js"></script>
 </body>
 </html>

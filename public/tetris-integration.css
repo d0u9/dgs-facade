@@ -1,36 +1,22 @@
 /* Javascript Tetris on the shared arcade shell (see docs/arcade.md). The shell
    supplies the page, top bar and intro; this sheet styles the game screen. */
 .tetris-game-shell { height:100svh; min-height:0; display:grid; grid-template-rows:auto minmax(0,1fr) auto; justify-items:center; gap:8px; overflow:hidden; padding:16px 0 20px; scroll-snap-align:start; scroll-snap-stop:always; }
-.tetris-toolbar { width:100%; max-width:900px; display:flex; justify-content:flex-end; }
-.tetris-stage-hud { display:flex; gap:8px; }
-.tetris-stage-hud > div { min-width:76px; padding:7px 11px; border:1px solid var(--line); border-radius:12px; background:rgba(10,18,13,.66); backdrop-filter:blur(12px); }
-.tetris-stage-hud > div:last-child { border-color:rgba(254,44,85,.35); }
-.tetris-stage-hud span { display:block; color:var(--muted); font:9px var(--mono); letter-spacing:.12em; text-transform:uppercase; }
-.tetris-stage-hud strong { display:block; margin-top:2px; color:var(--accent); font:500 15px var(--mono); text-transform:capitalize; }
-.tetris-stage-hud > div:last-child strong { color:var(--accent-2); }
 
-#tetris-stage { width:100%; max-width:900px; height:100%; min-height:0; display:grid; place-items:center; container-type:size; touch-action:none; }
+#tetris-stage { width:100%; max-width:900px; height:100%; min-height:0; display:grid; place-items:start center; padding-top:clamp(0px,1.5svh,12px); container-type:size; touch-action:none; }
 /* Vendor sizes blocks from the canvas's CSS size (10x20 court), so the court
    keeps a strict 1:2 ratio and fills whichever stage dimension runs out first. */
 #tetris { height:min(100cqh - 16px, (100cqw - 16px) * 2); }
 .tetris-court { position:relative; height:100%; aspect-ratio:1/2; border:1px solid var(--line-strong); border-radius:6px; background:linear-gradient(rgba(37,244,238,.035) 1px, transparent 1px) 0 0 / 100% 5%, linear-gradient(90deg, rgba(37,244,238,.035) 1px, transparent 1px) 0 0 / 10% 100%, rgba(5,10,14,.9); box-shadow:0 0 18px rgba(37,244,238,.22), inset 0 0 24px rgba(37,244,238,.06); }
 .tetris-court #canvas { display:block; width:100%; height:100%; }
 /* Next-piece preview lives in the HUD row as its own tile. */
-.tetris-stage-hud > .tetris-next { min-width:0; display:flex; align-items:center; gap:8px; padding:5px 8px; }
+.ag-hud > .tetris-next { min-width:0; display:flex; align-items:center; gap:8px; padding:5px 8px; }
 .tetris-next p { display:none; }
 .tetris-next #upcoming { display:block; width:34px; height:34px; }
 /* Start prompt overlays the court (vendor toggles its visibility). */
 .tetris-court #start { position:absolute; inset:0; margin:0; display:grid; place-items:center; background:rgba(5,6,16,.55); }
 .tetris-court #start a { padding:12px 16px; border:1px solid var(--accent); border-radius:10px; background:rgba(5,6,16,.8); color:var(--accent); font:11px/1.4 var(--mono); text-align:center; text-decoration:none; text-transform:uppercase; text-shadow:0 0 8px var(--accent); box-shadow:0 0 16px rgba(37,244,238,.35), inset 0 0 10px rgba(37,244,238,.15); }
-.tetris-stage-hud strong { text-shadow:0 0 8px currentColor; }
 #stats { display:none; } /* vendor FPS counter */
-
-.tetris-gesture-hint { display:none; margin:0; color:var(--muted); font:9px var(--mono); letter-spacing:.08em; text-transform:uppercase; text-align:center; }
-@media (pointer:coarse) { .tetris-gesture-hint { display:block; } }
 
 @media (max-width:600px) {
   .tetris-game-shell { padding:12px 0 16px; gap:6px; }
-  .tetris-toolbar { justify-content:center; }
-  .tetris-stage-hud > div { min-width:0; padding:5px 8px; }
-  .tetris-stage-hud strong { font-size:13px; }
 }

@@ -3,22 +3,46 @@
    game-over panel. */
 :root { --panel:rgba(8,15,11,.88); }
 .v2048-shell { grid-template-rows:auto auto minmax(0,1fr) auto; }
-.v2048-play { width:min(100%,440px,calc(100svh - 240px)); align-self:center; justify-self:center; }
+.v2048-play { width:min(100%,440px,calc(100svh - 240px)); align-self:start; justify-self:center; padding-top:clamp(0px,1.5svh,12px); }
 .v2048-medals { min-height:60px; display:flex; flex-wrap:wrap; align-content:center; align-items:center; justify-content:center; gap:6px; }
-.v2048-medal { --medal-color:#53ffd4; position:relative; isolation:isolate; flex:0 0 44px; height:60px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:8px 0 10px; background:linear-gradient(135deg,#fff8d8 0%,#8b826f 14%,var(--medal-color) 32%,#e8d9a8 50%,#554b49 76%,#fff2c0 100%); clip-path:polygon(50% 0,82% 5%,100% 20%,97% 59%,83% 82%,50% 100%,17% 82%,3% 59%,0 20%,18% 5%); color:var(--medal-color); font:10px ui-monospace,SFMono-Regular,Menlo,monospace; text-shadow:0 0 8px var(--medal-color); }
-.v2048-medal::before { content:""; position:absolute; z-index:-1; inset:3px; background:radial-gradient(circle at 50% 28%,color-mix(in srgb,var(--medal-color) 50%,#203347),#101522 58%,#070b13 100%); clip-path:inherit; }
-.v2048-medal[hidden] { display:none; }
+.v2048-medals[data-style="classic"] .v2048-medal { --medal-color:#53ffd4; position:relative; isolation:isolate; flex:0 0 44px; height:60px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:8px 0 10px; background:linear-gradient(135deg,#fff8d8 0%,#8b826f 14%,var(--medal-color) 32%,#e8d9a8 50%,#554b49 76%,#fff2c0 100%); clip-path:polygon(50% 0,82% 5%,100% 20%,97% 59%,83% 82%,50% 100%,17% 82%,3% 59%,0 20%,18% 5%); color:var(--medal-color); font:10px ui-monospace,SFMono-Regular,Menlo,monospace; text-shadow:0 0 8px var(--medal-color); }
+.v2048-medals[data-style="classic"] .v2048-medal::before { content:""; position:absolute; z-index:-1; inset:3px; background:radial-gradient(circle at 50% 28%,color-mix(in srgb,var(--medal-color) 50%,#203347),#101522 58%,#070b13 100%); clip-path:inherit; }
+.v2048-medals[data-style="classic"] .v2048-medal:not(.earned) { display:none; }
+.v2048-medals[data-style="classic"] .v2048-crest { display:none; }
 .v2048-medal-pop { animation:v2048-medal-pop .4s ease-out both; }
 @keyframes v2048-medal-pop { from { opacity:0; transform:translateY(-10px) scale(.84); } 70% { transform:translateY(0) scale(1.06); } to { opacity:1; transform:translateY(0) scale(1); } }
-.v2048-medal span { position:relative; flex:0 0 25px; width:25px; height:25px; border:1px solid color-mix(in srgb,var(--medal-color) 70%,#fff); border-radius:50%; background:radial-gradient(circle at 35% 25%,color-mix(in srgb,var(--medal-color) 42%,#fff),color-mix(in srgb,var(--medal-color) 32%,#111827) 40%,#0a101a 76%); box-shadow:0 0 9px color-mix(in srgb,var(--medal-color) 55%,transparent),inset 0 1px 3px #fff8; }
-.v2048-medal span::before { content:""; position:absolute; top:50%; left:50%; width:12px; height:12px; background:#fff; clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%); filter:drop-shadow(0 0 3px var(--medal-color)); transform:translate(-50%,-50%); }
-.v2048-medal b { min-width:29px; padding:1px 2px; border-top:1px solid color-mix(in srgb,var(--medal-color) 80%,#fff); background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--medal-color) 30%,#101522),transparent); color:#fff; font-size:9px; font-weight:700; letter-spacing:-.04em; text-align:center; }
+.v2048-medals[data-style="classic"] .v2048-medal span { position:relative; flex:0 0 25px; width:25px; height:25px; border:1px solid color-mix(in srgb,var(--medal-color) 70%,#fff); border-radius:50%; background:radial-gradient(circle at 35% 25%,color-mix(in srgb,var(--medal-color) 42%,#fff),color-mix(in srgb,var(--medal-color) 32%,#111827) 40%,#0a101a 76%); box-shadow:0 0 9px color-mix(in srgb,var(--medal-color) 55%,transparent),inset 0 1px 3px #fff8; }
+.v2048-medals[data-style="classic"] .v2048-medal span::before { content:""; position:absolute; top:50%; left:50%; width:12px; height:12px; background:#fff; clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%); filter:drop-shadow(0 0 3px var(--medal-color)); transform:translate(-50%,-50%); }
+.v2048-medals[data-style="classic"] .v2048-medal b { min-width:29px; padding:1px 2px; border-top:1px solid color-mix(in srgb,var(--medal-color) 80%,#fff); background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--medal-color) 30%,#101522),transparent); color:#fff; font-size:9px; font-weight:700; letter-spacing:-.04em; text-align:center; }
 .v2048-medal-128 { --medal-color:#b7ffc9; }
 .v2048-medal-256 { --medal-color:#53ffd4; }
 .v2048-medal-512 { --medal-color:#57dcff; }
 .v2048-medal-1024 { --medal-color:#c099ff; }
 .v2048-medal-2048 { --medal-color:#ffe66b; }
 .v2048-medal-4096 { --medal-color:#ff82d4; }
+/* Crest medals: a flat double-line shield per milestone, all six always
+   shown. A reached one takes its board tile's color and a check mark; the
+   rest stay as dim outlines so the next goals are visible. */
+.v2048-medal-128 { --crest-color:#e0a36a; }
+.v2048-medal-256 { --crest-color:#8df3b9; }
+.v2048-medal-512 { --crest-color:#7ed7ff; }
+.v2048-medal-1024 { --crest-color:#ffe28a; }
+.v2048-medal-2048 { --crest-color:#ff8fc6; }
+.v2048-medal-4096 { --crest-color:#c4b5fd; }
+.v2048-medals[data-style="crest"] { gap:10px; }
+.v2048-medals[data-style="crest"] .v2048-medal { flex:0 0 40px; height:48px; color:#3c4d45; }
+.v2048-medals[data-style="crest"] .v2048-medal.earned { color:var(--crest-color); }
+.v2048-medals[data-style="crest"] .v2048-medal > span,
+.v2048-medals[data-style="crest"] .v2048-medal > b { display:none; }
+.v2048-crest { display:block; width:100%; height:100%; overflow:visible; }
+.v2048-crest .outer { fill:none; stroke:currentColor; stroke-width:1; }
+.v2048-crest .inner,.v2048-crest .check { display:none; }
+.v2048-crest text { fill:currentColor; font:500 11px ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; text-anchor:middle; dominant-baseline:central; transform:translateY(-4px); }
+.v2048-crest text.n4 { font-size:9.5px; }
+.earned .v2048-crest .outer { stroke-width:1.3; }
+.earned .v2048-crest .inner { display:inline; fill:currentColor; fill-opacity:.08; stroke:currentColor; stroke-opacity:.35; stroke-width:.8; }
+.earned .v2048-crest .check { display:inline; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+.earned .v2048-crest text { transform:none; }
 #board { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; width:100%; margin:0 auto; padding:10px; border:1px solid #294438; border-radius:12px; background:#09120d; touch-action:none; }
 /* SITE PATCH: a merge is the only moment two tiles collide, so it gets an
    impact: the tile squashes, flashes white, and throws a shockwave ring. */

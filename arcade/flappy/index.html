@@ -8,19 +8,19 @@
 <main data-arcade="flappy">
   <!-- arcade:intro -->
   <section class="flappy-game-shell">
-    <div class="flappy-toolbar">
-      <div class="flappy-stage-hud" aria-label="Current game status">
+    <div class="ag-toolbar">
+      <div class="ag-hud" aria-label="Current game status">
         <div><span>score</span><strong id="score">0</strong></div>
         <div><span>best</span><strong id="best">0</strong></div>
         <div><span>state</span><strong id="message">ready</strong></div>
       </div>
-      <div class="flappy-buttons"><button class="flappy-btn" id="start" type="button">start</button><button class="flappy-btn" id="restart" type="button">restart</button></div>
+      <div class="ag-buttons"><button class="ag-btn" id="start" type="button">start</button><button class="ag-btn primary" id="restart" type="button">new game</button></div>
     </div>
     <div id="flappy-stage">
       <!-- canvas/score/best/message/start/restart are ids the vendor script looks up. -->
       <div class="flappy-court"><canvas id="game" width="400" height="560"></canvas></div>
     </div>
-    <p class="flappy-gesture-hint">tap anywhere to flap</p>
+    <p class="ag-hint">tap anywhere to flap</p>
   </section>
 </main>
 <script src="/arcade/flappy/game.js"></script>

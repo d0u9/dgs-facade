@@ -4,7 +4,6 @@
 //
 //   <head><!-- arcade:head --> ...page-only styles...</head>
 //   <main data-arcade="flood">
-//     <!-- arcade:topbar-extra --> ...optional controls... <!-- /arcade:topbar-extra -->
 //     <!-- arcade:intro -->
 //     <section class="ag-game-shell">...the board...</section>
 //   </main>
@@ -35,11 +34,9 @@ function head(game) {
   ].join('\n  ');
 }
 
-function topbar(game, extra) {
+function topbar(game) {
   const brand = `<a class="ag-brand" href="/arcade/"><i class="ag-mark"></i><span>d0u9 / arcade / ${escapeHtml(game.page.brand || game.slug)}</span></a>`;
-  const status = '<div class="ag-status"><i></i><span>local only</span></div>';
-  const right = extra ? `<div class="ag-topbar-right">${extra.trim()}${status}</div>` : status;
-  return `<header class="ag-topbar">${brand}${right}</header>`;
+  return `<header class="ag-topbar">${brand}<div class="ag-status"><i></i><span>local only</span></div></header>`;
 }
 
 function intro(game) {
@@ -63,15 +60,10 @@ export function renderArcadePage(html, games) {
   const style = [`--game-accent:${game.page.accent}`];
   if (game.page.courtRatio) style.push(`--court-ratio:${game.page.courtRatio}`);
 
-  let extra = '';
-  const out = html
+  return html
     .replace('<!-- arcade:head -->', head(game))
-    .replace(/<!-- arcade:topbar-extra -->([\s\S]*?)<!-- \/arcade:topbar-extra -->\s*/, (_, inner) => {
-      extra = inner;
-      return '';
-    })
-    .replace(/<main data-arcade="[^"]+">/, `<main class="ag-page" style="${style.join('; ')}">`);
-  return out.replace('<!-- arcade:intro -->', `${topbar(game, extra)}\n  ${intro(game)}`);
+    .replace(/<main data-arcade="[^"]+">/, `<main class="ag-page" style="${style.join('; ')}">`)
+    .replace('<!-- arcade:intro -->', `${topbar(game)}\n  ${intro(game)}`);
 }
 
 export function arcadeShell() {

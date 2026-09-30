@@ -3,24 +3,6 @@
 <head>
   <!-- arcade:head -->
   <style>
-    /* Scoped to this page so the shared .ag-btn used by the other games is
-       untouched: the flood board has one lone button, and it reads as an
-       afterthought next to the color swatches without some weight. */
-    #restart { position:relative; min-height:42px; padding:0 22px; font-size:12px; font-weight:600;
-      border-color:color-mix(in srgb, var(--game-accent) 55%, transparent);
-      background:linear-gradient(140deg, color-mix(in srgb, var(--game-accent) 26%, transparent), rgba(8,15,11,.72));
-      color:#fff; box-shadow:0 0 0 0 color-mix(in srgb, var(--game-accent) 40%, transparent);
-      transition:box-shadow .2s ease, transform .12s ease, background .2s ease; }
-    #restart::before { content:"\21BB"; margin-right:9px; display:inline-block; font-size:13px;
-      transition:transform .35s ease; }
-    #restart:hover { color:#fff; border-color:var(--game-accent);
-      background:linear-gradient(140deg, color-mix(in srgb, var(--game-accent) 42%, transparent), rgba(8,15,11,.72));
-      box-shadow:0 0 18px -2px color-mix(in srgb, var(--game-accent) 55%, transparent); }
-    #restart:hover::before { transform:rotate(-180deg); }
-    #restart:active { transform:translateY(1px); }
-    #restart:focus-visible { outline:2px solid var(--game-accent); outline-offset:3px; }
-    @media (prefers-reduced-motion: reduce) { #restart, #restart::before { transition:none; } }
-
     /* Passing the move limit is the one moment the game has to announce, and
        the HUD word alone is easy to miss mid-board. */
     #failFlash { position:absolute; inset:0; z-index:3; display:none; flex-direction:column;
@@ -51,7 +33,7 @@
         <div><span>best</span><strong id="best">—</strong></div>
         <div><span>state</span><strong id="message">ready</strong></div>
       </div>
-      <div class="ag-buttons"><button class="ag-btn" id="restart" type="button">new board</button></div>
+      <div class="ag-buttons"><button class="ag-btn primary" id="restart" type="button">new game</button></div>
     </div>
     <div class="ag-stage">
       <!-- game/moves/limit/filled/message/swatches are ids the vendor script looks up. -->

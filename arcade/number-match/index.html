@@ -16,12 +16,12 @@
         <div><span>best</span><strong id="best">0</strong></div>
       </div>
       <div class="ag-buttons">
-        <select class="ag-btn" id="difficulty" aria-label="Difficulty">
-          <option value="0">easy</option>
-          <option value="1" selected>normal</option>
-          <option value="2">hard</option>
-        </select>
-        <button class="ag-btn" id="new" type="button">new game</button>
+        <div class="ag-seg" id="difficulty" role="group" aria-label="Difficulty">
+          <button type="button" data-level="0" aria-pressed="false">easy</button>
+          <button type="button" data-level="1" aria-pressed="true">normal</button>
+          <button type="button" data-level="2" aria-pressed="false">hard</button>
+        </div>
+        <button class="ag-btn primary" id="new" type="button">new game</button>
       </div>
     </div>
 
@@ -30,7 +30,7 @@
       <div id="win" class="ag-overlay" hidden>
         <p class="ag-overlay-title" id="winStage">stage cleared</p>
         <p class="ag-overlay-score">score <strong id="winScore">0</strong></p>
-        <button class="ag-btn" id="next" type="button">next stage →</button>
+        <button class="ag-btn primary" id="next" type="button">next stage →</button>
       </div>
     </div>
 
@@ -39,7 +39,7 @@
       <div class="ag-buttons">
         <button class="ag-btn" id="undo" type="button">undo</button>
         <button class="ag-btn" id="hint" type="button">hint</button>
-        <button class="ag-btn nm-add" id="add" type="button">+ add<span id="adds" class="nm-badge" aria-hidden="true">5</span></button>
+        <button class="ag-btn primary nm-add" id="add" type="button">+ add<span id="adds" class="nm-badge" aria-hidden="true">5</span></button>
       </div>
     </div>
   </section>
