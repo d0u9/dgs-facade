@@ -6,8 +6,9 @@ The second screen is the play area. The page snaps between the two screens.
 
 ## The shared shell
 
-These games are built on the shared shell: Number Match, Color Flood, Bubble
-Shooter, Watermelon, Tower Blocks and Minesweeper.
+Every static arcade game page is built on the shared shell. Battleship,
+Chrome Dino and Snake are React pages (`src/game/arcade.jsx` and
+`src/game/snake.jsx`) and do not use it.
 
 - `src/game/games.json` holds the text for every game. The arcade listing
   (`src/game/arcade.jsx`) reads it, and so do the shell pages.
@@ -15,9 +16,9 @@ Shooter, Watermelon, Tower Blocks and Minesweeper.
   page markers below into static HTML from the game's `games.json` entry.
 - `public/arcade-shell.css` styles the shell. Its classes all start with `ag-`.
 
-2048, Tetris, Flappy Bird and Hextris still use their own page
-markup and stylesheets. Move them to the shell one at a time, and compare
-screenshots before and after each move.
+A game's own stylesheet styles only its play screen. If a vendor stylesheet
+loads after the shell and changes `body`, repeat the shell's `html,body` rules
+in the game's sheet, as `public/hextris-integration.css` does.
 
 ## Adding a game
 
