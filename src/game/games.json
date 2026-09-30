@@ -77,12 +77,22 @@
   {
     "slug": "tetris", "title": "Tetris", "code": "09",
     "blurb": "Stack falling pieces. Clear full rows before the well fills up.",
-    "keys": "← → ↓ · ↑ ROTATE · SPACE"
+    "keys": "← → ↓ · ↑ ROTATE · SPACE",
+    "page": {
+      "accent": "#25f4ee",
+      "description": "Play the open-source Javascript Tetris locally in your browser.",
+      "intro": "Stack falling pieces. Clear full rows before the well fills up."
+    }
   },
   {
     "slug": "flappy", "title": "Flappy Bird", "code": "10",
     "blurb": "Flap through the gaps. One touch is all the control you get.",
-    "keys": "SPACE / CLICK / TAP"
+    "keys": "SPACE / CLICK / TAP",
+    "page": {
+      "accent": "#25f4ee",
+      "description": "Play the open-source HTML5 Flappy Bird locally in your browser.",
+      "intro": "Flap through the gaps. One touch is all the control you get."
+    }
   },
   {
     "slug": "tower", "title": "Tower Blocks", "code": "11",
