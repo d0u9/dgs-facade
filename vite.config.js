@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { buildTracks } from './scripts/build-tracks.mjs';
+import { arcadeShell } from './scripts/arcade-shell.mjs';
 
 const config = JSON.parse(readFileSync(new URL('./src/config.json', import.meta.url), 'utf8'));
 const siteUrl = (process.env.SITE_URL || config.site.siteUrl || '').replace(/\/$/, '');
@@ -84,7 +85,7 @@ function trackData() {
 }
 
 export default defineConfig({
-  plugins: [configuredMetadata(), trackData(), react(), sitemap()],
+  plugins: [arcadeShell(), configuredMetadata(), trackData(), react(), sitemap()],
   build: {
     rollupOptions: {
       input: {
@@ -98,6 +99,7 @@ export default defineConfig({
         arcadeSnake: resolve(import.meta.dirname, 'arcade/snake/index.html'),
         arcadeTetris: resolve(import.meta.dirname, 'arcade/tetris/index.html'),
         arcadeFlappy: resolve(import.meta.dirname, 'arcade/flappy/index.html'),
+        arcadeNumberMatch: resolve(import.meta.dirname, 'arcade/number-match/index.html'),
         arcadeFlood: resolve(import.meta.dirname, 'arcade/flood/index.html'),
         arcadeTower: resolve(import.meta.dirname, 'arcade/tower/index.html'),
         arcadeBubbles: resolve(import.meta.dirname, 'arcade/bubbles/index.html'),

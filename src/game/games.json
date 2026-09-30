@@ -1,0 +1,97 @@
+[
+  {
+    "slug": "number-match", "title": "Number Match", "code": "13", "href": "/arcade/number-match/",
+    "blurb": "Match equal numbers or make ten. Clear a verified puzzle at your own pace.",
+    "keys": "CLICK / TAP · HINT · UNDO",
+    "page": {
+      "tag": "local puzzle", "accent": "#9ce6c5",
+      "description": "Match equal numbers or pairs that make ten. A local puzzle with verified boards, stages, hints and undo.",
+      "intro": "Match equal numbers, or two that add up to 10. Clear the board one pair at a time; every new board has a verified solution.",
+      "rules": [
+        "Connect two numbers horizontally, vertically or diagonally with only empty cells between. Numbers also connect in reading order across row ends when every cell between is empty.",
+        "Touching pairs score 1, pairs farther apart score 4. Each emptied row scores 10 and disappears. Clearing the board scores 150 and opens the next, larger stage.",
+        "Add copies the remaining numbers onto the end of the board, up to five times per stage. The badge shows how many remain; the latest copies are blue. Undo is unlimited."
+      ]
+    }
+  },
+  {
+    "slug": "2048", "title": "2048", "code": "01", "href": "/arcade/2048/",
+    "blurb": "Join matching tiles and keep the board alive.",
+    "keys": "ARROWS / WASD · SWIPE"
+  },
+  {
+    "slug": "flood", "title": "Color Flood", "code": "02",
+    "blurb": "Flood the board from the corner. Twenty-four moves, no more.",
+    "keys": "CLICK / TAP A COLOR",
+    "page": {
+      "accent": "#c04dff", "courtRatio": 1,
+      "description": "Play the open-source Color Flood puzzle locally in your browser.",
+      "intro": "Flood the board from the top-left corner. Twenty-four moves is the target — pass it and the board is marked failed, but you can play on."
+    }
+  },
+  {
+    "slug": "hextris", "title": "Hextris", "code": "03",
+    "blurb": "Rotate the hexagon. Match three colors before the stack reaches the edge.",
+    "keys": "← → / A D · SPACE"
+  },
+  {
+    "slug": "suika", "title": "Watermelon", "code": "04",
+    "blurb": "Drop fruit into the jar. Two of a kind merge into the next one up.",
+    "keys": "MOVE TO AIM · CLICK / TAP TO DROP",
+    "page": {
+      "brand": "watermelon", "accent": "#ff5d7a", "courtRatio": 0.625,
+      "description": "Play the open-source Suika watermelon merge game locally in your browser.",
+      "intro": "Drop fruit into the jar. Two of a kind merge into the next one up. Overflow the top and it ends."
+    }
+  },
+  {
+    "slug": "snake", "title": "Snake", "code": "05", "href": "/arcade/snake/",
+    "blurb": "Collect the glowing cells without crossing your own trail.",
+    "keys": "ARROWS / WASD"
+  },
+  {
+    "slug": "minesweeper", "title": "Minesweeper", "code": "06",
+    "blurb": "Clear the field with logic. Mark every hidden mine.",
+    "keys": "CLICK / TAP · LONG PRESS TO FLAG"
+  },
+  {
+    "slug": "dino", "title": "Chrome Dino", "code": "07", "href": "/arcade/dino/",
+    "blurb": "Open Chrome's built-in offline runner.",
+    "keys": "COPY URL · OPEN FROM ADDRESS BAR"
+  },
+  {
+    "slug": "battleship", "title": "Battleship", "code": "08",
+    "blurb": "Find the hidden fleet before the opponent sinks yours.",
+    "keys": "CLICK / TAP TO FIRE"
+  },
+  {
+    "slug": "tetris", "title": "Tetris", "code": "09",
+    "blurb": "Stack falling pieces. Clear full rows before the well fills up.",
+    "keys": "← → ↓ · ↑ ROTATE · SPACE"
+  },
+  {
+    "slug": "flappy", "title": "Flappy Bird", "code": "10",
+    "blurb": "Flap through the gaps. One touch is all the control you get.",
+    "keys": "SPACE / CLICK / TAP"
+  },
+  {
+    "slug": "tower", "title": "Tower Blocks", "code": "11",
+    "blurb": "Drop each block on the one below. Every miss trims the next one.",
+    "keys": "SPACE / CLICK / TAP",
+    "page": {
+      "accent": "#ffe66d", "courtRatio": 0.75,
+      "description": "Play the open-source Tower Blocks stacker locally in your browser.",
+      "intro": "Drop each block on the one below. Miss and the overhang is gone for good."
+    }
+  },
+  {
+    "slug": "bubbles", "title": "Bubble Shooter", "code": "12",
+    "blurb": "Aim, fire, and pop clusters of three before they reach the line.",
+    "keys": "AIM · CLICK / DRAG TO FIRE",
+    "page": {
+      "accent": "#39ff88", "courtRatio": 0.857,
+      "description": "Play the open-source Bubble Shooter locally in your browser.",
+      "intro": "Aim, fire, and pop clusters of three. Let them reach the line and it ends."
+    }
+  }
+]
