@@ -40,6 +40,3 @@ stage.addEventListener('touchcancel',()=>{playingTouch=false;});
 document.getElementById('newBtn').addEventListener('click',startGame);
 
 startGame();
-// SITE PATCH: ?board=2048 opens a board that already holds a 2048 tile, so
-// the medal row can be checked without playing up to it.
-if(new URLSearchParams(location.search).get('board')==='2048'){grid=[[2048,1024,512,256],[16,32,64,128],[8,4,2,0],[2,0,0,0]];highestMilestone=2048;render();}
