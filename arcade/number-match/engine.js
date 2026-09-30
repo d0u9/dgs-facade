@@ -58,8 +58,65 @@ export function remove(board, pair) {
   return out;
 }
 
+// Previously placed neighbours, including the reading-order row boundary.
+function neighbours(i) {
+  const result = [];
+  if (i > 0) result.push(i - 1);
+  if (i >= COLS) {
+    result.push(i - COLS);
+    if (i % COLS > 0) result.push(i - COLS - 1);
+    if (i % COLS < COLS - 1) result.push(i - COLS + 1);
+  }
+  return result;
+}
+
+function repetitions(board, start = 0) {
+  let total = 0;
+  for (let i = start; i < board.length; i++) {
+    if (board[i]) for (const j of neighbours(i)) if (board[j] === board[i]) total++;
+  }
+  return total;
+}
+
+function hasMatch(board) {
+  for (let a = 0; a < board.length; a++) if (board[a]) {
+    for (let z = a + 1; z < board.length; z++) {
+      if (isPairValue(board[a], board[z]) && canConnect(board, a, z)) return true;
+    }
+  }
+  return false;
+}
+
 export function append(board) {
-  return board.concat(board.filter(Boolean));
+  const remaining = board.filter(Boolean);
+  if (!remaining.length) return board.slice();
+  // Seed from the full state: hints and actual Add must produce exactly the
+  // same arrangement. Neither the original cells nor the multiset changes.
+  let seed = 2166136261;
+  for (const n of board) seed = Math.imul(seed ^ n, 16777619);
+  const rand = random(seed);
+  let best = board.concat(remaining);
+  let cost = repetitions(best, board.length);
+  const preserveMove = hasMatch(best);
+  for (let attempt = 0; attempt < 8 && cost > 0; attempt++) {
+    const counts = Array(10).fill(0);
+    remaining.forEach(n => counts[n]++);
+    const next = board.slice();
+    while (next.length < board.length + remaining.length) {
+      const near = neighbours(next.length);
+      let choice = 0, lowest = Infinity;
+      for (let n = 1; n <= 9; n++) if (counts[n]) {
+        const conflicts = near.filter(j => next[j] === n).length;
+        const rank = conflicts * 100 - counts[n] + rand() * 2;
+        if (rank < lowest) { lowest = rank; choice = n; }
+      }
+      next.push(choice);
+      counts[choice]--;
+    }
+    const nextCost = repetitions(next, board.length);
+    if (nextCost < cost && (!preserveMove || hasMatch(next))) { best = next; cost = nextCost; }
+  }
+  return best;
 }
 
 // Touching cells, including diagonals and a row end followed by the next
@@ -112,58 +169,91 @@ export function solve(board, adds = 0, limit = 12000) {
   }
 }
 
+// Mix nearby seeds as well as successive draws (Mulberry32).
 function random(seed) {
   let s = seed >>> 0;
   return () => {
-    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
-    return s / 4294967296;
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), s | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
 
-function randomPair(rand) {
-  const n = 1 + Math.floor(rand() * 9);
-  return [n, rand() < 0.5 ? n : 10 - n];
+function shuffle(values, rand) {
+  for (let i = values.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [values[i], values[j]] = [values[j], values[i]];
+  }
+  return values;
 }
 
-// Each stage adds a row's worth of numbers, up to six full rows.
+// Cover every digit, then favour underrepresented values. Pair construction
+// preserves the even counts required by each complementary number group.
+function balancedPairs(count, rand) {
+  const pairs = [[1, 9], [2, 8], [3, 7], [4, 6], [5, 5]];
+  const counts = Array(10).fill(0);
+  pairs.flat().forEach(n => counts[n]++);
+  const cap = Math.ceil(count / 9) + 1;
+  while (pairs.length < count / 2) {
+    const candidates = [];
+    for (let n = 1; n <= 9; n++) for (const m of new Set([n, 10 - n])) {
+      if (counts[n] + (n === m ? 2 : 1) > cap || counts[m] + 1 > cap) continue;
+      candidates.push({pair: [n, m], weight: counts[n] + counts[m] + rand() * 2});
+    }
+    candidates.sort((a, b) => a.weight - b.weight);
+    const pair = candidates[0].pair;
+    pair.forEach(n => counts[n]++);
+    pairs.push(pair);
+  }
+  return shuffle(pairs, rand);
+}
+
 export function boardSize(level, stage = 1) {
   const base = [18, 26, 36][level];
   return Math.min(base + (stage - 1) * 8, 54);
 }
 
-// Pairs nested like brackets always clear in reading order, innermost
-// first, so this layout is solvable by construction and still shuffled.
-function nestedBoard(count, rand) {
-  const board = [];
-  const open = [];
-  let pairsLeft = count / 2;
-  while (pairsLeft || open.length) {
-    if (pairsLeft && (!open.length || rand() < 0.5)) {
-      const pair = randomPair(rand);
-      board.push(pair[0]);
-      open.push(pair[1]);
-      pairsLeft--;
+// A constructive fallback carries its own solution certificate instead of
+// hoping a bounded search rediscovers the intended nested-pair order.
+function nestedBoard(pairs, rand) {
+  const board = [], ids = [], open = [], closing = [];
+  let next = 0;
+  while (next < pairs.length || open.length) {
+    if (next < pairs.length && (!open.length || rand() < 0.5)) {
+      const [a, b] = pairs[next];
+      const id = next++ * 2 + 1;
+      board.push(a); ids.push(id); open.push({value: b, id});
     } else {
-      board.push(open.pop());
+      const {value, id} = open.pop();
+      board.push(value); ids.push(id + 1); closing.push([id, id + 1]);
     }
   }
-  return board;
+  let positions = ids;
+  const path = closing.map(pairIds => {
+    const pair = pairIds.map(id => positions.indexOf(id));
+    positions = remove(positions, pair);
+    return {pair};
+  });
+  return {board, path};
 }
 
 export function generate(level = 0, seed = Date.now(), stage = 1) {
   const rand = random(seed);
   const count = boardSize(level, stage);
   const minChoices = [4, 3, 2][level];
+  const maxRepeats = Math.floor(count * 0.16);
   for (let attempt = 0; attempt < 90; attempt++) {
-    const board = [];
-    for (let i = 0; i < count / 2; i++) board.push(...randomPair(rand));
-    for (let i = board.length - 1; i > 0; i--) {
-      const j = Math.floor(rand() * (i + 1));
-      [board[i], board[j]] = [board[j], board[i]];
-    }
+    const board = shuffle(balancedPairs(count, rand).flat(), rand);
+    if (repetitions(board) > maxRepeats || matches(board).length < minChoices) continue;
     const result = solve(board, 0, 6000);
-    if (result.status === 'solved' && matches(board).length >= minChoices) return { board, path: result.path };
+    if (result.status === 'solved') return {board, path: result.path};
   }
-  const board = nestedBoard(count, rand);
-  return { board, path: solve(board, 0, 60000).path };
+  let best;
+  for (let attempt = 0; attempt < 32; attempt++) {
+    const candidate = nestedBoard(balancedPairs(count, rand), rand);
+    if (!best || repetitions(candidate.board) < repetitions(best.board)) best = candidate;
+    if (repetitions(best.board) <= maxRepeats && matches(best.board).length >= minChoices) break;
+  }
+  return best;
 }
