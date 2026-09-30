@@ -1,0 +1,159 @@
+/* Number Match on the shared arcade shell. The shell supplies the page,
+   intro and game screens; this sheet only styles the board and the controls
+   under it. The board scrolls inside its own stage, so Add never pushes the
+   controls off the play screen. */
+
+.nm-shell {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.nm-shell .ag-toolbar,
+.nm-stage,
+.nm-footer {
+  max-width: 560px;
+}
+
+select.ag-btn {
+  appearance: none;
+  padding: 0 14px;
+  text-align: center;
+}
+
+.ag-btn:disabled {
+  opacity: .35;
+  cursor: default;
+}
+
+.ag-btn:disabled:hover {
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.ag-btn:focus-visible,
+.nm-cell:focus-visible {
+  outline: 2px solid var(--game-accent);
+  outline-offset: 3px;
+}
+
+.nm-stage {
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  touch-action: pan-y;
+}
+
+.nm-board {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--line);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--game-accent) 18%, transparent);
+}
+
+.nm-board[hidden] {
+  display: none;
+}
+
+.nm-cell {
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: #0a1210;
+  color: var(--text);
+  font: 500 clamp(18px, 5vw, 28px) var(--mono);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+
+.nm-cell:hover:not(:disabled) {
+  background: #13221c;
+}
+
+.nm-cell:disabled {
+  cursor: default;
+}
+
+.nm-cell.empty,
+.nm-cell.padding {
+  background: #060a0c;
+  color: #25342e;
+}
+
+.nm-cell.fresh:not(.selected):not(.hinted) {
+  color: #7cc4ff;
+}
+
+.nm-cell.selected {
+  background: var(--game-accent);
+  color: #06140e;
+}
+
+.nm-cell.hinted {
+  background: color-mix(in srgb, var(--game-accent) 22%, #0a1210);
+  color: var(--game-accent);
+  box-shadow: inset 0 0 0 2px var(--game-accent);
+}
+
+.nm-stage .ag-overlay {
+  position: absolute;
+}
+
+.nm-footer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nm-footer .ag-buttons {
+  justify-content: space-between;
+}
+
+#status {
+  min-height: 18px;
+  margin: 0;
+  color: var(--muted);
+  font: 11px/1.6 var(--mono);
+  letter-spacing: .04em;
+}
+
+.nm-add {
+  position: relative;
+  border-color: var(--game-accent);
+  color: var(--game-accent);
+}
+
+.nm-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--game-accent);
+  color: #06140e;
+  font: 700 10px/20px var(--mono);
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .nm-shell .ag-toolbar {
+    align-items: stretch;
+  }
+
+  .nm-shell .ag-buttons {
+    justify-content: space-between;
+  }
+
+  .nm-shell .ag-hud > div {
+    flex: 1;
+  }
+}

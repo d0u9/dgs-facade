@@ -1,5 +1,5 @@
-/* Shared site chrome for the vendored single-file arcade games (color flood,
-   bubble shooter, tower blocks). Same shape as the per-game Tetris/Flappy
+/* Shared site chrome for the arcade games built on the shell (see
+   docs/arcade.md). Same shape as the per-game Tetris/Flappy
    sheets — intro screen, then a scroll-snapped game screen with an external
    HUD — but generic, so a new vendor game only needs a page and an adapter.
    Each page sets --game-accent and --court-ratio on .ag-page.
@@ -28,6 +28,11 @@ body { overflow-y:auto; color:var(--text); font-family:var(--sans); }
 .ag-keys { color:#607369; font:9px var(--mono); letter-spacing:.05em; white-space:nowrap; }
 .ag-scroll-cue { position:absolute; bottom:22px; left:50%; display:flex; align-items:center; gap:10px; color:var(--muted); font:10px var(--mono); letter-spacing:.1em; text-transform:uppercase; transform:translateX(-50%); }
 .ag-scroll-cue span:last-child { color:var(--game-accent); font-size:15px; animation:ag-scroll-cue 1.8s ease-in-out infinite; }
+/* Optional "How to play" under the intro copy, from a game's rules list. */
+.ag-rules { margin-top:18px; color:var(--muted); font:13px/1.7 var(--sans); }
+.ag-rules summary { width:max-content; color:var(--game-accent); font:11px var(--mono); letter-spacing:.1em; text-transform:uppercase; cursor:pointer; }
+.ag-rules summary:focus-visible { outline:2px solid var(--game-accent); outline-offset:3px; }
+.ag-rules p { max-width:620px; margin:10px 0 0; }
 @keyframes ag-scroll-cue { 0%,100%{transform:translateY(-2px)} 50%{transform:translateY(4px)} }
 
 .ag-game-shell { height:100vh; height:100svh; min-height:0; display:grid; grid-template-rows:auto minmax(0,1fr) auto; justify-items:center; gap:8px; overflow:hidden; padding:16px 0 20px; scroll-snap-align:start; scroll-snap-stop:always; }
