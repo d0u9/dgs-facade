@@ -74,7 +74,7 @@ function transform(){world.style.transform=`translate(${view.x}px,${view.y}px) s
 function raise(group){z++;puzzle.pieces.forEach(p=>{if(p.group===group)nodes[p.id].style.zIndex=z;});}
 function update(){
   const pad=Math.min(puzzle.cw,puzzle.ch)*.26;
-  puzzle.pieces.forEach(p=>{const btn=nodes[p.id];btn.style.left=`${p.x-pad}px`;btn.style.top=`${p.y-pad}px`;btn.classList.toggle('locked',p.locked);btn.classList.toggle('dragging',drag?.group===p.group);btn.disabled=p.locked;if(p.locked)btn.style.zIndex=0;});
+  puzzle.pieces.forEach(p=>{const btn=nodes[p.id];btn.style.transform=`translate(${p.x-pad}px,${p.y-pad}px)`;btn.classList.toggle('locked',p.locked);btn.classList.toggle('dragging',drag?.group===p.group);btn.disabled=p.locked;if(p.locked)btn.style.zIndex=0;});
   const placed=puzzle.pieces.filter(p=>p.locked).length;
   const total=puzzle.pieces.length;
   $('pieceCount').textContent=total;
@@ -102,12 +102,20 @@ function fit(){
 }
 function finish(group){const result=snap(puzzle,group,Math.min(30,Math.min(puzzle.cw,puzzle.ch)*.35,Math.max(8,14/view.scale)));update();if(puzzle.pieces.some(p=>!p.locked))message(result.placed?`${result.placed} piece${result.placed===1?'':'s'} placed. ${saveEnabled?'Saved on this device.':''}`:result.merged?'Pieces connected. Drag the whole group together.':'Keep looking for a matching neighbour.');persist();}
 function begin(e,p){
-  if(e.button!==0||p.locked)return;e.preventDefault();e.stopPropagation();startClock();raise(p.group);drag={group:p.group,x:e.clientX,y:e.clientY,pointer:e.pointerId};table.setPointerCapture(e.pointerId);update();
+  if(e.button!==0||p.locked)return;e.preventDefault();e.stopPropagation();startClock();raise(p.group);drag={group:p.group,x:e.clientX,y:e.clientY,pointer:e.pointerId,dx:0,dy:0,frame:0,members:puzzle.pieces.filter(q=>q.group===p.group&&!q.locked)};table.setPointerCapture(e.pointerId);update();
 }
-table.onpointerdown=e=>{if(e.button!==0&&e.button!==1)return;if(!puzzle)return;e.preventDefault();table.focus();drag={x:e.clientX,y:e.clientY,pointer:e.pointerId,pan:true};table.setPointerCapture(e.pointerId);};
-table.onpointermove=e=>{if(!drag||drag.pointer!==e.pointerId)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;if(drag.pan){view.x+=dx;view.y+=dy;transform();}else{moveGroup(puzzle,drag.group,dx/view.scale,dy/view.scale);update();}};
-function end(e){if(!drag||drag.pointer!==e.pointerId)return;const d=drag;drag=null;if(table.hasPointerCapture(e.pointerId))table.releasePointerCapture(e.pointerId);if(!d.pan)finish(d.group);}
-table.onpointerup=end;table.onpointercancel=e=>{if(drag?.pointer===e.pointerId){drag=null;update();persist();}};
+table.onpointerdown=e=>{if(e.button!==0&&e.button!==1)return;if(!puzzle)return;e.preventDefault();table.focus();drag={x:e.clientX,y:e.clientY,pointer:e.pointerId,pan:true,dx:0,dy:0,frame:0};world.classList.add('panning');table.setPointerCapture(e.pointerId);};
+// Pointer events can arrive faster than frames; apply the sum once per frame
+// and touch only the dragged group, not every piece on the table.
+function flush(){
+  if(!drag)return;drag.frame=0;const {dx,dy}=drag;if(!dx&&!dy)return;drag.dx=drag.dy=0;
+  if(drag.pan){view.x+=dx;view.y+=dy;transform();return;}
+  const pad=Math.min(puzzle.cw,puzzle.ch)*.26,sx=dx/view.scale,sy=dy/view.scale;
+  for(const p of drag.members){p.x+=sx;p.y+=sy;nodes[p.id].style.transform=`translate(${p.x-pad}px,${p.y-pad}px)`;}
+}
+table.onpointermove=e=>{if(!drag||drag.pointer!==e.pointerId)return;drag.dx+=e.clientX-drag.x;drag.dy+=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;if(!drag.frame)drag.frame=requestAnimationFrame(flush);};
+function end(e){if(!drag||drag.pointer!==e.pointerId)return;cancelAnimationFrame(drag.frame);flush();world.classList.remove('panning');const d=drag;drag=null;if(table.hasPointerCapture(e.pointerId))table.releasePointerCapture(e.pointerId);if(!d.pan)finish(d.group);}
+table.onpointerup=end;table.onpointercancel=e=>{if(drag?.pointer===e.pointerId){cancelAnimationFrame(drag.frame);flush();world.classList.remove('panning');drag=null;update();persist();}};
 table.addEventListener('wheel',e=>{if(!puzzle)return;e.preventDefault();const rect=table.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,wx=(x-view.x)/view.scale,wy=(y-view.y)/view.scale;view.scale=Math.max(.08,Math.min(3,view.scale*Math.exp(-e.deltaY*.001)));view.x=x-wx*view.scale;view.y=y-wy*view.scale;transform();},{passive:false});
 $('fit').onclick=fit;
 $('arrange').onclick=()=>{if(!puzzle)return;arrange(puzzle);update();fit();persist();message('Loose pieces arranged around the frame. Connected groups stay together.');};
