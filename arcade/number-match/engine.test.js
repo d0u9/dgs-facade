@@ -41,6 +41,8 @@ test('search distinguishes a dead end, a route using Add, and exhaustion', () =>
 test('stages grow the board up to six rows', () => {
   assert.equal(boardSize(0, 1), 18);
   assert.equal(boardSize(0, 2), 26);
+  assert.equal(boardSize(1, 1), 36);
+  assert.equal(boardSize(2, 1), 46);
   assert.equal(boardSize(2, 99), 54);
 });
 
@@ -85,6 +87,35 @@ test('boards cover all digits with bounded frequency and reproducible solutions'
     replay(g.board, g.path);
   }
   assert.deepEqual(generate(1, 731), generate(1, 731));
+});
+
+test('higher difficulties leave opening choices but require clearing gaps along the solution', () => {
+  const densities = [];
+  for (const level of [1, 2]) {
+    let openings = 0, cells = 0, gapMoves = 0, moves = 0;
+    for (const stage of [1, 3]) for (let seed = 1; seed <= 40; seed++) {
+      const g = generate(level, Math.imul(seed, 0x9e3779b9), stage);
+      const choices = matches(g.board).length;
+      assert.ok(choices >= 3, 'a harder board must still offer several opening moves');
+      openings += choices;
+      cells += g.board.length;
+      let b = g.board;
+      for (const {pair} of g.path) {
+        const [a, z] = pair;
+        const touching = z - a === 1
+          || (Math.abs(Math.floor(z / 9) - Math.floor(a / 9)) <= 1 && Math.abs(z % 9 - a % 9) <= 1);
+        if (!touching) gapMoves++;
+        moves++;
+        assert.ok(matches(b).some(p => p.join() === pair.join()));
+        b = remove(b, pair);
+      }
+      assert.equal(b.length, 0);
+    }
+    densities.push(openings / cells);
+    assert.ok(openings / cells < (level === 1 ? 0.3 : 0.22), 'too many immediately available pairs');
+    assert.ok(gapMoves / moves > 0.5, 'most of the route should involve opening gaps');
+  }
+  assert.ok(densities[1] < densities[0], 'hard should have fewer ready-made pairs per cell');
 });
 
 test('Add preserves cells and frequencies, is deterministic, and reduces identical neighbours', () => {

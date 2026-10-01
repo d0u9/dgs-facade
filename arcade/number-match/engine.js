@@ -210,8 +210,32 @@ function balancedPairs(count, rand) {
 }
 
 export function boardSize(level, stage = 1) {
-  const base = [18, 26, 36][level];
+  const base = [18, 36, 46][level];
   return Math.min(base + (stage - 1) * 8, 54);
+}
+
+// A full board only connects immediate neighbours. Spread both equal and
+// complementary values out before solving, so harder boards require opening
+// gaps instead of offering a screen full of ready-made pairs. Swaps preserve
+// the balanced digit counts; only the solver can certify the result.
+function spreadPairs(board, target, minChoices, rand) {
+  const count = () => {
+    let total = 0;
+    for (let i = 0; i < board.length; i++) {
+      for (const j of neighbours(i)) if (isPairValue(board[i], board[j])) total++;
+    }
+    return total;
+  };
+  let choices = count();
+  for (let attempt = 0; attempt < board.length * 12 && choices > target; attempt++) {
+    const a = Math.floor(rand() * board.length);
+    const b = Math.floor(rand() * board.length);
+    [board[a], board[b]] = [board[b], board[a]];
+    const next = count();
+    if (next >= minChoices && next <= choices) choices = next;
+    else [board[a], board[b]] = [board[b], board[a]];
+  }
+  return choices;
 }
 
 // A constructive fallback carries its own solution certificate instead of
@@ -241,19 +265,32 @@ function nestedBoard(pairs, rand) {
 export function generate(level = 0, seed = Date.now(), stage = 1) {
   const rand = random(seed);
   const count = boardSize(level, stage);
-  const minChoices = [4, 3, 2][level];
+  const minChoices = [4, 4, 3][level];
+  const maxChoices = level === 0 ? Infinity : Math.ceil(count * [0, 0.26, 0.17][level]);
   const maxRepeats = Math.floor(count * 0.16);
+  let best, bestCost = Infinity;
+  const cost = (board, choices) => Math.max(0, choices - maxChoices) * count + repetitions(board);
   for (let attempt = 0; attempt < 90; attempt++) {
     const board = shuffle(balancedPairs(count, rand).flat(), rand);
-    if (repetitions(board) > maxRepeats || matches(board).length < minChoices) continue;
+    const choices = spreadPairs(board, maxChoices, minChoices, rand);
+    if (repetitions(board) > maxRepeats || choices < minChoices) continue;
     const result = solve(board, 0, 6000);
-    if (result.status === 'solved') return {board, path: result.path};
+    if (result.status !== 'solved') continue;
+    const candidate = {board, path: result.path};
+    if (choices <= maxChoices) return candidate;
+    const nextCost = cost(board, choices);
+    if (nextCost < bestCost) { best = candidate; bestCost = nextCost; }
   }
-  let best;
+  if (best) return best;
+  // If the search budget is exhausted, keep a certified board, choosing the
+  // least generous opening instead of falling back to an arbitrary easy one.
   for (let attempt = 0; attempt < 32; attempt++) {
     const candidate = nestedBoard(balancedPairs(count, rand), rand);
-    if (!best || repetitions(candidate.board) < repetitions(best.board)) best = candidate;
-    if (repetitions(best.board) <= maxRepeats && matches(best.board).length >= minChoices) break;
+    const choices = matches(candidate.board).length;
+    if (choices < minChoices) continue;
+    const nextCost = cost(candidate.board, choices);
+    if (nextCost < bestCost) { best = candidate; bestCost = nextCost; }
+    if (bestCost <= maxRepeats) break;
   }
-  return best;
+  return best || nestedBoard(balancedPairs(count, rand), rand);
 }
