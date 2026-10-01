@@ -48,7 +48,7 @@ function DinoGuide() {
 }
 
 function glyph(slug) {
-  return { 'number-match': '≋', hextris: '⬡', minesweeper: '✣', dino: '◢', battleship: '⌁', snake: '∿', '2048': '＋', tetris: '▦', flappy: '⌒', flood: '◈', tower: '⊟', bubbles: '◎', suika: '●' }[slug];
+  return { jigsaw: '▧', 'number-match': '≋', hextris: '⬡', minesweeper: '✣', dino: '◢', battleship: '⌁', snake: '∿', '2048': '＋', tetris: '▦', flappy: '⌒', flood: '◈', tower: '⊟', bubbles: '◎', suika: '●' }[slug];
 }
 
 function useBest(slug) {
