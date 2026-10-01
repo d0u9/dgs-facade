@@ -1,6 +1,6 @@
 [
   {
-    "slug": "number-match", "title": "Number Match", "code": "13", "href": "/arcade/number-match/",
+    "slug": "number-match", "title": "Number Match", "code": "01", "href": "/arcade/number-match/",
     "blurb": "Match equal numbers or make ten. Clear a verified puzzle at your own pace.",
     "keys": "CLICK / TAP · HINT · UNDO",
     "page": {
@@ -15,7 +15,7 @@
     }
   },
   {
-    "slug": "2048", "title": "2048", "code": "01", "href": "/arcade/2048/",
+    "slug": "2048", "title": "2048", "code": "02", "href": "/arcade/2048/",
     "blurb": "Join matching tiles and keep the board alive.",
     "keys": "ARROWS / WASD · SWIPE",
     "page": {
@@ -25,7 +25,7 @@
     }
   },
   {
-    "slug": "flood", "title": "Color Flood", "code": "02",
+    "slug": "flood", "title": "Color Flood", "code": "03",
     "blurb": "Flood the board from the corner. Twenty-four moves, no more.",
     "keys": "CLICK / TAP A COLOR",
     "page": {
@@ -35,7 +35,7 @@
     }
   },
   {
-    "slug": "hextris", "title": "Hextris", "code": "03",
+    "slug": "hextris", "title": "Hextris", "code": "04",
     "blurb": "Rotate the hexagon. Match three colors before the stack reaches the edge.",
     "keys": "← → / A D · SPACE",
     "page": {
@@ -45,7 +45,7 @@
     }
   },
   {
-    "slug": "suika", "title": "Watermelon", "code": "04",
+    "slug": "suika", "title": "Watermelon", "code": "05",
     "blurb": "Drop fruit into the jar. Two of a kind merge into the next one up.",
     "keys": "MOVE TO AIM · CLICK / TAP TO DROP",
     "page": {
@@ -57,7 +57,7 @@
   {
     "slug": "jigsaw",
     "title": "Jigsaw",
-    "code": "14",
+    "code": "06",
     "href": "/arcade/jigsaw/",
     "blurb": "Choose 60, 150 or 300 pieces. Find where they belong.",
     "keys": "DRAG \u00b7 WHEEL TO ZOOM \u00b7 PAN",
@@ -76,12 +76,12 @@
     }
   },
   {
-    "slug": "snake", "title": "Snake", "code": "05", "href": "/arcade/snake/",
+    "slug": "snake", "title": "Snake", "code": "07", "href": "/arcade/snake/",
     "blurb": "Collect the glowing cells without crossing your own trail.",
     "keys": "ARROWS / WASD"
   },
   {
-    "slug": "minesweeper", "title": "Minesweeper", "code": "06",
+    "slug": "minesweeper", "title": "Minesweeper", "code": "08",
     "blurb": "Clear the field with logic. Mark every hidden mine.",
     "keys": "CLICK / TAP · RIGHT CLICK / LONG PRESS TO FLAG",
     "page": {
@@ -91,17 +91,17 @@
     }
   },
   {
-    "slug": "dino", "title": "Chrome Dino", "code": "07", "href": "/arcade/dino/",
+    "slug": "dino", "title": "Chrome Dino", "code": "09", "href": "/arcade/dino/",
     "blurb": "Open Chrome's built-in offline runner.",
     "keys": "COPY URL · OPEN FROM ADDRESS BAR"
   },
   {
-    "slug": "battleship", "title": "Battleship", "code": "08",
+    "slug": "battleship", "title": "Battleship", "code": "10",
     "blurb": "Find the hidden fleet before the opponent sinks yours.",
     "keys": "CLICK / TAP TO FIRE"
   },
   {
-    "slug": "tetris", "title": "Tetris", "code": "09",
+    "slug": "tetris", "title": "Tetris", "code": "11",
     "blurb": "Stack falling pieces. Clear full rows before the well fills up.",
     "keys": "← → ↓ · ↑ ROTATE · SPACE",
     "page": {
@@ -111,7 +111,7 @@
     }
   },
   {
-    "slug": "flappy", "title": "Flappy Bird", "code": "10",
+    "slug": "flappy", "title": "Flappy Bird", "code": "12",
     "blurb": "Flap through the gaps. One touch is all the control you get.",
     "keys": "SPACE / CLICK / TAP",
     "page": {
@@ -121,7 +121,7 @@
     }
   },
   {
-    "slug": "tower", "title": "Tower Blocks", "code": "11",
+    "slug": "tower", "title": "Tower Blocks", "code": "13",
     "blurb": "Drop each block on the one below. Every miss trims the next one.",
     "keys": "SPACE / CLICK / TAP",
     "page": {
@@ -131,7 +131,7 @@
     }
   },
   {
-    "slug": "bubbles", "title": "Bubble Shooter", "code": "12",
+    "slug": "bubbles", "title": "Bubble Shooter", "code": "14",
     "blurb": "Aim, fire, and pop clusters of three before they reach the line.",
     "keys": "AIM · CLICK / DRAG TO FIRE",
     "page": {
