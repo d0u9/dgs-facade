@@ -4,6 +4,7 @@
    controls off the play screen. */
 
 .nm-shell {
+  --nm-error: var(--danger, #ff9b9b);
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
@@ -24,6 +25,7 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  overflow-anchor: none;
   scrollbar-width: thin;
   touch-action: pan-y;
 }
@@ -55,8 +57,8 @@
   transition: background .15s, color .15s;
 }
 
-.nm-cell:hover:not(:disabled) {
-  background: #13221c;
+@media (hover: hover) {
+  .nm-cell:hover:not(:disabled):not(.selected) { background: #13221c; }
 }
 
 .nm-cell:disabled {
@@ -76,12 +78,54 @@
 .nm-cell.selected {
   background: var(--game-accent);
   color: #06140e;
+  box-shadow: inset 0 0 0 2px var(--game-accent), inset 0 0 16px color-mix(in srgb, var(--text) 18%, transparent);
 }
 
 .nm-cell.hinted {
   background: color-mix(in srgb, var(--game-accent) 22%, #0a1210);
   color: var(--game-accent);
   box-shadow: inset 0 0 0 2px var(--game-accent);
+  animation: nm-hint 700ms ease-in-out 2;
+}
+
+.nm-cell.nm-tap { position: relative; z-index: 1; animation: nm-tap 220ms ease-out; }
+.nm-cell.nm-shake { position: relative; z-index: 1; animation: nm-shake 320ms ease-out; }
+.nm-cell.nm-arrive { animation: nm-arrive 280ms ease-out both; animation-delay: var(--arrival-delay, 0ms); }
+
+.nm-effects { position: absolute; top: 0; left: 0; width: 100%; z-index: 5; pointer-events: none; }
+.nm-effects svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.nm-effects path {
+  fill: none; stroke: var(--game-accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round;
+  filter: drop-shadow(0 0 5px var(--game-accent));
+  stroke-dasharray: 1; animation: nm-connect 420ms ease-out both;
+}
+.nm-match-ghost {
+  position: absolute; display: grid; place-items: center; border-radius: 5px;
+  background: var(--game-accent); color: var(--bg);
+  font: 500 clamp(18px, 5vw, 28px) var(--mono);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--game-accent) 35%, transparent);
+  animation: nm-match 380ms ease-out both;
+}
+.nm-points {
+  position: absolute; color: var(--game-accent); font: 700 18px var(--mono);
+  text-shadow: 0 2px 8px var(--bg); animation: nm-points 500ms ease-out both;
+}
+
+@keyframes nm-tap { 0% { transform: scale(.92); } 55% { transform: scale(1.07); } 100% { transform: scale(1); } }
+@keyframes nm-shake {
+  0%,100% { transform: translateX(0); }
+  20%,60% { transform: translateX(-4px); background: color-mix(in srgb, var(--nm-error) 18%, var(--bg)); color: var(--nm-error); }
+  40%,80% { transform: translateX(4px); background: color-mix(in srgb, var(--nm-error) 18%, var(--bg)); color: var(--nm-error); }
+}
+@keyframes nm-hint { 50% { box-shadow: inset 0 0 0 2px var(--game-accent), inset 0 0 22px color-mix(in srgb, var(--game-accent) 30%, transparent); } }
+@keyframes nm-arrive { from { opacity: 0; transform: translateY(10px) scale(.9); } to { opacity: 1; transform: none; } }
+@keyframes nm-connect { 0% { stroke-dashoffset: 1; opacity: 1; } 45% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes nm-match { 0% { opacity: 1; transform: scale(1); } 35% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0; transform: scale(.55); } }
+@keyframes nm-points { from { opacity: 1; transform: translate(-50%, -80%); } to { opacity: 0; transform: translate(-50%, -230%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .nm-cell { animation: none !important; transition: none; }
+  .nm-cell.nm-shake { box-shadow: inset 0 0 0 2px var(--nm-error); }
 }
 
 .nm-stage .ag-overlay {
