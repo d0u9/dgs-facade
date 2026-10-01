@@ -1,4 +1,5 @@
 import { ADD_LIMIT, COLS, append, matches, scoreMove } from './engine.js';
+import { addEffect, clearEffects, matchEffect, shakeCells, tapCell } from './effects.js';
 
 const $ = (id) => document.getElementById(id);
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
@@ -55,6 +56,7 @@ function ask(message) {
 
 function render(message) {
   const grid = $('board');
+  const scrollTop = grid.parentElement.scrollTop;
   grid.replaceChildren();
   const cells = Math.ceil(board.length / COLS) * COLS;
   for (let i = 0; i < cells; i++) {
@@ -86,6 +88,7 @@ function render(message) {
   $('winStage').textContent = `stage ${stage} cleared`;
   $('winScore').textContent = score;
   grid.hidden = !board.length;
+  grid.parentElement.scrollTop = scrollTop;
   if (message) $('status').textContent = message;
 }
 
@@ -96,25 +99,45 @@ function save() {
   hinted = [];
 }
 
+// Taps only change selection styling. Keep the existing cells in place so
+// a long mobile board does not rebuild or lose keyboard focus on every tap.
+function renderSelection(message) {
+  for (const cell of $('board').querySelectorAll('.selected, .hinted, .nm-tap, .nm-shake')) {
+    cell.classList.remove('selected', 'hinted', 'nm-tap', 'nm-shake');
+    cell.setAttribute('aria-pressed', 'false');
+  }
+  if (selected !== null) {
+    const cell = $('board').children[selected];
+    cell.classList.add('selected');
+    cell.setAttribute('aria-pressed', 'true');
+  }
+  $('status').textContent = message;
+}
+
 function pick(i) {
+  if (busy || !board[i]) return;
   hinted = [];
   if (selected === null) {
     selected = i;
-    render('Choose its partner: equal, or together making 10.');
+    renderSelection('Choose its partner: equal, or together making 10.');
+    tapCell(i);
     return;
   }
   if (selected === i) {
     selected = null;
-    render('Selection cleared.');
+    renderSelection('Selection cleared.');
     return;
   }
   const pair = matches(board).find((p) => p.includes(i) && p.includes(selected));
   if (!pair) {
+    const previous = selected;
     selected = i;
-    render('Those numbers cannot connect. Try a partner for this number.');
+    renderSelection('Those numbers cannot connect. Try a partner for this number.');
+    shakeCells([previous, i]);
     return;
   }
   const move = scoreMove(board, pair);
+  matchEffect(board, pair, move.points);
   save();
   fresh = keepRows(fresh, board, pair);
   board = move.next;
@@ -129,6 +152,7 @@ function pick(i) {
 }
 
 async function start(nextStage) {
+  clearEffects();
   stage = nextStage;
   if (stage === 1) score = 0;
   adds = ADD_LIMIT;
@@ -147,6 +171,7 @@ async function start(nextStage) {
 }
 
 async function hint() {
+  clearEffects();
   busy = true;
   selected = null;
   render('Looking for a route to clear the board…');
@@ -182,6 +207,7 @@ $('hint').onclick = hint;
 $('undo').onclick = () => {
   const prev = history.pop();
   if (!prev) return;
+  clearEffects();
   ({ board, fresh, adds, score } = prev);
   revision++;
   busy = false;
@@ -191,12 +217,14 @@ $('undo').onclick = () => {
 };
 $('add').onclick = () => {
   if ($('add').disabled) return;
+  clearEffects();
   save();
   const before = board.length;
   board = append(board);
   fresh = board.map((_, i) => i >= before);
   adds--;
   render('Remaining numbers copied and rearranged to reduce matching neighbours.');
+  addEffect(before);
 };
 
 start(1);
