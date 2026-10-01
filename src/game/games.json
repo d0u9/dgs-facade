@@ -55,6 +55,27 @@
     }
   },
   {
+    "slug": "jigsaw",
+    "title": "Jigsaw",
+    "code": "14",
+    "href": "/arcade/jigsaw/",
+    "blurb": "Choose 60, 150 or 300 pieces. Find where they belong.",
+    "keys": "DRAG \u00b7 WHEEL TO ZOOM \u00b7 PAN",
+    "page": {
+      "tag": "local puzzle",
+      "accent": "#aee5fc",
+      "description": "A local jigsaw with 60, 150 or 300 pieces. Choose square or classic pieces, connect groups, and save your progress on this device.",
+      "intro": "Your picture. Your pace. Choose 60, 150 or 300 pieces, with square tiles or classic jigsaw shapes, and build it on your own table.",
+      "rules": [
+        "Open New Puzzle to choose an image, difficulty and piece shape. Images stay on this device. Easy has 60 pieces, medium 150 and hard 300, with no rotation.",
+        "Drag neighbours together to connect them. Connected groups move together. Drop a piece or group near its position in the central frame to place it.",
+        "Wheel to zoom; drag empty space to pan. Image opens the original; Ghost shows a faint reference; Arrange sorts loose groups around the frame. Progress saves locally.",
+        "Keyboard: Tab selects a piece, arrows move it, Shift moves faster, Enter snaps it.",
+        "Made for a desktop or tablet with a mouse or trackpad. Phone screens are too small for the table."
+      ]
+    }
+  },
+  {
     "slug": "snake", "title": "Snake", "code": "05", "href": "/arcade/snake/",
     "blurb": "Collect the glowing cells without crossing your own trail.",
     "keys": "ARROWS / WASD"

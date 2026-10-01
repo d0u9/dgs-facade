@@ -99,6 +99,7 @@ export default defineConfig({
         arcadeSnake: resolve(import.meta.dirname, 'arcade/snake/index.html'),
         arcadeTetris: resolve(import.meta.dirname, 'arcade/tetris/index.html'),
         arcadeFlappy: resolve(import.meta.dirname, 'arcade/flappy/index.html'),
+        arcadeJigsaw: resolve(import.meta.dirname, 'arcade/jigsaw/index.html'),
         arcadeNumberMatch: resolve(import.meta.dirname, 'arcade/number-match/index.html'),
         arcadeFlood: resolve(import.meta.dirname, 'arcade/flood/index.html'),
         arcadeTower: resolve(import.meta.dirname, 'arcade/tower/index.html'),
