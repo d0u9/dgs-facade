@@ -22,7 +22,9 @@ in the game's sheet, as `public/hextris-integration.css` does.
 
 ## Adding a game
 
-1. Add an entry to `src/game/games.json`. Use the next free `code`.
+1. Add an entry to `src/game/games.json`. The array order is the order on the
+   arcade listing, and `code` is the game's position in that list (`01`, `02`,
+   ...). When you add or move a game, renumber every `code` to match.
 
    ```json
    {
