@@ -3,18 +3,21 @@ import { COLS } from './engine.js';
 const grid = () => document.getElementById('board');
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// renderSelection() may remove a class in the same frame that adds it back.
+// Force a reflow between the two so the animation plays again.
+function replay(cell, name) {
+  if (!cell) return;
+  cell.classList.remove('nm-arrive', name);
+  void cell.offsetWidth;
+  cell.classList.add(name);
+}
+
 export function tapCell(index) {
-  const cell = grid().children[index];
-  cell?.classList.remove('nm-arrive');
-  cell?.classList.add('nm-tap');
+  replay(grid().children[index], 'nm-tap');
 }
 
 export function shakeCells(indices) {
-  for (const index of indices) {
-    const cell = grid().children[index];
-    cell?.classList.remove('nm-arrive');
-    cell?.classList.add('nm-shake');
-  }
+  for (const index of indices) replay(grid().children[index], 'nm-shake');
 }
 
 export function clearEffects() {
