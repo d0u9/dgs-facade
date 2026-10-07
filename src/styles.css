@@ -1297,7 +1297,9 @@ a {
 .tracks-stats dd { margin: 2px 0 0; font-size: 15px; }
 .tracks-wpts { margin: 0 0 10px; padding-left: 20px; font-size: 13px; }
 .tracks-wpts li { padding: 2px 0; }
-.tracks-wpts li span:last-child { float: right; color: var(--muted); font-size: 11px; }
+.tracks-wpts li button { display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 8px; padding: 2px 4px; margin-left: -4px; border: 0; border-radius: 4px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.tracks-wpts li button:hover, .tracks-wpts li button:focus-visible { background: rgba(255, 255, 255, 0.08); }
+.tracks-wpts li span:last-child { color: var(--muted); font-size: 11px; }
 .tracks-profile-wrap { padding: 12px 0 14px 40px; }
 .tracks-profile-plot { position: relative; }
 .tracks-profile { width: 100%; height: 70px; display: block; }
@@ -1469,3 +1471,11 @@ a {
 .tracks-photo-bar button { width: 28px; height: 28px; border: 0; border-radius: 6px; background: rgba(255, 255, 255, 0.1); color: #fff; font-size: 18px; line-height: 1; cursor: pointer; }
 .tracks-photo-bar button:hover { background: rgba(255, 255, 255, 0.2); }
 .tracks-photo-bar button[hidden] { display: none; }
+
+/* Full-screen photos on touch screens, where there is no hover and the map is small. */
+.tracks-photo-box { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); background: rgba(5, 6, 16, 0.94); }
+.tracks-photo-box .tracks-photo { width: 100%; }
+.tracks-photo-box .tracks-photo img { width: 100%; max-height: calc(100dvh - 140px); aspect-ratio: auto; object-fit: contain; background: none; }
+.tracks-photo-box .tracks-photo-bar { padding: 10px 12px; font-size: 14px; }
+.tracks-photo-box .tracks-photo-bar button { width: 44px; height: 44px; font-size: 24px; }
+.tracks-photo-close { position: absolute; top: calc(env(safe-area-inset-top) + 8px); right: 8px; width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.12); color: #fff; font-size: 26px; line-height: 1; cursor: pointer; }

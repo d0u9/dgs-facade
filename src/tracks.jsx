@@ -437,51 +437,98 @@ function photoIcon(color) {
   return icon;
 }
 
-// A waypoint's photos, in a popup that opens on hover (or tap) and pages left and right.
-// It stays open while the pointer moves from the point onto it, so the arrows can be reached.
+// One photo at a time with its name, paged by the arrows or by a sideways swipe.
+function photoViewer(name, list) {
+  let at = 0;
+  const el = document.createElement('div');
+  el.className = 'tracks-photo';
+  el.innerHTML = '<a target="_blank" rel="noopener"><img alt=""></a><div class="tracks-photo-bar"><button type="button" aria-label="Previous photo">‹</button><span></span><button type="button" aria-label="Next photo">›</button></div>';
+  const [link, img, prev, label, next] = ['a', 'img', 'button', 'span', 'button:last-of-type'].map((q) => el.querySelector(q));
+  const render = () => {
+    const url = `/tracks-data/${list[at]}`;
+    link.href = url;
+    img.src = url;
+    img.alt = name;
+    label.textContent = list.length > 1 ? `${name} · ${at + 1}/${list.length}` : name;
+    prev.hidden = next.hidden = list.length < 2;
+  };
+  const step = (d) => { at = (at + d + list.length) % list.length; render(); };
+  prev.addEventListener('click', () => step(-1));
+  next.addEventListener('click', () => step(1));
+  let startX = null;
+  el.addEventListener('touchstart', (e) => { startX = e.touches.length === 1 ? e.touches[0].clientX : null; }, { passive: true });
+  el.addEventListener('touchend', (e) => {
+    const dx = startX == null ? 0 : e.changedTouches[0].clientX - startX;
+    if (list.length > 1 && Math.abs(dx) > 40) step(dx < 0 ? 1 : -1);
+    startX = null;
+  });
+  el.addEventListener('click', (e) => e.stopPropagation());
+  render();
+  return el;
+}
+
+// A waypoint's photos. With a mouse they open in a popup on hover, which stays open while the
+// pointer moves from the point onto it so the arrows can be reached. On a touch screen there is
+// no hover and a popup over a small map is cramped, so a tap opens them full screen instead.
 function photoPopup(map) {
   const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: 'none', offset: 12, className: 'tracks-photo-pop' });
+  const touch = window.matchMedia('(hover: none)');
   let timer = null;
   let current = null;
   let shownAt = 0;
   const cancel = () => { clearTimeout(timer); timer = null; };
   const hide = () => { cancel(); timer = setTimeout(() => { popup.remove(); current = null; }, 400); };
-  const show = (lngLat, name, photos) => {
+  let open = null;
+  const lightbox = (name, list) => {
+    // The badge and its wider hit circle both answer one tap.
+    if (open?.isConnected) return;
+    const box = document.createElement('div');
+    open = box;
+    box.className = 'tracks-photo-box';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-label', name);
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'tracks-photo-close';
+    close.setAttribute('aria-label', 'Close photos');
+    close.textContent = '×';
+    const done = () => { box.remove(); window.removeEventListener('keydown', key); };
+    const key = (e) => { if (e.key === 'Escape') done(); };
+    close.addEventListener('click', done);
+    box.addEventListener('click', (e) => { if (e.target === box) done(); });
+    window.addEventListener('keydown', key);
+    const viewer = photoViewer(name, list);
+    // Full screen is already as big as the photo gets, so a tap on it goes back to the map.
+    viewer.querySelector('a').addEventListener('click', (e) => { e.preventDefault(); done(); });
+    box.append(viewer, close);
+    document.body.append(box);
+    close.focus();
+  };
+  // Returns true when the photos took the tap, so it does not also select the track.
+  const show = (lngLat, name, photos, tap = false) => {
     cancel();
     const list = photos ? photos.split('|') : [];
-    if (!list.length) return;
+    if (!list.length) return false;
+    shownAt = Date.now();
+    if (touch.matches) {
+      if (tap) lightbox(name, list);
+      return tap;
+    }
     const key = `${lngLat[0]},${lngLat[1]}`;
-    if (current === key && popup.isOpen()) return;
+    if (current === key && popup.isOpen()) return false;
     current = key;
-    let at = 0;
-    const el = document.createElement('div');
-    el.className = 'tracks-photo';
-    el.innerHTML = '<a target="_blank" rel="noopener"><img alt=""></a><div class="tracks-photo-bar"><button type="button" aria-label="Previous photo">‹</button><span></span><button type="button" aria-label="Next photo">›</button></div>';
-    const [link, img, prev, label, next] = ['a', 'img', 'button', 'span', 'button:last-of-type'].map((q) => el.querySelector(q));
-    const render = () => {
-      const url = `/tracks-data/${list[at]}`;
-      link.href = url;
-      img.src = url;
-      img.alt = name;
-      label.textContent = list.length > 1 ? `${name} · ${at + 1}/${list.length}` : name;
-      prev.hidden = next.hidden = list.length < 2;
-    };
-    const step = (d) => () => { at = (at + d + list.length) % list.length; render(); };
-    prev.addEventListener('click', step(-1));
-    next.addEventListener('click', step(1));
-    el.addEventListener('click', (e) => e.stopPropagation());
+    const el = photoViewer(name, list);
     el.addEventListener('mouseenter', cancel);
     el.addEventListener('mouseleave', hide);
-    render();
-    shownAt = Date.now();
     popup.setLngLat(lngLat).setDOMContent(el).addTo(map);
+    return false;
   };
   // A tap on a point also reaches the map's own click; only a click elsewhere closes the popup.
   map.on('click', () => setTimeout(() => { if (Date.now() - shownAt > 100) { cancel(); popup.remove(); current = null; } }));
-  return { show, hide };
+  return { show, hide, tookTap: () => touch.matches && Date.now() - shownAt < 100 };
 }
 
-function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView, onViewChange, fitKey, fitAllKey, focusSource, focusKey, initialCamera, onCamera }) {
+function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView, onViewChange, fitKey, fitAllKey, focusSource, focusKey, goTo, initialCamera, onCamera }) {
   const proj = amap ? toGcj : identity;
   const amapRef = useRef(null);
   const containerRef = useRef(null);
@@ -574,7 +621,7 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
     map.once('load', () => containerRef.current?.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show'));
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
     scaleRef.current = new maplibregl.ScaleControl();
-    const overlay = new MapboxOverlay({ interleaved: false, layers: [] });
+    const overlay = new MapboxOverlay({ interleaved: false, layers: [], pickingRadius: 10 });
     overlayRef.current = overlay;
     map.addControl(overlay);
 
@@ -600,16 +647,20 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
         map.addImage(id, badge.canvas.getContext('2d').getImageData(0, 0, badge.width, badge.height), { pixelRatio: 2 });
       });
       map.addLayer({ id: 'wpt-dot', type: 'circle', source: 'wpts', filter: ['==', ['get', 'photos'], ''], paint: { 'circle-radius': 5, 'circle-color': ['get', 'color'], 'circle-stroke-color': '#050610', 'circle-stroke-width': 2 } });
+      map.addLayer({ id: 'wpt-photo-hit', type: 'circle', source: 'wpts', filter: ['!=', ['get', 'photos'], ''], paint: { 'circle-radius': 20, 'circle-opacity': 0 } });
       map.addLayer({ id: 'wpt-photo', type: 'symbol', source: 'wpts', filter: ['!=', ['get', 'photos'], ''], layout: { 'icon-image': ['concat', 'wpt-photo-', ['get', 'color']], 'icon-allow-overlap': true, 'icon-ignore-placement': true } });
       map.addLayer({ id: 'wpt-label', type: 'symbol', source: 'wpts', layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'], 'text-size': 12, 'text-offset': [0, 1.2], 'text-anchor': 'top', 'text-optional': true }, paint: { 'text-color': '#ffffff', 'text-halo-color': '#050610', 'text-halo-width': 2, 'text-halo-blur': 0 } });
       const photos = photoPopup(map);
       photoRef.current = photos;
-      const showPhotos = (e) => { const f = e.features[0]; photos.show(f.geometry.coordinates, f.properties.name, f.properties.photos); };
-      map.on('mouseenter', 'wpt-photo', showPhotos);
-      map.on('click', 'wpt-photo', showPhotos);
-      map.on('mouseleave', 'wpt-photo', photos.hide);
-      ['track-hit', 'wpt-dot', 'wpt-photo'].forEach((layer) => {
-        map.on('click', layer, (e) => onSelectRef.current(e.features[0].properties.id));
+      const showPhotos = (tap) => (e) => { const f = e.features[0]; photos.show(f.geometry.coordinates, f.properties.name, f.properties.photos, tap); };
+      // The badge is small for a finger, so an invisible wider circle takes its taps and hovers.
+      ['wpt-photo', 'wpt-photo-hit'].forEach((layer) => {
+        map.on('mouseenter', layer, showPhotos(false));
+        map.on('click', layer, showPhotos(true));
+        map.on('mouseleave', layer, photos.hide);
+      });
+      ['track-hit', 'wpt-dot', 'wpt-photo', 'wpt-photo-hit'].forEach((layer) => {
+        map.on('click', layer, (e) => { if (!photos.tookTap()) onSelectRef.current(e.features[0].properties.id); });
         map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
         map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
       });
@@ -658,11 +709,11 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
       if (!map.getLayer('sky')) map.setSky?.({ 'sky-color': '#07101c', 'horizon-color': '#12301f', 'fog-color': '#050610', 'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.6, 'fog-ground-blend': 0.8 });
       // Opening a saved 3D view must keep its pitch, including angles below 55°.
       if (!skipPitchRaise.current) map.easeTo({ pitch: Math.max(map.getPitch(), 55), duration: 800 });
-      ['wpt-label', 'wpt-dot', 'wpt-photo'].forEach((id) => map.setLayoutProperty(id, 'visibility', 'none'));
+      ['wpt-label', 'wpt-dot', 'wpt-photo', 'wpt-photo-hit'].forEach((id) => map.setLayoutProperty(id, 'visibility', 'none'));
     } else {
       if (!map.hasControl(scale)) map.addControl(scale, 'bottom-left');
       map.setTerrain(null);
-      ['wpt-label', 'wpt-dot', 'wpt-photo'].forEach((id) => map.setLayoutProperty(id, 'visibility', 'visible'));
+      ['wpt-label', 'wpt-dot', 'wpt-photo', 'wpt-photo-hit'].forEach((id) => map.setLayoutProperty(id, 'visibility', 'visible'));
       // A link's own pitch and bearing survive the first pass; later 2D toggles flatten the view.
       if (!skipPitchReset.current) map.easeTo({ pitch: 0, bearing: 0, duration: 600 });
     }
@@ -821,8 +872,7 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
       };
       const pick = (info) => {
         if (!info.object) return;
-        photoRef.current?.show([info.object.lon, info.object.lat], info.object.name, info.object.photos);
-        onSelectRef.current(info.object.id);
+        if (!photoRef.current?.show([info.object.lon, info.object.lat], info.object.name, info.object.photos, true)) onSelectRef.current(info.object.id);
       };
       const hover = (info) => (info.object ? photoRef.current?.show([info.object.lon, info.object.lat], info.object.name, info.object.photos) : photoRef.current?.hide());
       // The leader is thin and slightly translucent: it has to say where the point is without
@@ -1000,6 +1050,16 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
     if (!ready || didFit.current || lockCamera.current) return;
     fitNow(selected ? items.filter((it) => it.id === selected) : items);
   }, [items.length, ready]);
+
+  // A waypoint picked from the detail list: fly to it, and with a mouse open its photos there.
+  useEffect(() => {
+    if (!ready || !goTo) return;
+    const map = mapRef.current;
+    const center = proj([goTo.lon, goTo.lat]);
+    lockCamera.current = false;
+    map.flyTo({ center, zoom: Math.max(map.getZoom(), 13), duration: 1200 });
+    if (goTo.photos?.length) map.once('moveend', () => photoRef.current?.show(center, goTo.name, goTo.photos.join('|')));
+  }, [goTo, ready]);
 
   // Picking a file frames every item that came out of it: its tracks and its waypoints.
   useEffect(() => {
@@ -1363,7 +1423,7 @@ function Profile({ geom, playT, onScrub, spans = [] }) {
   </div>;
 }
 
-function Detail({ item, geom, onClose, playT, setPlayT, playing, setPlaying, rate, setRate, inWorkspace, onToggleWorkspace, spans, idle }) {
+function Detail({ item, geom, onClose, onGoTo, playT, setPlayT, playing, setPlaying, rate, setRate, inWorkspace, onToggleWorkspace, spans, idle }) {
   const canPlay = Boolean(geom?.times?.length) && item.duration > 0;
   const hasProfile = Boolean(geom?.coords?.some((c) => c[2] != null));
   const scrubTo = (t) => { setPlaying(false); setPlayT(t); };
@@ -1393,7 +1453,7 @@ function Detail({ item, geom, onClose, playT, setPlayT, playing, setPlaying, rat
       <span>{statsOpen ? '▾ less' : '▸ more'}</span>
     </button>
     <dl className={`tracks-stats ${statsOpen ? 'open' : ''}`}>{stats.map(([k, v]) => <div key={k}><dt className="mono">{k}</dt><dd>{v}</dd></div>)}</dl>
-    {geom?.waypoints && <ol className="tracks-wpts">{geom.waypoints.map((w, i) => <li key={i}><span>{w.name}</span><span className="mono">{fmtEle(w.ele)}</span></li>)}</ol>}
+    {geom?.waypoints && <ol className="tracks-wpts">{geom.waypoints.map((w, i) => <li key={i}><button type="button" onClick={() => onGoTo(w)}><span>{w.name}</span><span className="mono">{fmtEle(w.ele)}</span></button></li>)}</ol>}
     {canPlay && <div className="tracks-play">
       <button className="btn" onClick={() => { if (playT == null || playT >= item.duration) setPlayT(0); setPlaying((p) => !p); }} aria-label={playing ? 'pause' : 'play'}>{playing ? '❚❚' : '▶'}</button>
       <select className="tracks-input" value={rate} onChange={(e) => setRate(Number(e.target.value))} aria-label="playback speed">
@@ -1651,6 +1711,7 @@ function TracksApp() {
   // camera frames the lot. A single track picked afterwards takes over, so the two never
   // both claim the map at once.
   const [focus, setFocus] = useState(null);
+  const [goTo, setGoTo] = useState(null);
   const selectItem = useCallback((id) => { setFocus(null); setSelected(id); }, []);
 
   const onToggleWorkspace = useCallback((id) => {
@@ -1825,7 +1886,7 @@ function TracksApp() {
         </>}
       </aside>
       <section className="tracks-stage">
-        <TrackMap items={shown} geoms={geoms} selected={selected} onSelect={selectItem} is3d={is3d} amap={amap} marker={marker} inView={filters.inView} onViewChange={onViewChange} fitKey={fitKey} fitAllKey={fitAllKey} focusSource={focus?.source ?? null} focusKey={focus?.key ?? 0} initialCamera={initial.camera} onCamera={setCamera} />
+        <TrackMap items={shown} geoms={geoms} selected={selected} onSelect={selectItem} is3d={is3d} amap={amap} marker={marker} inView={filters.inView} onViewChange={onViewChange} fitKey={fitKey} fitAllKey={fitAllKey} focusSource={focus?.source ?? null} focusKey={focus?.key ?? 0} goTo={goTo} initialCamera={initial.camera} onCamera={setCamera} />
         <div className="tracks-toolbar">
           <button className="btn tracks-panel-btn" onClick={() => setSnap(panelOpen ? 'peek' : 'half')}>{panelOpen ? '◂ panel' : '▸ panel'}</button>
           <button className="btn" onClick={onCopyLink} title="copy a link to exactly this view">{copied === 'ok' ? '✓ copied' : copied === 'fail' ? '✗ copy it from the address bar' : '⧉ link'}</button>
@@ -1833,7 +1894,7 @@ function TracksApp() {
           <button className={`btn ${is3d ? 'active' : ''}`} onClick={() => setIs3d((v) => !v)}>{is3d ? '3D' : '2D'}</button>
           <button className={`btn ${amap ? 'active' : ''}`} onClick={() => setAmap((v) => !v)} title="switch basemap">{amap ? '高德' : 'OSM'}</button>
         </div>
-        {selItem && <Detail item={selItem} geom={selGeom} onClose={() => setSelected(null)} playT={playT} setPlayT={setPlayT} playing={playing} setPlaying={setPlaying} rate={rate} setRate={setRate} inWorkspace={inWorkspace.has(selItem.id)} onToggleWorkspace={onToggleWorkspace} spans={spans} idle={idle} />}
+        {selItem && <Detail item={selItem} geom={selGeom} onClose={() => setSelected(null)} onGoTo={(w) => setGoTo({ ...w, key: Date.now() })} playT={playT} setPlayT={setPlayT} playing={playing} setPlaying={setPlaying} rate={rate} setRate={setRate} inWorkspace={inWorkspace.has(selItem.id)} onToggleWorkspace={onToggleWorkspace} spans={spans} idle={idle} />}
       </section>
     </div>
   </div>;
