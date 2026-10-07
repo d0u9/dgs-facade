@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="dgs-toolbox" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata><name>20260504 西宁 麦当劳, 大有山</name></metadata>
-  <wpt lat="36.6717327" lon="101.7327599"><name>西宁全景</name></wpt>
-  <trk>
+  <wpt lat="36.6717327" lon="101.7327599"><name>西宁全景</name><link href="20260504 西宁 麦当劳, 大有山.photos/9c0525da0c44.webp"><type>image/webp</type></link><link href="20260504 西宁 麦当劳, 大有山.photos/4eab8a5bd36a.webp"><type>image/webp</type></link><link href="20260504 西宁 麦当劳, 大有山.photos/1297d5a4abfd.webp"><type>image/webp</type></link></wpt>
+    <wpt lat="36.7004009" lon="101.6894846"><name>春耕</name><link href="20260504 西宁 麦当劳, 大有山.photos/4c7a10970854.webp"><type>image/webp</type></link></wpt>
+<trk>
     <name>CN 西宁 大有山</name>
     <trkseg>
       <trkpt lat="36.6348965" lon="101.7275561"><ele>2326.61</ele><time>2026-05-04T07:03:25Z</time></trkpt>
