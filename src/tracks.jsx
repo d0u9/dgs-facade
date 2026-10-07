@@ -401,7 +401,8 @@ function buildGroundFeatures(items, geoms, proj) {
     if (g.waypoints) {
       g.waypoints.forEach((w) => points.push({
         type: 'Feature', geometry: { type: 'Point', coordinates: proj([w.lon, w.lat]) },
-        properties: { id: it.id, src: it.source ?? '', key: `${it.id}:${w.lon},${w.lat}`, name: w.name, color, ele: w.ele ?? null },
+        // MapLibre hands back array properties as JSON text, so the photo list travels as one string.
+        properties: { id: it.id, src: it.source ?? '', key: `${it.id}:${w.lon},${w.lat}`, name: w.name, color, ele: w.ele ?? null, photos: w.photos?.join('|') ?? '' },
       }));
       return;
     }
@@ -413,12 +414,80 @@ function buildGroundFeatures(items, geoms, proj) {
   return { lines: { type: 'FeatureCollection', features: lines }, points: { type: 'FeatureCollection', features: points } };
 }
 
+// A waypoint with photos is drawn as a camera badge instead of a dot, so it says it can be opened.
+// Same look as the dot: the track's colour with a dark rim, the camera cut out in the rim colour.
+// Drawn on a canvas at 2x so the image exists before any layer asks for it, one per colour.
+const photoBadges = new Map();
+function photoIcon(color) {
+  if (photoBadges.has(color)) return photoBadges.get(color);
+  const c = document.createElement('canvas');
+  c.width = c.height = 36;
+  const g = c.getContext('2d');
+  g.scale(2, 2);
+  g.beginPath(); g.arc(9, 9, 8, 0, Math.PI * 2);
+  g.fillStyle = color; g.fill();
+  g.lineWidth = 2; g.strokeStyle = '#050610'; g.stroke();
+  g.fillStyle = '#050610';
+  g.beginPath(); g.roundRect(4.5, 6.5, 9, 6, 1.2); g.fill();
+  g.fillRect(7, 5.2, 4, 1.6);
+  g.beginPath(); g.arc(9, 9.5, 1.8, 0, Math.PI * 2);
+  g.fillStyle = color; g.fill();
+  const icon = { id: `wpt-photo-${color}`, canvas: c, url: c.toDataURL(), width: 36, height: 36 };
+  photoBadges.set(color, icon);
+  return icon;
+}
+
+// A waypoint's photos, in a popup that opens on hover (or tap) and pages left and right.
+// It stays open while the pointer moves from the point onto it, so the arrows can be reached.
+function photoPopup(map) {
+  const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: 'none', offset: 12, className: 'tracks-photo-pop' });
+  let timer = null;
+  let current = null;
+  let shownAt = 0;
+  const cancel = () => { clearTimeout(timer); timer = null; };
+  const hide = () => { cancel(); timer = setTimeout(() => { popup.remove(); current = null; }, 400); };
+  const show = (lngLat, name, photos) => {
+    cancel();
+    const list = photos ? photos.split('|') : [];
+    if (!list.length) return;
+    const key = `${lngLat[0]},${lngLat[1]}`;
+    if (current === key && popup.isOpen()) return;
+    current = key;
+    let at = 0;
+    const el = document.createElement('div');
+    el.className = 'tracks-photo';
+    el.innerHTML = '<a target="_blank" rel="noopener"><img alt=""></a><div class="tracks-photo-bar"><button type="button" aria-label="Previous photo">‹</button><span></span><button type="button" aria-label="Next photo">›</button></div>';
+    const [link, img, prev, label, next] = ['a', 'img', 'button', 'span', 'button:last-of-type'].map((q) => el.querySelector(q));
+    const render = () => {
+      const url = `/tracks-data/${list[at]}`;
+      link.href = url;
+      img.src = url;
+      img.alt = name;
+      label.textContent = list.length > 1 ? `${name} · ${at + 1}/${list.length}` : name;
+      prev.hidden = next.hidden = list.length < 2;
+    };
+    const step = (d) => () => { at = (at + d + list.length) % list.length; render(); };
+    prev.addEventListener('click', step(-1));
+    next.addEventListener('click', step(1));
+    el.addEventListener('click', (e) => e.stopPropagation());
+    el.addEventListener('mouseenter', cancel);
+    el.addEventListener('mouseleave', hide);
+    render();
+    shownAt = Date.now();
+    popup.setLngLat(lngLat).setDOMContent(el).addTo(map);
+  };
+  // A tap on a point also reaches the map's own click; only a click elsewhere closes the popup.
+  map.on('click', () => setTimeout(() => { if (Date.now() - shownAt > 100) { cancel(); popup.remove(); current = null; } }));
+  return { show, hide };
+}
+
 function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView, onViewChange, fitKey, fitAllKey, focusSource, focusKey, initialCamera, onCamera }) {
   const proj = amap ? toGcj : identity;
   const amapRef = useRef(null);
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const overlayRef = useRef(null);
+  const photoRef = useRef(null);
   const groundMarkerRef = useRef(null);
   const scaleRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -524,9 +593,22 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
       map.addLayer({ id: 'track-line', type: 'line', source: 'tracks', filter: ['all', ['!', ['get', 'air']], ['==', ['get', 'kind'], 'track']], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 3 } });
       map.addLayer({ id: 'plan-line', type: 'line', source: 'tracks', filter: ['all', ['!', ['get', 'air']], ['==', ['get', 'kind'], 'plan']], paint: { 'line-color': ['get', 'color'], 'line-width': 2.5, 'line-dasharray': [2, 1.5] } });
       map.addLayer({ id: 'track-hit', type: 'line', source: 'tracks', paint: { 'line-color': '#000', 'line-width': 14, 'line-opacity': 0 } });
-      map.addLayer({ id: 'wpt-dot', type: 'circle', source: 'wpts', paint: { 'circle-radius': 5, 'circle-color': ['get', 'color'], 'circle-stroke-color': '#050610', 'circle-stroke-width': 2 } });
+      // Badges are made on demand, since the colour comes from the track type.
+      map.on('styleimagemissing', ({ id }) => {
+        if (!id.startsWith('wpt-photo-')) return;
+        const badge = photoIcon(id.slice('wpt-photo-'.length));
+        map.addImage(id, badge.canvas.getContext('2d').getImageData(0, 0, badge.width, badge.height), { pixelRatio: 2 });
+      });
+      map.addLayer({ id: 'wpt-dot', type: 'circle', source: 'wpts', filter: ['==', ['get', 'photos'], ''], paint: { 'circle-radius': 5, 'circle-color': ['get', 'color'], 'circle-stroke-color': '#050610', 'circle-stroke-width': 2 } });
+      map.addLayer({ id: 'wpt-photo', type: 'symbol', source: 'wpts', filter: ['!=', ['get', 'photos'], ''], layout: { 'icon-image': ['concat', 'wpt-photo-', ['get', 'color']], 'icon-allow-overlap': true, 'icon-ignore-placement': true } });
       map.addLayer({ id: 'wpt-label', type: 'symbol', source: 'wpts', layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'], 'text-size': 12, 'text-offset': [0, 1.2], 'text-anchor': 'top', 'text-optional': true }, paint: { 'text-color': '#ffffff', 'text-halo-color': '#050610', 'text-halo-width': 2, 'text-halo-blur': 0 } });
-      ['track-hit', 'wpt-dot'].forEach((layer) => {
+      const photos = photoPopup(map);
+      photoRef.current = photos;
+      const showPhotos = (e) => { const f = e.features[0]; photos.show(f.geometry.coordinates, f.properties.name, f.properties.photos); };
+      map.on('mouseenter', 'wpt-photo', showPhotos);
+      map.on('click', 'wpt-photo', showPhotos);
+      map.on('mouseleave', 'wpt-photo', photos.hide);
+      ['track-hit', 'wpt-dot', 'wpt-photo'].forEach((layer) => {
         map.on('click', layer, (e) => onSelectRef.current(e.features[0].properties.id));
         map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
         map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
@@ -576,11 +658,11 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
       if (!map.getLayer('sky')) map.setSky?.({ 'sky-color': '#07101c', 'horizon-color': '#12301f', 'fog-color': '#050610', 'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.6, 'fog-ground-blend': 0.8 });
       // Opening a saved 3D view must keep its pitch, including angles below 55°.
       if (!skipPitchRaise.current) map.easeTo({ pitch: Math.max(map.getPitch(), 55), duration: 800 });
-      ['wpt-label', 'wpt-dot'].forEach((id) => map.setLayoutProperty(id, 'visibility', 'none'));
+      ['wpt-label', 'wpt-dot', 'wpt-photo'].forEach((id) => map.setLayoutProperty(id, 'visibility', 'none'));
     } else {
       if (!map.hasControl(scale)) map.addControl(scale, 'bottom-left');
       map.setTerrain(null);
-      ['wpt-label', 'wpt-dot'].forEach((id) => map.setLayoutProperty(id, 'visibility', 'visible'));
+      ['wpt-label', 'wpt-dot', 'wpt-photo'].forEach((id) => map.setLayoutProperty(id, 'visibility', 'visible'));
       // A link's own pitch and bearing survive the first pass; later 2D toggles flatten the view.
       if (!skipPitchReset.current) map.easeTo({ pitch: 0, bearing: 0, duration: 600 });
     }
@@ -624,6 +706,7 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
     map.setPaintProperty('plan-line', 'line-opacity', dim(1));
     map.setPaintProperty('track-air-shadow', 'line-opacity', dim(0.35));
     map.setPaintProperty('wpt-dot', 'circle-opacity', dim(1));
+    map.setPaintProperty('wpt-photo', 'icon-opacity', dim(1));
     // A name is the only thing that tells one waypoint from another, so it is never faded:
     // dimming the track it belongs to must not cost the reader the word.
     map.setPaintProperty('wpt-label', 'text-opacity', 1);
@@ -736,7 +819,12 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
         if (d.src === (focusSource ?? selSource)) return 255;
         return 120;
       };
-      const pick = (info) => info.object && onSelectRef.current(info.object.id);
+      const pick = (info) => {
+        if (!info.object) return;
+        photoRef.current?.show([info.object.lon, info.object.lat], info.object.name, info.object.photos);
+        onSelectRef.current(info.object.id);
+      };
+      const hover = (info) => (info.object ? photoRef.current?.show([info.object.lon, info.object.lat], info.object.name, info.object.photos) : photoRef.current?.hide());
       // The leader is thin and slightly translucent: it has to say where the point is without
       // becoming the brightest thing on a dark hillside. The shelf and the name carry the weight.
       layers.push(new LineLayer({
@@ -750,13 +838,13 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
         id: 'wpt-foot', data: wpts, getPosition: (d) => [d.lon, d.lat, d.base],
         getFillColor: (d) => [...hexToRgb(d.color), alpha(d)], getLineColor: [5, 6, 16, 220],
         stroked: true, lineWidthUnits: 'pixels', getLineWidth: 1, radiusUnits: 'pixels', getRadius: 3,
-        pickable: true, onClick: pick,
+        pickable: true, onClick: pick, onHover: hover,
         updateTriggers: { getFillColor: [selected, focusSource] },
       }));
       layers.push(new IconLayer({
         id: 'wpt-shelf', data: wpts, getPosition: (d) => [d.lon, d.lat, d.top], getIcon: (d) => shelfIcon(d.name),
         getColor: (d) => [...hexToRgb(d.color), alpha(d)], getSize: 12, sizeUnits: 'pixels',
-        billboard: true, pickable: true, onClick: pick,
+        billboard: true, pickable: true, onClick: pick, onHover: hover,
         updateTriggers: { getColor: [selected, focusSource] },
       }));
       layers.push(new TextLayer({
@@ -772,7 +860,16 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
         // from deck's ASCII default, which would drop every character it has not been told about.
         characterSet: 'auto',
         outlineColor: [5, 6, 16, 255], outlineWidth: 5, fontSettings: { sdf: true, radius: 12, buffer: 8 },
-        pickable: true, onClick: pick,
+        pickable: true, onClick: pick, onHover: hover,
+        updateTriggers: { getColor: [selected, focusSource] },
+      }));
+      // The camera badge sits just left of the name on the shelf.
+      layers.push(new IconLayer({
+        id: 'wpt-photo', data: wpts.filter((d) => d.photos), getPosition: (d) => [d.lon, d.lat, d.top],
+        getIcon: (d) => photoIcon(d.color), getSize: 18, sizeUnits: 'pixels', billboard: true,
+        getPixelOffset: (d) => [-(shelfIcon(d.name).width / 2 + 11), -9],
+        getColor: (d) => [255, 255, 255, alpha(d)],
+        pickable: true, onClick: pick, onHover: hover,
         updateTriggers: { getColor: [selected, focusSource] },
       }));
     }

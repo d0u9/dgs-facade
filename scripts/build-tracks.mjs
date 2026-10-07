@@ -1,7 +1,8 @@
 // Converts raw track files in data/tracks/<type>/ into static JSON under public/tracks-data/.
 // index.json holds metadata for filtering; <id>.json holds geometry and is loaded on demand.
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, extname, join, relative } from 'node:path';
+import { createHash } from 'node:crypto';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { DOMParser } from '@xmldom/xmldom';
 import { gpx, kml } from '@tmcw/togeojson';
 
@@ -15,6 +16,10 @@ const TYPE_ALIASES = {
   cycling: 'bike', biking: 'bike', ride: 'bike',
 };
 const MAX_POINTS = 4000;
+const PHOTO_EXTS = new Set(['.webp', '.jpg', '.jpeg', '.png', '.avif']);
+// Photos are published under a content hash, so neither the source file nor its folder name
+// reaches the site, and an unchanged photo keeps its URL across builds.
+const PHOTO_DIR = 'photos';
 const ID_LENGTH = 5;
 
 function normalizeType(value) {
@@ -268,8 +273,32 @@ function readFeatured(srcDir, log) {
   }
 }
 
+// A waypoint's GPX <link href> names a photo relative to its GPX file. Anything that is not an
+// image file inside the track sources is skipped, so a link cannot publish an arbitrary file.
+function publishPhotos(links, file, srcDir, photoDir, wanted, log) {
+  const out = [];
+  (links ?? []).forEach(({ href } = {}) => {
+    if (!href || /^[a-z][a-z0-9+.-]*:/i.test(href)) return;
+    const path = resolve(dirname(file), href);
+    if (!path.startsWith(resolve(srcDir) + sep) || !PHOTO_EXTS.has(extname(path).toLowerCase()) || !existsSync(path)) {
+      log(`[tracks] skip photo link in ${relative(srcDir, file)}: ${href}`);
+      return;
+    }
+    const name = `${createHash('sha256').update(readFileSync(path)).digest('hex').slice(0, 16)}${extname(path).toLowerCase()}`;
+    if (!wanted.has(name)) {
+      wanted.add(name);
+      if (!existsSync(join(photoDir, name))) copyFileSync(path, join(photoDir, name));
+    }
+    out.push(`${PHOTO_DIR}/${name}`);
+  });
+  return out;
+}
+
 export function buildTracks({ srcDir, outDir, log = console.log }) {
   mkdirSync(outDir, { recursive: true });
+  const photoDir = join(outDir, PHOTO_DIR);
+  mkdirSync(photoDir, { recursive: true });
+  const photos = new Set();
   const featured = readFeatured(srcDir, log);
   const isFeatured = (meta, source) => [meta.id, meta.name, source].some((v) => v && featured.has(String(v).toLowerCase()));
 
@@ -294,7 +323,10 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
       const kind = kindOf(feature);
       if (kind === 'waypoint') {
         const [lon, lat, ele] = feature.geometry.coordinates;
-        waypoints.push({ name: props.name ?? `WP ${waypoints.length + 1}`, type, lon: round(lon, 6), lat: round(lat, 6), ele: ele != null ? round(ele, 1) : null, time: props.time ?? null, desc: props.desc ?? null });
+        const wpt = { name: props.name ?? `WP ${waypoints.length + 1}`, type, lon: round(lon, 6), lat: round(lat, 6), ele: ele != null ? round(ele, 1) : null, time: props.time ?? null, desc: props.desc ?? null };
+        const urls = publishPhotos(props.links, file, srcDir, photoDir, photos, log);
+        if (urls.length) wpt.photos = urls;
+        waypoints.push(wpt);
         return;
       }
       const name = String(props.name ?? '').trim() || `Track ${fi + 1}`;
@@ -372,8 +404,9 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
   // Stale geometry is removed one file at a time rather than by emptying the directory first:
   // the dev server rebuilds on its own, and a build that starts by deleting everything can
   // pull files out from under a build already running.
-  const wanted = new Set([...index.map((meta) => `${meta.id}.json`), 'index.json']);
+  const wanted = new Set([...index.map((meta) => `${meta.id}.json`), 'index.json', PHOTO_DIR]);
   readdirSync(outDir).forEach((name) => { if (!wanted.has(name)) rmSync(join(outDir, name), { force: true }); });
+  readdirSync(photoDir).forEach((name) => { if (!photos.has(name)) rmSync(join(photoDir, name), { force: true }); });
 
   const orphans = Object.keys(ledger).filter((id) => !claimed.has(id));
   if (orphans.length) log(`[tracks] ${orphans.length} ${LEDGER} ${orphans.length === 1 ? 'entry keeps an id for a track that is gone' : 'entries keep ids for tracks that are gone'}`);

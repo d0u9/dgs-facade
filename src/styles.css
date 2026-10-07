@@ -1454,3 +1454,18 @@ a {
 .tracks-file-caret { flex: none; width: 26px; padding: 0; border: 0; border-left: 1px solid var(--line); background: none; color: var(--muted); font-size: 10px; cursor: pointer; }
 .tracks-file-caret:hover { color: var(--text); background: var(--panel); }
 .tracks-file-btn.active { color: var(--text); }
+
+/* Waypoint photo popup: one photo at a time, paged with the arrows under it. */
+/* Above the deck.gl canvas, which draws the 3D callouts over the map. */
+.tracks-photo-pop { z-index: 3; }
+.tracks-photo-pop .maplibregl-popup-content { padding: 0; background: #0b0d18; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; overflow: hidden; }
+.tracks-photo-pop.maplibregl-popup-anchor-top .maplibregl-popup-tip { border-bottom-color: #0b0d18; }
+.tracks-photo-pop.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color: #0b0d18; }
+.tracks-photo-pop.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: #0b0d18; }
+.tracks-photo-pop.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: #0b0d18; }
+.tracks-photo img { display: block; width: min(320px, 70vw); aspect-ratio: 5 / 4; object-fit: cover; background: #000; }
+.tracks-photo-bar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; color: #fff; font-size: 12px; }
+.tracks-photo-bar span { flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tracks-photo-bar button { width: 28px; height: 28px; border: 0; border-radius: 6px; background: rgba(255, 255, 255, 0.1); color: #fff; font-size: 18px; line-height: 1; cursor: pointer; }
+.tracks-photo-bar button:hover { background: rgba(255, 255, 255, 0.2); }
+.tracks-photo-bar button[hidden] { display: none; }
