@@ -1253,10 +1253,11 @@ const TrackList = memo(function TrackList({ items, selected, onSelect, onOpenFil
   const activeYear = years.some(([y]) => y === year) ? year : years[0]?.[0];
 
   const inYear = useMemo(() => items.filter((it) => yearOf(it) === activeYear), [items, activeYear]);
+  // A month counts source files, not the tracks and waypoint groups split out of them.
   const monthCounts = useMemo(() => {
-    const c = Array(12).fill(0);
-    inYear.forEach((it) => { const m = monthOf(it); if (m != null) c[m] += 1; });
-    return c;
+    const files = Array.from({ length: 12 }, () => new Set());
+    inYear.forEach((it) => { const m = monthOf(it); if (m != null) files[m].add(it.source ?? it.id); });
+    return files.map((f) => f.size);
   }, [inYear]);
   const byMonth = useMemo(() => {
     const groups = new Map();
@@ -1289,7 +1290,7 @@ const TrackList = memo(function TrackList({ items, selected, onSelect, onOpenFil
       </div>
       {activeYear !== 'undated' && <div className="tracks-months">
         {MONTHS.map((label, m) => (
-          <button key={label} disabled={!monthCounts[m]} className={`tracks-month ${month === m ? 'active' : ''}`} onClick={() => setMonth(month === m ? null : m)} title={`${monthCounts[m]} tracks`}>
+          <button key={label} disabled={!monthCounts[m]} className={`tracks-month ${month === m ? 'active' : ''}`} onClick={() => setMonth(month === m ? null : m)} title={`${monthCounts[m]} ${monthCounts[m] === 1 ? 'file' : 'files'}`}>
             <span>{label}</span><span className="mono">{monthCounts[m] || ''}</span>
           </button>
         ))}
