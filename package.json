@@ -12,7 +12,8 @@
     "tracks": "node -e \"import('./scripts/build-tracks.mjs').then((m) => m.buildTracks({ srcDir: 'data/tracks', outDir: 'public/tracks-data' }))\"",
     "add-track": "node scripts/add-track.mjs",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test"
   },
   "dependencies": {
     "@deck.gl/core": "^9.4.0",

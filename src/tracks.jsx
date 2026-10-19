@@ -5,6 +5,7 @@ import { MapboxOverlay } from '@deck.gl/mapbox';
 import { IconLayer, LineLayer, PathLayer, ScatterplotLayer } from '@deck.gl/layers';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { PageHeader } from './components/PageChrome.jsx';
+import { tiltOntoTerrain } from './tracks-camera.js';
 import projects from '../data/projects.json';
 import places from '../data/places.json';
 import './styles.css';
@@ -586,6 +587,7 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
   const skipFit = useRef(Boolean(initialCamera));
   const skipPitchReset = useRef(Boolean(initialCamera));
   const skipPitchRaise = useRef(Boolean(initialCamera && is3d));
+  const cancelTilt = useRef(null);
 
   useEffect(() => {
     const map = new maplibregl.Map({
@@ -742,8 +744,8 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
       if (map.hasControl(scale)) map.removeControl(scale);
       map.setTerrain({ source: 'dem', exaggeration: TERRAIN_EXAG });
       if (!map.getLayer('sky')) map.setSky?.({ 'sky-color': '#07101c', 'horizon-color': '#12301f', 'fog-color': '#050610', 'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.6, 'fog-ground-blend': 0.8 });
-      // Opening a saved 3D view must keep its pitch, including angles below 55°.
-      if (!skipPitchRaise.current) map.easeTo({ pitch: Math.max(map.getPitch(), 55), duration: 800 });
+      // Tilt only once the terrain under the centre is in; see tracks-camera.js.
+      cancelTilt.current = tiltOntoTerrain(map, { raise: !skipPitchRaise.current });
       ['wpt-label', 'wpt-dot', 'wpt-photo', 'wpt-photo-hit'].forEach((id) => map.setLayoutProperty(id, 'visibility', 'none'));
     } else {
       if (!map.hasControl(scale)) map.addControl(scale, 'bottom-left');
@@ -754,6 +756,7 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
     }
     skipPitchReset.current = false;
     skipPitchRaise.current = false;
+    return () => cancelTilt.current?.();
   }, [is3d, ready]);
 
   useEffect(() => {
