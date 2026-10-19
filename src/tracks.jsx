@@ -2,7 +2,7 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from '
 import { createRoot } from 'react-dom/client';
 import maplibregl from 'maplibre-gl';
 import { MapboxOverlay } from '@deck.gl/mapbox';
-import { IconLayer, LineLayer, PathLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers';
+import { IconLayer, LineLayer, PathLayer, ScatterplotLayer } from '@deck.gl/layers';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { PageHeader } from './components/PageChrome.jsx';
 import projects from '../data/projects.json';
@@ -31,6 +31,7 @@ const TERRAIN_EXAG = 2.5;
 // every zoom. Converted to metres against the view's own scale.
 const PIN_FLOAT_PX = 150;
 const WPT_FLOAT_PX = 110;
+const WPT_ROW_PX = 26;
 // Metres per screen pixel at a latitude and zoom, for a 512 px tile.
 const metresPerPixel = (lat, zoom) => (156543.03392 * Math.cos((lat * Math.PI) / 180)) / 2 ** (zoom + 1);
 const floatMetres = (px, lat, zoom) => Math.min(9000, Math.max(120, px * metresPerPixel(lat, zoom)));
@@ -45,20 +46,33 @@ const DEM_TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{
 const EMPTY = { type: 'FeatureCollection', features: [] };
 
 const typeOf = (t) => TYPES[t] ?? TYPES.other;
-// Roughly how wide a name is drawn, in ems: a CJK glyph takes a full one, a Latin letter about
-// half. Used to size the shelf under a waypoint's name, which has to match the text it carries.
-const textEms = (name) => [...String(name)].reduce((w, ch) => w + (/[\u2E80-\uFFEF]/.test(ch) ? 1 : 0.52), 0);
-// Screen-aligned T bar: the shelf and stem are both 1.6 px, with no thick centre joint.
-const shelfIcons = new Map();
-function shelfIcon(name) {
-  if (shelfIcons.has(name)) return shelfIcons.get(name);
-  const width = Math.max(40, Math.ceil(textEms(name) * WPT_TEXT_PX * 0.85 + 8));
-  const svg = encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="12"><rect x="1" y="5.2" width="${width - 2}" height="1.6" rx="0.8" fill="#fff"/></svg>`);
-  const icon = { url: `data:image/svg+xml;charset=utf-8,${svg}`, width, height: 12, anchorX: width / 2, anchorY: 6, mask: true };
-  shelfIcons.set(name, icon);
+const hexToRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+// 3D callout: optional camera badge, then the name, over a thin shelf the stem meets in the
+// middle. Anchored at the shelf so the stem top stays where it was.
+const labelIcons = new Map();
+function labelIcon(name, color, photos) {
+  const key = `${color}|${photos}|${name}`;
+  if (labelIcons.has(key)) return labelIcons.get(key);
+  const ratio = Math.min(Math.ceil(window.devicePixelRatio || 1), 4);
+  const font = `600 ${WPT_TEXT_PX}px -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif`;
+  const g0 = document.createElement('canvas').getContext('2d');
+  g0.font = font;
+  const textW = Math.ceil(g0.measureText(name).width);
+  const badge = photos ? 18 + 4 : 0;
+  const w = Math.max(40, badge + textW + 8), h = 24;
+  const c = document.createElement('canvas');
+  c.width = w * ratio; c.height = h * ratio;
+  const g = c.getContext('2d');
+  g.scale(ratio, ratio);
+  if (photos) g.drawImage(photoIcon(color).canvas, 2, 1, 18, 18);
+  g.font = font; g.textBaseline = 'middle'; g.lineJoin = 'round';
+  g.lineWidth = 4; g.strokeStyle = '#050610'; g.strokeText(name, badge + 4, 10);
+  g.fillStyle = '#fff'; g.fillText(name, badge + 4, 10);
+  g.fillStyle = color; g.fillRect(1, h - 2.4, w - 2, 1.6);
+  const icon = { id: `wpt-label-${key}`, url: c.toDataURL(), width: c.width, height: c.height, anchorX: c.width / 2, anchorY: c.height - 1.6 * ratio, ratio };
+  labelIcons.set(key, icon);
   return icon;
 }
-const hexToRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 
 function fmtDist(m) {
   if (m == null) return '—';
@@ -420,10 +434,13 @@ function buildGroundFeatures(items, geoms, proj) {
 const photoBadges = new Map();
 function photoIcon(color) {
   if (photoBadges.has(color)) return photoBadges.get(color);
+  // Draw at the screen's pixel density so the badge stays sharp on 3x phones.
+  const ratio = Math.min(Math.ceil(window.devicePixelRatio || 1), 4);
+  const size = 18 * ratio;
   const c = document.createElement('canvas');
-  c.width = c.height = 36;
+  c.width = c.height = size;
   const g = c.getContext('2d');
-  g.scale(2, 2);
+  g.scale(ratio, ratio);
   g.beginPath(); g.arc(9, 9, 8, 0, Math.PI * 2);
   g.fillStyle = color; g.fill();
   g.lineWidth = 2; g.strokeStyle = '#050610'; g.stroke();
@@ -432,7 +449,7 @@ function photoIcon(color) {
   g.fillRect(7, 5.2, 4, 1.6);
   g.beginPath(); g.arc(9, 9.5, 1.8, 0, Math.PI * 2);
   g.fillStyle = color; g.fill();
-  const icon = { id: `wpt-photo-${color}`, canvas: c, url: c.toDataURL(), width: 36, height: 36 };
+  const icon = { id: `wpt-photo-${color}`, canvas: c, url: c.toDataURL(), width: size, height: size, ratio };
   photoBadges.set(color, icon);
   return icon;
 }
@@ -635,7 +652,7 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
       map.addSource('tracks', { type: 'geojson', data: EMPTY });
       map.addSource('wpts', { type: 'geojson', data: EMPTY });
       map.addLayer({ id: 'hillshade', type: 'hillshade', source: 'dem', paint: { 'hillshade-exaggeration': 0.25, 'hillshade-shadow-color': '#000', 'hillshade-highlight-color': '#2a3a33' } });
-      map.addLayer({ id: 'track-casing', type: 'line', source: 'tracks', filter: ['==', ['get', 'id'], ''], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#fff', 'line-width': 8, 'line-opacity': 0.35, 'line-blur': 2 } });
+      map.addLayer({ id: 'track-casing', type: 'line', source: 'tracks', filter: ['==', ['get', 'id'], ''], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#050610', 'line-width': 7, 'line-opacity': 0.85 } });
       map.addLayer({ id: 'track-air-shadow', type: 'line', source: 'tracks', filter: ['get', 'air'], paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-opacity': 0.35, 'line-dasharray': [1, 2] } });
       map.addLayer({ id: 'track-line', type: 'line', source: 'tracks', filter: ['all', ['!', ['get', 'air']], ['==', ['get', 'kind'], 'track']], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 3 } });
       map.addLayer({ id: 'plan-line', type: 'line', source: 'tracks', filter: ['all', ['!', ['get', 'air']], ['==', ['get', 'kind'], 'plan']], paint: { 'line-color': ['get', 'color'], 'line-width': 2.5, 'line-dasharray': [2, 1.5] } });
@@ -644,7 +661,7 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
       map.on('styleimagemissing', ({ id }) => {
         if (!id.startsWith('wpt-photo-')) return;
         const badge = photoIcon(id.slice('wpt-photo-'.length));
-        map.addImage(id, badge.canvas.getContext('2d').getImageData(0, 0, badge.width, badge.height), { pixelRatio: 2 });
+        map.addImage(id, badge.canvas.getContext('2d').getImageData(0, 0, badge.width, badge.height), { pixelRatio: badge.ratio });
       });
       map.addLayer({ id: 'wpt-dot', type: 'circle', source: 'wpts', filter: ['==', ['get', 'photos'], ''], paint: { 'circle-radius': 5, 'circle-color': ['get', 'color'], 'circle-stroke-color': '#050610', 'circle-stroke-width': 2 } });
       map.addLayer({ id: 'wpt-photo-hit', type: 'circle', source: 'wpts', filter: ['!=', ['get', 'photos'], ''], paint: { 'circle-radius': 20, 'circle-opacity': 0 } });
@@ -862,6 +879,22 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
         return { ...p, lon, lat, base, top: base + floatMetres(WPT_FLOAT_PX, lat, zoom) };
       });
       terrainPending.current = missing;
+      // Callouts that would land on one already placed float one row higher on a longer stem,
+      // best first: the selected file, then photo points, then the higher ground. Every row is a
+      // fixed pixel height, so the projected foot plus that height says where a callout lands.
+      // Re-run on moveend with the rest, so zooming in lets callouts settle back down.
+      // ponytail: greedy O(n²) box test, fine for tens of waypoints per view.
+      const rank = (d) => (d.src === (focusSource ?? selSource) ? 2e6 : 0) + (d.photos ? 1e6 : 0) + d.base;
+      const placed = [];
+      [...wpts].sort((a, b) => rank(b) - rank(a)).forEach((d) => {
+        const icon = labelIcon(d.name, d.color, !!d.photos);
+        const { x, y: foot } = map ? map.project([d.lon, d.lat]) : { x: 0, y: 0 };
+        const w = icon.width / icon.ratio + 6;
+        let row = 0;
+        while (placed.some((b) => Math.abs(b.x - x) * 2 < b.w + w && Math.abs(b.y - (foot - row * WPT_ROW_PX)) < WPT_ROW_PX)) row += 1;
+        placed.push({ x, y: foot - row * WPT_ROW_PX, w });
+        d.top = d.base + floatMetres(WPT_FLOAT_PX + row * WPT_ROW_PX, d.lat, zoom);
+      });
       // A waypoint's callout carries its name, and a name that has faded to a ghost is no use
       // at all, so an unselected one dims far less than a track line does — and a waypoint from
       // the same file as the selection does not dim at all.
@@ -892,33 +925,9 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
         updateTriggers: { getFillColor: [selected, focusSource] },
       }));
       layers.push(new IconLayer({
-        id: 'wpt-shelf', data: wpts, getPosition: (d) => [d.lon, d.lat, d.top], getIcon: (d) => shelfIcon(d.name),
-        getColor: (d) => [...hexToRgb(d.color), alpha(d)], getSize: 12, sizeUnits: 'pixels',
-        billboard: true, pickable: true, onClick: pick, onHover: hover,
-        updateTriggers: { getColor: [selected, focusSource] },
-      }));
-      layers.push(new TextLayer({
-        id: 'wpt-text', data: wpts, getPosition: (d) => [d.lon, d.lat, d.top], getText: (d) => d.name,
-        getColor: (d) => [255, 255, 255, alpha(d)], getSize: WPT_TEXT_PX, sizeUnits: 'pixels', billboard: true,
-        // Sits on the shelf: bottom-aligned at the leader's top point, lifted by the shelf's
-        // own half-height plus a little air.
-        getTextAnchor: 'middle', getAlignmentBaseline: 'bottom', getPixelOffset: [0, -4],
-        // System sans, not the mono the panel uses: Chinese names are set far better by it.
-        fontFamily: '-apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif',
-        fontWeight: 600,
-        // Names are Chinese as often as not, so the atlas is built from the data rather than
-        // from deck's ASCII default, which would drop every character it has not been told about.
-        characterSet: 'auto',
-        outlineColor: [5, 6, 16, 255], outlineWidth: 5, fontSettings: { sdf: true, radius: 12, buffer: 8 },
-        pickable: true, onClick: pick, onHover: hover,
-        updateTriggers: { getColor: [selected, focusSource] },
-      }));
-      // The camera badge sits just left of the name on the shelf.
-      layers.push(new IconLayer({
-        id: 'wpt-photo', data: wpts.filter((d) => d.photos), getPosition: (d) => [d.lon, d.lat, d.top],
-        getIcon: (d) => photoIcon(d.color), getSize: 18, sizeUnits: 'pixels', billboard: true,
-        getPixelOffset: (d) => [-(shelfIcon(d.name).width / 2 + 11), -9],
-        getColor: (d) => [255, 255, 255, alpha(d)],
+        id: 'wpt-label', data: wpts, getPosition: (d) => [d.lon, d.lat, d.top],
+        getIcon: (d) => labelIcon(d.name, d.color, !!d.photos), getSize: 24,
+        sizeUnits: 'pixels', billboard: true, getColor: (d) => [255, 255, 255, alpha(d)],
         pickable: true, onClick: pick, onHover: hover,
         updateTriggers: { getColor: [selected, focusSource] },
       }));
