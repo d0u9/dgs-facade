@@ -3,6 +3,10 @@
     "src": "drive/20260503 西宁 拉脊山.gpx#0",
     "fp": "track:2889:101.75409,36.61006:101.75015,36.61388"
   },
+  "3u6yx": {
+    "src": "drive/20261017 AU SYD-Jindabyne.gpx#0",
+    "fp": "track:6273:150.79226,-34.05829:148.62066,-36.41421"
+  },
   "cbjp4": {
     "src": "drive/20260506 西宁 大堡子, 修车, 大有山.gpx#0",
     "fp": "track:1635:101.73238,36.6337:101.76105,36.63371"
@@ -11,17 +15,33 @@
     "src": "drive/20261004 AU Newcastle Tour.gpx#waypoints",
     "fp": "waypoint:6:151.71319,-32.27524:151.95933,-32.46573"
   },
+  "lgqj3": {
+    "src": "drive/20261018 AU Kosciuszko-SYD.gpx#waypoints",
+    "fp": "waypoint:1:148.58066,-36.34188:148.58066,-36.34188"
+  },
   "lrrar": {
     "src": "drive/20261004 AU Newcastle Tour.gpx#0",
     "fp": "track:10814:151.07792,-33.73277:151.03836,-33.72414"
+  },
+  "lsjs8": {
+    "src": "drive/20261018 AU Kosciuszko-SYD.gpx#0",
+    "fp": "track:5253:148.32913,-36.43156:151.08217,-33.77218"
   },
   "nfqrj": {
     "src": "drive/20260504 西宁 麦当劳, 大有山.gpx#0",
     "fp": "track:1895:101.72756,36.6349:101.73666,36.64191"
   },
+  "p0auf": {
+    "src": "hike/20261018 AU Kosciuszko Peak.gpx#0",
+    "fp": "track:2088:148.32896,-36.43184:148.32923,-36.43148"
+  },
   "p1m7r": {
     "src": "drive/20260503 西宁 拉脊山.gpx#waypoints",
     "fp": "waypoint:1:101.44706,36.3576:101.44706,36.3576"
+  },
+  "pbufv": {
+    "src": "hike/20261018 AU Kosciuszko Peak.gpx#waypoints",
+    "fp": "waypoint:8:148.29291,-36.45851:148.26347,-36.45587"
   },
   "rvi4j": {
     "src": "drive/20260504 西宁 麦当劳, 大有山.gpx#waypoints",
@@ -30,5 +50,9 @@
   "v6m9n": {
     "src": "drive/20260422 哈尔滨.gpx#0",
     "fp": "track:1281:126.49554,45.7972:126.23185,45.61975"
+  },
+  "wtwj6": {
+    "src": "drive/20261017 AU SYD-Jindabyne.gpx#waypoints",
+    "fp": "waypoint:4:148.27206,-35.4676:148.54041,-35.89571"
   }
 }
