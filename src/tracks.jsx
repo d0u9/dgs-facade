@@ -31,7 +31,6 @@ const TERRAIN_EXAG = 2.5;
 // every zoom. Converted to metres against the view's own scale.
 const PIN_FLOAT_PX = 150;
 const WPT_FLOAT_PX = 110;
-const WPT_ROW_PX = 26;
 // Metres per screen pixel at a latitude and zoom, for a 512 px tile.
 const metresPerPixel = (lat, zoom) => (156543.03392 * Math.cos((lat * Math.PI) / 180)) / 2 ** (zoom + 1);
 const floatMetres = (px, lat, zoom) => Math.min(9000, Math.max(120, px * metresPerPixel(lat, zoom)));
@@ -47,30 +46,49 @@ const EMPTY = { type: 'FeatureCollection', features: [] };
 
 const typeOf = (t) => TYPES[t] ?? TYPES.other;
 const hexToRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-// 3D callout: optional camera badge, then the name, over a thin shelf the stem meets in the
-// middle. Anchored at the shelf so the stem top stays where it was.
-const labelIcons = new Map();
-function labelIcon(name, color, photos) {
-  const key = `${color}|${photos}|${name}`;
-  if (labelIcons.has(key)) return labelIcons.get(key);
+// 3D callout: optional camera badge, then the name, over a thin shelf. The callout sits at
+// (dx, dy) screen px from the stem top, the bitmap's anchor; when it is moved off the stem, a
+// leader runs from the stem top to the near end of the shelf.
+const WPT_LABEL_H = 24;
+// Keep callouts off the map's top edge.
+const WPT_TOP_PX = 8;
+const calloutIcons = new Map();
+const wptFont = `600 ${WPT_TEXT_PX}px -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif`;
+let measureCtx = null;
+function calloutWidth(name, photos) {
+  measureCtx ??= document.createElement('canvas').getContext('2d');
+  measureCtx.font = wptFont;
+  return Math.max(40, (photos ? 22 : 0) + Math.ceil(measureCtx.measureText(name).width) + 8);
+}
+function calloutIcon(name, color, photos, dx, dy) {
+  const key = `${color}|${photos}|${dx}|${dy}|${name}`;
+  if (calloutIcons.has(key)) return calloutIcons.get(key);
   const ratio = Math.min(Math.ceil(window.devicePixelRatio || 1), 4);
-  const font = `600 ${WPT_TEXT_PX}px -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif`;
-  const g0 = document.createElement('canvas').getContext('2d');
-  g0.font = font;
-  const textW = Math.ceil(g0.measureText(name).width);
-  const badge = photos ? 18 + 4 : 0;
-  const w = Math.max(40, badge + textW + 8), h = 24;
+  const w = calloutWidth(name, photos), h = WPT_LABEL_H;
+  // Label box relative to the anchor, then the bitmap's bounds around both.
+  const left = dx - w / 2, top = dy - h;
+  const minX = Math.min(0, left) - 1, maxX = Math.max(0, left + w) + 1, minY = Math.min(0, top) - 1;
+  const cw = maxX - minX, ch = 1 - minY;
   const c = document.createElement('canvas');
-  c.width = w * ratio; c.height = h * ratio;
+  c.width = Math.ceil(cw * ratio); c.height = Math.ceil(ch * ratio);
   const g = c.getContext('2d');
   g.scale(ratio, ratio);
-  if (photos) g.drawImage(photoIcon(color).canvas, 2, 1, 18, 18);
-  g.font = font; g.textBaseline = 'middle'; g.lineJoin = 'round';
-  g.lineWidth = 4; g.strokeStyle = '#050610'; g.strokeText(name, badge + 4, 10);
-  g.fillStyle = '#fff'; g.fillText(name, badge + 4, 10);
-  g.fillStyle = color; g.fillRect(1, h - 2.4, w - 2, 1.6);
-  const icon = { id: `wpt-label-${key}`, url: c.toDataURL(), width: c.width, height: c.height, anchorX: c.width / 2, anchorY: c.height - 1.6 * ratio, ratio };
-  labelIcons.set(key, icon);
+  g.translate(-minX, -minY);
+  if (dx || dy) {
+    const end = dx > 0 ? left + 1 : dx < 0 ? left + w - 1 : 0;
+    g.strokeStyle = color; g.lineWidth = 1.6; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(end, dy - 0.8); g.stroke();
+  }
+  if (photos) g.drawImage(photoIcon(color).canvas, left + 2, top + 1, 18, 18);
+  const tx = left + (photos ? 22 : 0) + 4;
+  g.font = wptFont; g.textBaseline = 'middle'; g.lineJoin = 'round';
+  g.lineWidth = 4; g.strokeStyle = '#050610'; g.strokeText(name, tx, top + 10);
+  g.fillStyle = '#fff'; g.fillText(name, tx, top + 10);
+  g.fillStyle = color; g.fillRect(left + 1, dy - 1.6, w - 2, 1.6);
+  // Offsets change with every camera move, so old bitmaps are dropped rather than kept forever.
+  if (calloutIcons.size > 400) calloutIcons.clear();
+  const icon = { id: `wpt-callout-${key}`, url: c.toDataURL(), width: c.width, height: c.height, anchorX: -minX * ratio, anchorY: -minY * ratio, size: c.height / ratio };
+  calloutIcons.set(key, icon);
   return icon;
 }
 
@@ -879,22 +897,70 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
         return { ...p, lon, lat, base, top: base + floatMetres(WPT_FLOAT_PX, lat, zoom) };
       });
       terrainPending.current = missing;
-      // Callouts that would land on one already placed float one row higher on a longer stem,
-      // best first: the selected file, then photo points, then the higher ground. Every row is a
-      // fixed pixel height, so the projected foot plus that height says where a callout lands.
-      // Re-run on moveend with the rest, so zooming in lets callouts settle back down.
-      // ponytail: greedy O(n²) box test, fine for tens of waypoints per view.
+      // Each callout takes the cheapest free spot around its stem top: centred on the stem, then
+      // beside it, then further out or a row up on a bent leader. A spot costs more for every
+      // line its leader crosses, and much more for a line through a name (its own box over a line,
+      // or its leader through a name already placed), so lines stay apart where they can.
+      // Best first: the selected file, then photo points, then the higher ground. Re-run on
+      // moveend with the rest.
+      // ponytail: 3 greedy passes over a fixed candidate grid, O(n² · spots); fine for tens of waypoints.
       const rank = (d) => (d.src === (focusSource ?? selSource) ? 2e6 : 0) + (d.photos ? 1e6 : 0) + d.base;
-      const placed = [];
-      [...wpts].sort((a, b) => rank(b) - rank(a)).forEach((d) => {
-        const icon = labelIcon(d.name, d.color, !!d.photos);
-        const { x, y: foot } = map ? map.project([d.lon, d.lat]) : { x: 0, y: 0 };
-        const w = icon.width / icon.ratio + 6;
-        let row = 0;
-        while (placed.some((b) => Math.abs(b.x - x) * 2 < b.w + w && Math.abs(b.y - (foot - row * WPT_ROW_PX)) < WPT_ROW_PX)) row += 1;
-        placed.push({ x, y: foot - row * WPT_ROW_PX, w });
-        d.top = d.base + floatMetres(WPT_FLOAT_PX + row * WPT_ROW_PX, d.lat, zoom);
+      // Stems are projected where deck draws them, perspective and all. The last frame's
+      // viewport is close enough, since this runs again on every moveend.
+      // ponytail: reads MapboxOverlay's private _deck; falls back to foot minus the float height.
+      const viewport = overlayRef.current?._deck?.getViewports?.()[0];
+      const stems = wpts.map((d) => {
+        if (viewport) return [...viewport.project([d.lon, d.lat, d.base]).slice(0, 2), ...viewport.project([d.lon, d.lat, d.top]).slice(0, 2)];
+        const p = map ? map.project([d.lon, d.lat]) : { x: 0, y: 0 };
+        return [p.x, p.y, p.x, p.y - WPT_FLOAT_PX];
       });
+      // Other stem tops and the map's own buttons and detail card are taken.
+      const tops = stems.map(([, , x, y]) => ({ l: x - 4, r: x + 4, t: y - 4, b: y + 4 }));
+      const chrome = [];
+      const canvasBox = map?.getCanvas().getBoundingClientRect();
+      if (canvasBox) document.querySelectorAll('.tracks-toolbar, .tracks-detail, .maplibregl-ctrl-top-right').forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width) chrome.push({ l: r.left - canvasBox.left - 4, r: r.right - canvasBox.left + 4, t: r.top - canvasBox.top - 4, b: r.bottom - canvasBox.top + 4 });
+      });
+      const meets = (q, o) => q.l < o.r && o.l < q.r && q.t < o.b && o.t < q.b;
+      const turn = (ax, ay, bx, by, cx, cy) => Math.sign((bx - ax) * (cy - ay) - (by - ay) * (cx - ax));
+      const crosses = ([a, b, c, e], [f, g, h, k]) => turn(a, b, c, e, f, g) * turn(a, b, c, e, h, k) < 0 && turn(f, g, h, k, a, b) * turn(f, g, h, k, c, e) < 0;
+      const inBox = (x, y, q) => x > q.l && x < q.r && y > q.t && y < q.b;
+      const coversLine = (q, s) => inBox(s[0], s[1], q) || inBox(s[2], s[3], q)
+        || [[q.l, q.t, q.r, q.t], [q.r, q.t, q.r, q.b], [q.l, q.b, q.r, q.b], [q.l, q.t, q.l, q.b]].some((edge) => crosses(edge, s));
+      const viewW = map?.getCanvas().clientWidth ?? Infinity;
+      const placed = wpts.map(() => null);
+      const place = (i) => {
+        const d = wpts[i];
+        const [, , x, y] = stems[i];
+        const w = calloutWidth(d.name, !!d.photos);
+        const side = w / 2 + 8;
+        const others = placed.filter((p, j) => p && j !== i);
+        const blocks = [...chrome, ...tops.filter((t, j) => j !== i), ...others.map((p) => p.q)];
+        const otherLines = [...stems.filter((t, j) => j !== i), ...others.filter((p) => p.leader).map((p) => p.leader)];
+        let best = null;
+        for (let row = 0; row <= 6; row += 1) {
+          for (const dx of [0, side, -side, side + 48, -side - 48, side + 96, -side - 96, side + 144, -side - 144]) {
+            const dy = -row * (WPT_LABEL_H + 4);
+            const q = { l: x + dx - w / 2 - 3, r: x + dx + w / 2 + 3, t: y + dy - WPT_LABEL_H - 2, b: y + dy + 2 };
+            if (q.l < 1 || q.r > viewW - 1 || q.t < WPT_TOP_PX || blocks.some((o) => meets(q, o))) continue;
+            const end = dx > 0 ? x + dx - w / 2 : dx < 0 ? x + dx + w / 2 : x;
+            const leader = dx || dy ? [x, y, end, y + dy] : null;
+            // A line through a name reads far worse than two lines crossing, so it costs more.
+            const crossings = leader ? otherLines.filter((l) => crosses(leader, l)).length : 0;
+            const throughText = otherLines.filter((l) => coversLine(q, l)).length
+              + (leader ? others.filter((p) => coversLine(p.q, leader)).length : 0);
+            const cost = Math.abs(dx) / 48 + row * 1.5 + crossings * 6 + throughText * 20;
+            if (!best || cost < best.cost) best = { dx, dy, q, leader, cost };
+          }
+        }
+        placed[i] = best ?? { dx: 0, dy: 0, q: { l: x - w / 2, r: x + w / 2, t: y - WPT_LABEL_H, b: y }, leader: null };
+      };
+      // One greedy pass, then two more where each callout moves knowing where all the others
+      // ended up, which undoes most of what placing in a fixed order gets wrong.
+      const order = wpts.map((d, i) => i).sort((i, j) => rank(wpts[j]) - rank(wpts[i]));
+      for (let pass = 0; pass < 3; pass += 1) order.forEach((i) => { placed[i] = null; place(i); });
+      wpts.forEach((d, i) => { d.callout = calloutIcon(d.name, d.color, !!d.photos, Math.round(placed[i].dx), Math.round(placed[i].dy)); });
       // A waypoint's callout carries its name, and a name that has faded to a ghost is no use
       // at all, so an unselected one dims far less than a track line does — and a waypoint from
       // the same file as the selection does not dim at all.
@@ -926,7 +992,7 @@ function TrackMap({ items, geoms, selected, onSelect, is3d, amap, marker, inView
       }));
       layers.push(new IconLayer({
         id: 'wpt-label', data: wpts, getPosition: (d) => [d.lon, d.lat, d.top],
-        getIcon: (d) => labelIcon(d.name, d.color, !!d.photos), getSize: 24,
+        getIcon: (d) => d.callout, getSize: (d) => d.callout.size,
         sizeUnits: 'pixels', billboard: true, getColor: (d) => [255, 255, 255, alpha(d)],
         pickable: true, onClick: pick, onHover: hover,
         updateTriggers: { getColor: [selected, focusSource] },
