@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="dgs-toolbox" xmlns="http://www.topografix.com/GPX/1/1">
-  <metadata><name>SYD-Jindabyne</name></metadata>
-    <wpt lat="-35.4676018" lon="148.2720633"><name>水库边</name><desc>水库边</desc><link href="20261017 AU SYD-Jindabyne.photos/202d5e8a992c.webp"><type>image/webp</type></link></wpt>
-  <wpt lat="-35.4736346" lon="148.2761606"><name>远望水库</name><link href="20261017 AU SYD-Jindabyne.photos/fb01d9b9fc99.webp"><type>image/webp</type></link></wpt>
-  <wpt lat="-35.5946045" lon="148.3562404"><name>Black Perry Lookout</name><link href="20261017 AU SYD-Jindabyne.photos/ea17ebcb8d3f.webp"><type>image/webp</type></link></wpt>
-  <wpt lat="-35.8957135" lon="148.5404143"><name>小房子</name><link href="20261017 AU SYD-Jindabyne.photos/ad311785aa7e.webp"><type>image/webp</type></link></wpt>
+  <metadata><name>SYD-Jindabyne</name><extensions><dgs:lang xmlns:dgs="urn:dgs-toolbox:gpx:1">en</dgs:lang><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="zh">悉尼-金德拜恩</dgs:name></extensions></metadata>
+    <wpt lat="-35.4676018" lon="148.2720633"><name>水库边</name><desc>水库边</desc><link href="20261017 AU SYD-Jindabyne.photos/202d5e8a992c.webp"><type>image/webp</type></link><extensions><dgs:lang xmlns:dgs="urn:dgs-toolbox:gpx:1">zh</dgs:lang><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="en">By the reservoir</dgs:name></extensions></wpt>
+  <wpt lat="-35.4736346" lon="148.2761606"><name>远望水库</name><link href="20261017 AU SYD-Jindabyne.photos/fb01d9b9fc99.webp"><type>image/webp</type></link><extensions><dgs:lang xmlns:dgs="urn:dgs-toolbox:gpx:1">zh</dgs:lang><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="en">Reservoir view</dgs:name></extensions></wpt>
+  <wpt lat="-35.5946045" lon="148.3562404"><name>Black Perry Lookout</name><link href="20261017 AU SYD-Jindabyne.photos/ea17ebcb8d3f.webp"><type>image/webp</type></link><extensions><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="zh">布莱克佩里观景台</dgs:name></extensions></wpt>
+  <wpt lat="-35.8957135" lon="148.5404143"><name>小房子</name><link href="20261017 AU SYD-Jindabyne.photos/ad311785aa7e.webp"><type>image/webp</type></link><extensions><dgs:lang xmlns:dgs="urn:dgs-toolbox:gpx:1">zh</dgs:lang><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="en">Little house</dgs:name></extensions></wpt>
   <trk>
-    <name>SYD-Jindabyne</name>
-    <trkseg>
+    <name>AU SYD-Jindabyne</name>
+    <type>drive</type><extensions><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="zh">AU 悉尼-金德拜恩</dgs:name></extensions><trkseg>
       <trkpt lat="-34.0588035" lon="150.7910005"><ele>-37.84</ele><time>2026-10-17T00:33:23Z</time></trkpt>
       <trkpt lat="-34.0592549" lon="150.7899948"><ele>-34.8</ele><time>2026-10-17T00:33:27Z</time></trkpt>
       <trkpt lat="-34.0598712" lon="150.7887675"><ele>-31.39</ele><time>2026-10-17T00:33:32Z</time></trkpt>

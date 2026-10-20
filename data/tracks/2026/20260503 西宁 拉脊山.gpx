@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="dgs-toolbox" xmlns="http://www.topografix.com/GPX/1/1">
-  <metadata><name>20260503 西宁 拉脊山</name></metadata>
-  <wpt lat="36.3575978" lon="101.4470637"><name>拉脊山垭口</name><link href="20260503 西宁 拉脊山.photos/dc026e7fa996.webp"><type>image/webp</type></link><link href="20260503 西宁 拉脊山.photos/2fa4514ff573.webp"><type>image/webp</type></link></wpt>
+  <metadata><name>20260503 西宁 拉脊山</name><extensions><dgs:lang xmlns:dgs="urn:dgs-toolbox:gpx:1">zh</dgs:lang><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="en">20260503 Xining Lajishan</dgs:name></extensions></metadata>
+  <wpt lat="36.3575978" lon="101.4470637"><name>拉脊山垭口</name><link href="20260503 西宁 拉脊山.photos/dc026e7fa996.webp"><type>image/webp</type></link><link href="20260503 西宁 拉脊山.photos/2fa4514ff573.webp"><type>image/webp</type></link><extensions><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="en">Lajishan Pass</dgs:name></extensions></wpt>
   <trk>
     <name>CN 西宁 拉脊山</name>
-    <trkseg>
+    <type>drive</type><extensions><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="en">CN Xining Lajishan</dgs:name></extensions><trkseg>
       <trkpt lat="36.6100588" lon="101.7540851"><ele>2347.84</ele><time>2026-05-03T08:10:25Z</time></trkpt>
       <trkpt lat="36.6099166" lon="101.7540406"><ele>2347.89</ele><time>2026-05-03T08:10:28Z</time></trkpt>
       <trkpt lat="36.6098681" lon="101.7540276"><ele>2347.46</ele><time>2026-05-03T08:10:33Z</time></trkpt>

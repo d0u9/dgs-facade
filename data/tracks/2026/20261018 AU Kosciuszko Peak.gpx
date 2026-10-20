@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="dgs-toolbox" xmlns="http://www.topografix.com/GPX/1/1">
-  <metadata><name>Kosciuszko Peak</name></metadata>
-  <wpt lat="-36.4585084" lon="148.2929067"><name>雪人</name><link href="20261018 AU Kosciuszko Peak.photos/3a1f8a751e4a.webp"><type>image/webp</type></link></wpt>
-  <wpt lat="-36.4586198" lon="148.2930896"><name>湖</name><link href="20261018 AU Kosciuszko Peak.photos/2a39d9b8da56.webp"><type>image/webp</type></link></wpt>
-    <wpt lat="-36.4505587" lon="148.2844821"><name>外星雪人</name><link href="20261018 AU Kosciuszko Peak.photos/876e495de5eb.webp"><type>image/webp</type></link></wpt>
-  <wpt lat="-36.4501923" lon="148.2827147"><name>Seamans Hut</name><link href="20261018 AU Kosciuszko Peak.photos/d3829859a435.webp"><type>image/webp</type></link><link href="20261018 AU Kosciuszko Peak.photos/a05ba4069309.webp"><type>image/webp</type></link><link href="20261018 AU Kosciuszko Peak.photos/14f81569ddbf.webp"><type>image/webp</type></link></wpt>
-  <wpt lat="-36.4499749" lon="148.2814322"><name>石</name><link href="20261018 AU Kosciuszko Peak.photos/426d37463f95.webp"><type>image/webp</type></link></wpt>
-  <wpt lat="-36.4653616" lon="148.2688189"><name>Cootapatamba Lookout</name><link href="20261018 AU Kosciuszko Peak.photos/d769c21632eb.webp"><type>image/webp</type></link></wpt>
-  <wpt lat="-36.4515497" lon="148.2875941"><name>裂石</name><link href="20261018 AU Kosciuszko Peak.photos/50f1ceec15a4.webp"><type>image/webp</type></link></wpt>
-  <wpt lat="-36.4558664" lon="148.2634689"><name>Kosciuszko</name><link href="20261018 AU Kosciuszko Peak.photos/f6d2a6fc50cf.webp"><type>image/webp</type></link><link href="20261018 AU Kosciuszko Peak.photos/491e96fdd6f5.webp"><type>image/webp</type></link></wpt>
+  <metadata><name>Kosciuszko Peak</name><extensions><dgs:lang xmlns:dgs="urn:dgs-toolbox:gpx:1">en</dgs:lang><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="zh">科修斯科峰</dgs:name></extensions></metadata>
+  <wpt lat="-36.4585084" lon="148.2929067"><name>雪人</name><link href="20261018 AU Kosciuszko Peak.photos/3a1f8a751e4a.webp"><type>image/webp</type></link><extensions><dgs:lang xmlns:dgs="urn:dgs-toolbox:gpx:1">zh</dgs:lang><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="en">Snowman</dgs:name></extensions></wpt>
+  <wpt lat="-36.4586198" lon="148.2930896"><name>湖</name><link href="20261018 AU Kosciuszko Peak.photos/2a39d9b8da56.webp"><type>image/webp</type></link><extensions><dgs:lang xmlns:dgs="urn:dgs-toolbox:gpx:1">zh</dgs:lang><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="en">Lake</dgs:name></extensions></wpt>
+    <wpt lat="-36.4505587" lon="148.2844821"><name>外星雪人</name><link href="20261018 AU Kosciuszko Peak.photos/876e495de5eb.webp"><type>image/webp</type></link><extensions><dgs:lang xmlns:dgs="urn:dgs-toolbox:gpx:1">zh</dgs:lang><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="en">Alien snowman</dgs:name></extensions></wpt>
+  <wpt lat="-36.4501923" lon="148.2827147"><name>Seamans Hut</name><link href="20261018 AU Kosciuszko Peak.photos/d3829859a435.webp"><type>image/webp</type></link><link href="20261018 AU Kosciuszko Peak.photos/a05ba4069309.webp"><type>image/webp</type></link><link href="20261018 AU Kosciuszko Peak.photos/14f81569ddbf.webp"><type>image/webp</type></link><extensions><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="zh">西曼斯小屋</dgs:name></extensions></wpt>
+  <wpt lat="-36.4499749" lon="148.2814322"><name>石</name><link href="20261018 AU Kosciuszko Peak.photos/426d37463f95.webp"><type>image/webp</type></link><extensions><dgs:lang xmlns:dgs="urn:dgs-toolbox:gpx:1">zh</dgs:lang><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="en">Rock</dgs:name></extensions></wpt>
+  <wpt lat="-36.4653616" lon="148.2688189"><name>Cootapatamba Lookout</name><link href="20261018 AU Kosciuszko Peak.photos/d769c21632eb.webp"><type>image/webp</type></link><extensions><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="zh">库塔帕坦巴观景台</dgs:name></extensions></wpt>
+  <wpt lat="-36.4515497" lon="148.2875941"><name>裂石</name><link href="20261018 AU Kosciuszko Peak.photos/50f1ceec15a4.webp"><type>image/webp</type></link><extensions><dgs:lang xmlns:dgs="urn:dgs-toolbox:gpx:1">zh</dgs:lang><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="en">Split rock</dgs:name></extensions></wpt>
+  <wpt lat="-36.4558664" lon="148.2634689"><name>Kosciuszko</name><link href="20261018 AU Kosciuszko Peak.photos/f6d2a6fc50cf.webp"><type>image/webp</type></link><link href="20261018 AU Kosciuszko Peak.photos/491e96fdd6f5.webp"><type>image/webp</type></link><extensions><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="zh">科修斯科</dgs:name></extensions></wpt>
 <trk>
-    <name>Kosciuszko Peak</name>
-    <trkseg>
+    <name>AU Kosciuszko Peak</name>
+    <type>hike</type><extensions><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="zh">AU 科修斯科峰</dgs:name></extensions><trkseg>
       <trkpt lat="-36.4318398" lon="148.3289594"><ele>1724.26</ele><time>2026-10-17T21:55:49Z</time></trkpt>
       <trkpt lat="-36.4317807" lon="148.3289309"><ele>1723.97</ele><time>2026-10-17T21:55:55Z</time></trkpt>
       <trkpt lat="-36.4316943" lon="148.3288799"><ele>1723.86</ele><time>2026-10-17T21:56:03Z</time></trkpt>

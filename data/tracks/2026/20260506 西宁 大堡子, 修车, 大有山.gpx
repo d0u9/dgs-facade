@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="dgs-toolbox" xmlns="http://www.topografix.com/GPX/1/1">
-  <metadata><name>20260506 大堡子, 修车, 大有山</name></metadata>
+  <metadata><name>20260506 大堡子, 修车, 大有山</name><extensions><dgs:lang xmlns:dgs="urn:dgs-toolbox:gpx:1">zh</dgs:lang><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="en">20260506 Dabaozi, car repair, Dayoushan</dgs:name></extensions></metadata>
   <trk>
     <name>CN 西宁 大堡子, 大有山</name>
-    <trkseg>
+    <type>drive</type><extensions><dgs:name xmlns:dgs="urn:dgs-toolbox:gpx:1" xml:lang="en">CN Xining Dabaozi, Dayoushan</dgs:name></extensions><trkseg>
       <trkpt lat="36.6337040" lon="101.7323784"><ele>2274.13</ele><time>2026-05-06T05:51:38Z</time></trkpt>
       <trkpt lat="36.6341975" lon="101.7310241"><ele>2277.39</ele><time>2026-05-06T05:51:45Z</time></trkpt>
       <trkpt lat="36.6345230" lon="101.7298076"><ele>2277.66</ele><time>2026-05-06T05:51:51Z</time></trkpt>
