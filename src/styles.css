@@ -1191,7 +1191,7 @@ a {
 .tracks-project-actions > span { color: var(--muted); font-size: 10px; }
 .tracks-place-desc { margin: 10px 0 0; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
 .tracks-project-heading > div { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.tracks-project-heading strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.tracks-project-heading strong { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; font-size: 14px; }
 .tracks-project-heading .mono { color: var(--muted); font-size: 10px; }
 .tracks-project-list { flex: 1; min-height: 0; overflow-y: auto; }
 .tracks-project-card { display: flex; justify-content: space-between; align-items: center; gap: 14px; width: 100%; min-height: 104px; padding: 18px 16px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
@@ -1216,27 +1216,22 @@ a {
 .tracks-search .tracks-input { flex: 1; min-width: 0; }
 /* The map's contents live here, so "on the map" is a place in the panel, not a word on a row. */
 .tracks-mapbar { flex: none; background: var(--panel); border-bottom: 1px solid var(--line); }
-.tracks-mapbar .tracks-scope { border-bottom: 0; padding-bottom: 6px; }
+.tracks-mapbar .tracks-scope { border-bottom: 0; }
 /* Wraps rather than scrolling sideways: nothing on the map hides off the right edge.
    Past three rows it scrolls, so a large map set cannot push the library off the panel. */
-.tracks-chipstrip { display: flex; flex-wrap: wrap; gap: 6px; max-height: 84px; overflow-y: auto; padding: 0 12px 10px; scrollbar-width: thin; }
-.tracks-mapchip { --chip: var(--accent); flex: none; display: inline-flex; align-items: stretch; max-width: 150px; border: 1px solid color-mix(in srgb, var(--chip) 45%, var(--line)); border-radius: 999px; background: color-mix(in srgb, var(--chip) 12%, transparent); overflow: hidden; }
-.tracks-mapchip-name { display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 3px 3px 3px 9px; border: 0; background: none; color: var(--text); font: inherit; font-size: 11px; cursor: pointer; }
-.tracks-mapchip-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tracks-mapchip-name:hover { color: var(--chip); }
-.tracks-mapchip-x { flex: none; padding: 0 8px 1px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 14px; line-height: 1; cursor: pointer; }
-.tracks-mapchip-x:hover { color: var(--text); background: color-mix(in srgb, var(--chip) 22%, transparent); }
 .tracks-mapempty { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 12px 10px; padding: 8px 10px; border: 1px dashed var(--line-strong); border-radius: 8px; color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
 .tracks-mapempty .btn { flex: none; }
 .tracks-filter-layer { flex: none; border-bottom: 1px solid var(--line); background: var(--panel-strong); }
 .tracks-filter-layer .tracks-filters { border-bottom: 0; }
 .tracks-filter-done { width: calc(100% - 20px); margin: 0 10px 10px; }
 /* The same checkbox at every scope: row, year, whole list. Ticked means "drawn on the map". */
-.tracks-ws-toggle { flex: none; display: flex; align-items: center; justify-content: center; width: 44px; border-right: 1px solid var(--line); cursor: pointer; }
+/* Narrow on a desk, where a mouse needs little room; wider on a touch screen for a finger. */
+.tracks-ws-toggle { flex: none; display: flex; align-items: center; justify-content: center; width: 30px; border-right: 1px solid var(--line); cursor: pointer; }
+@media (pointer: coarse) { .tracks-ws-toggle { width: 38px; } }
 .tracks-ws-toggle:hover { background: var(--panel); }
 /* On the map vs not is the page's main state, so the row says it at a glance. */
 .tracks-ws-toggle.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-.tracks-ws-toggle input, .tracks-tri { width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.tracks-ws-toggle input, .tracks-tri { width: 13px; height: 13px; margin: 0; accent-color: var(--accent); cursor: pointer; }
 .tracks-tri:disabled { opacity: .3; cursor: default; }
 .tracks-filters { padding: 10px 10px 8px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--line); }
 .tracks-label { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
@@ -1264,23 +1259,43 @@ a {
 .tracks-row > .tracks-input { flex: 1 1 0; }
 .tracks-list { list-style: none; margin: 0; padding: 4px 6px; }
 .tracks-item { --chip: var(--accent); width: 100%; display: flex; align-items: center; gap: 10px; padding: 5px 10px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-.tracks-item:hover { background: rgba(255, 255, 255, .03); }
-.tracks-item.active { border-color: var(--chip); background: color-mix(in srgb, var(--chip) 10%, transparent); }
+/* The panel speaks in the site's green; a track's type colour belongs to its line on the map. */
+.tracks-item:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.tracks-item.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .tracks-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0; }
-.tracks-item-name { font-size: 13px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tracks-item-meta { font-size: 10px; line-height: 1.35; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The name leads the row: a step heavier than the meta under it, two lines at most for long
+   English names, broken at spaces and hyphens rather than inside a word, and balanced so a
+   wrapped name does not leave one word on its own. Chinese gets more leading and only breaks
+   at punctuation and spaces, so 牡丹江市 is never split. */
+.tracks-item-main { gap: 2px; }
+.tracks-item-name { font-size: 13px; font-weight: 500; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: break-word; text-wrap: balance; }
+.tracks-item-name:lang(zh) { line-height: 1.45; word-break: keep-all; }
+/* Latin at the size that suits Chinese looks large and runs long, so English names get their own
+   setting: a touch smaller and tighter, which keeps most of them on one line. */
+.tracks-item-name:lang(en) { font-size: 12.5px; line-height: 1.28; letter-spacing: -.01em; }
+.tracks-detail-head h2:lang(en) { font-size: 16px; letter-spacing: -.01em; }
+.tracks-item-meta { font-size: 10px; line-height: 1.35; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* The flag is toned down to the theme: less saturated and darker, so a red field does not
+   outshout the name, with a hairline edge to hold its shape against the dark panel. */
+.tracks-flag { display: inline-block; width: 15px; height: 10px; margin-right: 6px; border-radius: 2px; vertical-align: -0.5px; filter: saturate(.6) brightness(.72); outline: 1px solid rgba(255, 255, 255, .14); outline-offset: -1px; }
+/* In a list row the flag hangs in the margin, so a wrapped name's second line starts under the
+   first word, not under the flag. */
+.tracks-item-name:has(> .tracks-flag) { position: relative; padding-left: 21px; }
+.tracks-item-name > .tracks-flag { position: absolute; left: 0; top: .32em; margin: 0; }
+h2 .tracks-flag { width: 18px; height: 12px; margin-right: 7px; vertical-align: 0; }
 .tracks-item-dist { font-size: 11px; color: var(--code-text); white-space: nowrap; }
 .tracks-empty { padding: 20px 14px; color: var(--muted); font-size: 12px; }
 /* A link that asked for tracks the library no longer has; click to dismiss. */
 .tracks-notice {
   display: block; width: 100%; text-align: left; padding: 8px 14px; border: 0;
-  border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--warn, #e0a33e) 14%, transparent);
+  border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--warning) 14%, transparent);
   color: var(--fg); font: inherit; font-size: 11px; cursor: pointer;
 }
-.tracks-notice:hover { background: color-mix(in srgb, var(--warn, #e0a33e) 22%, transparent); }
+.tracks-notice:hover { background: color-mix(in srgb, var(--warning) 22%, transparent); }
 .tracks-stage { position: relative; min-width: 0; min-height: 0; }
 .tracks-stage .tracks-map { position: absolute; inset: 0; background: var(--bg); }
-.tracks-toolbar { position: absolute; top: 10px; left: 10px; display: flex; gap: 6px; z-index: 2; }
+.tracks-toolbar { position: absolute; top: 10px; left: 10px; right: 60px; display: flex; flex-wrap: wrap; gap: 6px; z-index: 2; pointer-events: none; }
+.tracks-toolbar > * { pointer-events: auto; }
 .tracks-toolbar .btn { background: var(--panel-strong); }
 .tracks-toolbar .btn.active { border-color: var(--accent); color: var(--accent); }
 .tracks-toolbar .btn:disabled { opacity: .4; cursor: default; }
@@ -1290,7 +1305,8 @@ a {
 .tracks-detail-head .tracks-item-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Full width under the action buttons so the file path is not clipped early. */
 .tracks-detail-sub { margin-top: 4px; overflow-wrap: anywhere; }
-.tracks-detail-head h2 { margin: 3px 0; font-size: 17px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tracks-detail-head h2 { margin: 3px 0; font-size: 17px; font-weight: 600; line-height: 1.3; text-wrap: balance; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: break-word; }
+.tracks-detail-head h2:lang(zh) { line-height: 1.4; word-break: keep-all; }
 
 .tracks-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0; }
 .tracks-stats dt { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
@@ -1416,6 +1432,9 @@ a {
 .tracks-month.active { border-color: var(--accent); background: rgba(141, 243, 185, .1); }
 .tracks-nav-foot { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted); }
 .tracks-selectall { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+/* Its box sits in the same column as the row boxes below it. */
+.tracks-selectall .tracks-tri { margin-left: 4px; }
+@media (pointer: coarse) { .tracks-selectall .tracks-tri { margin-left: 8px; } }
 .tracks-selectall:hover { color: var(--text); }
 .tracks-groups { flex: 1; min-height: 0; overflow-y: auto; padding: 0 6px 6px; }
 .tracks-month-head { position: sticky; top: 0; z-index: 1; padding: 8px 6px 4px; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); background: var(--panel-strong); }
@@ -1450,23 +1469,25 @@ a {
 .tracks-file-btn { position: relative; }
 .tracks-file.selected > .tracks-file-head { background: color-mix(in srgb, var(--accent) 6%, transparent); }
 /* Indented and hairlined, so a sub-track reads as part of the file above it. */
-.tracks-sublist { padding: 0 0 2px 14px; border-left: 1px solid var(--line); margin-left: 21px; }
-.tracks-sublist .tracks-ws-toggle { width: 30px; }
+.tracks-sublist { padding: 0 0 2px 10px; border-left: 1px solid var(--line); margin-left: 14px; }
+.tracks-sublist .tracks-ws-toggle { width: 26px; }
 /* Separate from the file's own button: the row picks the file, the caret only folds it. */
 .tracks-file-caret { flex: none; width: 26px; padding: 0; border: 0; border-left: 1px solid var(--line); background: none; color: var(--muted); font-size: 10px; cursor: pointer; }
+.tracks-file-caret:not(button) { cursor: default; }
+.tracks-file-caret:not(button):hover { background: none; }
 .tracks-file-caret:hover { color: var(--text); background: var(--panel); }
 .tracks-file-btn.active { color: var(--text); }
 
 /* Waypoint photo popup: one photo at a time, paged with the arrows under it. */
 /* Above the deck.gl canvas, which draws the 3D callouts over the map. */
 .tracks-photo-pop { z-index: 3; }
-.tracks-photo-pop .maplibregl-popup-content { padding: 0; background: #0b0d18; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; overflow: hidden; }
-.tracks-photo-pop.maplibregl-popup-anchor-top .maplibregl-popup-tip { border-bottom-color: #0b0d18; }
-.tracks-photo-pop.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color: #0b0d18; }
-.tracks-photo-pop.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: #0b0d18; }
-.tracks-photo-pop.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: #0b0d18; }
+.tracks-photo-pop .maplibregl-popup-content { padding: 0; background: var(--bg-soft); border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+.tracks-photo-pop.maplibregl-popup-anchor-top .maplibregl-popup-tip { border-bottom-color: var(--bg-soft); }
+.tracks-photo-pop.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color: var(--bg-soft); }
+.tracks-photo-pop.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: var(--bg-soft); }
+.tracks-photo-pop.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: var(--bg-soft); }
 .tracks-photo img { display: block; width: min(320px, 70vw); aspect-ratio: 5 / 4; object-fit: cover; background: #000; }
-.tracks-photo-bar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; color: #fff; font-size: 12px; }
+.tracks-photo-bar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; color: var(--text); font-size: 12px; }
 .tracks-photo-bar span { flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tracks-photo-bar button { width: 28px; height: 28px; border: 0; border-radius: 6px; background: rgba(255, 255, 255, 0.1); color: #fff; font-size: 18px; line-height: 1; cursor: pointer; }
 .tracks-photo-bar button:hover { background: rgba(255, 255, 255, 0.2); }

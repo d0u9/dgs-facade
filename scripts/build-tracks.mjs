@@ -165,12 +165,71 @@ function writeLedger(srcDir, ledger, log) {
   log(`[tracks] ${LEDGER} updated`);
 }
 
+// Names in other languages, as docs/apps/geo/gpx-names.md in dgs-toolbox defines them: each
+// <trk>, <rte> and <wpt> may carry <dgs:name xml:lang> translations and a <dgs:lang> for its
+// own <name>, which defaults to the one in <metadata>.
+const DGS_NS = 'urn:dgs-toolbox:gpx:1';
+const XML_NS = 'http://www.w3.org/XML/1998/namespace';
+const MARK_NS = 'urn:x-dgs-facade:build';
+const LANG_TAG = /^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$/;
+
+// A project or place in its JSON: `lang` for its `name` and `desc`, `names` and `descs` mapping
+// a language tag to a translation.
+const validTranslations = (entry) => (entry.lang == null || LANG_TAG.test(entry.lang))
+  && ['names', 'descs'].every((key) => entry[key] == null || (typeof entry[key] === 'object' && !Array.isArray(entry[key])
+    && Object.entries(entry[key]).every(([tag, text]) => LANG_TAG.test(tag) && typeof text === 'string' && text.trim())));
+
+function readNames(el) {
+  const own = Array.from(el.childNodes)
+    .filter((n) => n.localName === 'extensions')
+    .flatMap((ext) => Array.from(ext.childNodes))
+    .filter((n) => n.nodeType === 1 && n.namespaceURI === DGS_NS);
+  let lang = null;
+  const names = {};
+  own.forEach((n) => {
+    const text = n.textContent.trim();
+    if (!text) return;
+    if (n.localName === 'lang') { if (LANG_TAG.test(text)) lang = text; return; }
+    if (n.localName !== 'name') return;
+    const tag = n.getAttributeNS(XML_NS, 'lang') || n.getAttribute('xml:lang');
+    if (!LANG_TAG.test(tag ?? '')) return;
+    // The last one for a tag wins, and tags match whatever their case.
+    Object.keys(names).forEach((k) => { if (k.toLowerCase() === tag.toLowerCase()) delete names[k]; });
+    names[tag] = text;
+  });
+  return { lang, names };
+}
+
+// togeojson drops <extensions> and its features do not say which element they came from, so
+// each element is tagged with its index before conversion and the tag is read back after.
+function gpxWithNames(doc) {
+  const metadata = doc.getElementsByTagName('metadata')[0];
+  const fileLang = metadata ? readNames(metadata).lang : null;
+  const named = [];
+  doc.documentElement.setAttribute('xmlns:facade', MARK_NS);
+  ['trk', 'rte', 'wpt'].forEach((tag) => Array.from(doc.getElementsByTagName(tag)).forEach((el) => {
+    const { lang, names } = readNames(el);
+    const mark = doc.createElementNS(MARK_NS, 'facade:i');
+    mark.textContent = String(named.length);
+    el.appendChild(mark);
+    named.push({ ...((lang ?? fileLang) && { lang: lang ?? fileLang }), ...(Object.keys(names).length && { names }) });
+  }));
+  const collection = gpx(doc);
+  collection.features.forEach((f) => {
+    const i = f.properties?.facade_i;
+    if (i == null) return;
+    delete f.properties.facade_i;
+    f.properties._names = named[Number(i)];
+  });
+  return collection;
+}
+
 function parseFile(path) {
   const ext = extname(path).toLowerCase();
   const text = readFileSync(path, 'utf8');
   if (ext === '.geojson' || ext === '.json') return JSON.parse(text);
   const doc = new DOMParser().parseFromString(text, 'text/xml');
-  if (ext === '.gpx') return gpx(doc);
+  if (ext === '.gpx') return gpxWithNames(doc);
   if (ext === '.kml') return kml(doc);
   return null;
 }
@@ -308,8 +367,6 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
   walk(srcDir).sort().forEach((file) => {
     const source = relative(srcDir, file);
     const sourceId = `s${fnv1a(source).toString(36)}`;
-    const folder = source.split(/[\\/]/)[0];
-    const folderType = normalizeType(folder) ?? 'other';
     let collection;
     try { collection = parseFile(file); } catch (error) { log(`[tracks] skip ${file}: ${error.message}`); return; }
     if (!collection?.features) return;
@@ -319,18 +376,19 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
     collection.features.forEach((feature, fi) => {
       if (!feature.geometry) return;
       const props = feature.properties ?? {};
-      const type = normalizeType(props.type) ?? folderType;
+      // The type is the GPX's own <type>; where a file sits says nothing about it.
+      const type = normalizeType(props.type) ?? 'other';
       const kind = kindOf(feature);
       if (kind === 'waypoint') {
         const [lon, lat, ele] = feature.geometry.coordinates;
-        const wpt = { name: props.name ?? `WP ${waypoints.length + 1}`, type, lon: round(lon, 6), lat: round(lat, 6), ele: ele != null ? round(ele, 1) : null, time: props.time ?? null, desc: props.desc ?? null };
+        const wpt = { name: props.name ?? `WP ${waypoints.length + 1}`, ...props._names, type, lon: round(lon, 6), lat: round(lat, 6), ele: ele != null ? round(ele, 1) : null, time: props.time ?? null, desc: props.desc ?? null };
         const urls = publishPhotos(props.links, file, srcDir, photoDir, photos, log);
         if (urls.length) wpt.photos = urls;
         waypoints.push(wpt);
         return;
       }
       const name = String(props.name ?? '').trim() || `Track ${fi + 1}`;
-      const item = buildLineItem(feature, { name, type, kind, source: sourceId, desc: props.desc ?? null, start: props.time ?? null });
+      const item = buildLineItem(feature, { name, ...props._names, type, kind, source: sourceId, desc: props.desc ?? null, start: props.time ?? null });
       if (!item) return;
       if (props.featured === true || props.featured === 'true') item.meta.featured = true;
       fileLines.push(item.meta);
@@ -347,7 +405,11 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
       const lineStarts = fileLines.map((m) => m.start).filter(Boolean).sort();
       const lineEnds = fileLines.map((m) => m.end).filter(Boolean).sort();
       const meta = {
-        name: waypoints.length === 1 ? waypoints[0].name : 'Waypoints', type: folderType, kind: 'waypoint', source: sourceId, desc: null,
+        // A set of waypoints has no name of its own, so it gets a generic one in both languages.
+        ...(waypoints.length === 1
+          ? { name: waypoints[0].name, ...(waypoints[0].lang && { lang: waypoints[0].lang }), ...(waypoints[0].names && { names: waypoints[0].names }) }
+          : { name: 'Waypoints', lang: 'en', names: { zh: '航点' } }),
+        type: fileLines[0]?.type ?? 'other', kind: 'waypoint', source: sourceId, desc: null,
         points: waypoints.length,
         start: times.length ? new Date(times[0]).toISOString() : lineStarts[0] ?? null,
         end: times.length ? new Date(times[times.length - 1]).toISOString() : lineEnds[lineEnds.length - 1] ?? null,
@@ -424,7 +486,7 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
     const projectIds = new Set();
     projects.forEach((project) => {
       if (!project.id || !project.name || !Array.isArray(project.trackIds) || projectIds.has(project.id)) throw new Error('[tracks] invalid or duplicate project');
-      if (['startDate', 'endDate'].some((key) => project[key] != null && (typeof project[key] !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(project[key]) || Number.isNaN(Date.parse(project[key])))) || (project.startDate && project.endDate && project.startDate > project.endDate) || (project.desc != null && typeof project.desc !== 'string')) throw new Error(`[tracks] invalid project details: ${project.id}`);
+      if (['startDate', 'endDate'].some((key) => project[key] != null && (typeof project[key] !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(project[key]) || Number.isNaN(Date.parse(project[key])))) || (project.startDate && project.endDate && project.startDate > project.endDate) || (project.desc != null && typeof project.desc !== 'string') || !validTranslations(project)) throw new Error(`[tracks] invalid project details: ${project.id}`);
       projectIds.add(project.id);
       project.trackIds.forEach((id) => { if (!trackIds.has(id)) throw new Error(`[tracks] project ${project.id} references missing track ${id}`); });
     });
@@ -435,7 +497,7 @@ export function buildTracks({ srcDir, outDir, log = console.log }) {
     if (!Array.isArray(places)) throw new Error('[tracks] places must be an array');
     const takenIds = new Set(index.map((it) => it.id));
     places.forEach((place) => {
-      if (!/^[a-z0-9]{5}$/.test(place.id) || takenIds.has(place.id) || !place.name || !Number.isFinite(place.lon) || !Number.isFinite(place.lat) || Math.abs(place.lon) > 180 || Math.abs(place.lat) > 90 || (place.date && !/^\d{4}-\d{2}-\d{2}$/.test(place.date))) throw new Error('[tracks] invalid or duplicate place');
+      if (!/^[a-z0-9]{5}$/.test(place.id) || takenIds.has(place.id) || !place.name || !Number.isFinite(place.lon) || !Number.isFinite(place.lat) || Math.abs(place.lon) > 180 || Math.abs(place.lat) > 90 || (place.date && !/^\d{4}-\d{2}-\d{2}$/.test(place.date)) || !validTranslations(place)) throw new Error('[tracks] invalid or duplicate place');
       takenIds.add(place.id);
     });
   }

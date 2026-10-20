@@ -6,7 +6,9 @@ import { IconLayer, LineLayer, PathLayer, ScatterplotLayer } from '@deck.gl/laye
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { PageHeader } from './components/PageChrome.jsx';
 import { tiltOntoTerrain } from './tracks-camera.js';
-import projects from '../data/projects.json';
+import { allNames, pickName } from './tracks-names.js';
+import { LOCALE, readLang, setLang, storeLang, t } from './tracks-i18n.js';
+import allProjects from '../data/projects.json';
 import places from '../data/places.json';
 import './styles.css';
 
@@ -45,7 +47,7 @@ const WPT_TEXT_PX = 12;
 const DEM_TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
 const EMPTY = { type: 'FeatureCollection', features: [] };
 
-const typeOf = (t) => TYPES[t] ?? TYPES.other;
+const typeOf = (type) => TYPES[type] ?? TYPES.other;
 const hexToRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 // 3D callout: optional camera badge, then the name, over a thin shelf. The callout sits at
 // (dx, dy) screen px from the stem top, the bitmap's anchor; when it is moved off the stem, a
@@ -56,10 +58,30 @@ const WPT_TOP_PX = 8;
 const calloutIcons = new Map();
 const wptFont = `600 ${WPT_TEXT_PX}px -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif`;
 let measureCtx = null;
-function calloutWidth(name, photos) {
+const measure = (text) => {
   measureCtx ??= document.createElement('canvas').getContext('2d');
   measureCtx.font = wptFont;
-  return Math.max(40, (photos ? 22 : 0) + Math.ceil(measureCtx.measureText(name).width) + 8);
+  return measureCtx.measureText(text).width;
+};
+// English names run two or three times as wide as Chinese ones, and a callout as wide as the
+// name would cover the map, so a long name is cut with an ellipsis. The full name is in the
+// detail card's waypoint list and the hover tooltip.
+const CALLOUT_TEXT_MAX = 180;
+const calloutTexts = new Map();
+function calloutText(name) {
+  if (calloutTexts.has(name)) return calloutTexts.get(name);
+  let text = name;
+  if (measure(name) > CALLOUT_TEXT_MAX) {
+    const chars = [...name];
+    let n = chars.length;
+    while (n > 1 && measure(`${chars.slice(0, n).join('').trimEnd()}…`) > CALLOUT_TEXT_MAX) n -= 1;
+    text = `${chars.slice(0, n).join('').trimEnd()}…`;
+  }
+  calloutTexts.set(name, text);
+  return text;
+}
+function calloutWidth(name, photos) {
+  return Math.max(40, (photos ? 22 : 0) + Math.ceil(measure(calloutText(name))) + 8);
 }
 function calloutIcon(name, color, photos, dx, dy) {
   const key = `${color}|${photos}|${dx}|${dy}|${name}`;
@@ -83,8 +105,9 @@ function calloutIcon(name, color, photos, dx, dy) {
   if (photos) g.drawImage(photoIcon(color).canvas, left + 2, top + 1, 18, 18);
   const tx = left + (photos ? 22 : 0) + 4;
   g.font = wptFont; g.textBaseline = 'middle'; g.lineJoin = 'round';
-  g.lineWidth = 4; g.strokeStyle = '#050610'; g.strokeText(name, tx, top + 10);
-  g.fillStyle = '#fff'; g.fillText(name, tx, top + 10);
+  const text = calloutText(name);
+  g.lineWidth = 4; g.strokeStyle = '#050610'; g.strokeText(text, tx, top + 10);
+  g.fillStyle = '#fff'; g.fillText(text, tx, top + 10);
   g.fillStyle = color; g.fillRect(left + 1, dy - 1.6, w - 2, 1.6);
   // Offsets change with every camera move, so old bitmaps are dropped rather than kept forever.
   if (calloutIcons.size > 400) calloutIcons.clear();
@@ -104,7 +127,7 @@ function fmtDur(s) {
   return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m ${String(s % 60).padStart(2, '0')}s`;
 }
 function fmtDate(iso) {
-  return iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'undated';
+  return iso ? new Date(iso).toLocaleDateString(LOCALE(), { year: 'numeric', month: 'short', day: 'numeric' }) : t('undated');
 }
 const fmtSpeed = (ms) => (ms == null ? '—' : `${(ms * 3.6).toFixed(ms * 3.6 >= 100 ? 0 : 1)} km/h`);
 const yearOf = (it) => (it.start ? String(new Date(it.start).getFullYear()) : 'undated');
@@ -179,7 +202,7 @@ function readUrl() {
   const list = (k) => (p.get(k) ? p.get(k).split(',') : []);
   const num = (k) => (p.has(k) && Number.isFinite(Number(p.get(k))) ? Number(p.get(k)) : null);
   const browseMode = ['library', 'projects', 'places'].includes(p.get('mode')) ? p.get('mode') : 'library';
-  const activeProject = projects.some((project) => project.id === p.get('project')) ? p.get('project') : null;
+  const activeProject = allProjects.some((project) => project.id === p.get('project')) ? p.get('project') : null;
   const projectDay = /^\d{4}-\d{2}-\d{2}$/.test(p.get('day') ?? '') ? p.get('day') : null;
   const month = (key) => /^(?:[0-9]|1[01])$/.test(p.get(key) ?? '') ? Number(p.get(key)) : null;
   return {
@@ -207,10 +230,11 @@ function readUrl() {
     is3d: p.get('3d') === '1',
     // Default to Amap for zh-CN visitors, whose OpenStreetMap coverage and access are poor.
     amap: p.has('base') ? p.get('base') === 'amap' : navigator.language === 'zh-CN',
+    lang: ['en', 'zh'].includes(p.get('lang')) ? p.get('lang') : readLang(),
   };
 }
 
-function writeUrl(filters, selected, is3d, amap, workspace, camera, play, snap, browseMode, activeProject, projectDay, projectVisibility, libraryCalendar, placesCalendar, filterOpen) {
+function writeUrl(filters, selected, is3d, amap, workspace, camera, play, snap, browseMode, activeProject, projectDay, projectVisibility, libraryCalendar, placesCalendar, filterOpen, lang) {
   const p = new URLSearchParams();
   if (filters.types.length) p.set('type', filters.types.join(','));
   if (filters.kinds.length) p.set('kind', filters.kinds.join(','));
@@ -246,6 +270,8 @@ function writeUrl(filters, selected, is3d, amap, workspace, camera, play, snap, 
   // `navigator.language` opens somewhere else for anyone whose language differs from the
   // sender's.
   p.set('base', amap ? 'amap' : 'osm');
+  // Written always too, so a link opens in the language its sender saw.
+  p.set('lang', lang);
   const qs = p.toString();
   const url = qs ? `?${qs}` : location.pathname;
   if (url === `${location.search || location.pathname}`) return;
@@ -265,7 +291,7 @@ function applyFilters(items, f, viewBounds) {
   return items.filter((it) => {
     if (f.types.length && !f.types.includes(it.type)) return false;
     if (f.kinds.length && !f.kinds.includes(it.kind)) return false;
-    if (q && !`${it.name} ${it.desc ?? ''}`.toLowerCase().includes(q)) return false;
+    if (q && !`${it.search ?? it.name} ${it.desc ?? ''}`.toLowerCase().includes(q)) return false;
     if (from || to) {
       const t = it.start ? Date.parse(it.start) : null;
       if (t == null || (from && t < from) || (to && t >= to)) return false;
@@ -287,14 +313,31 @@ function applyFilters(items, f, viewBounds) {
 const geomCache = new Map();
 const visitedPlaces = places.map((place) => ({
   id: place.id, name: place.name, desc: place.desc ?? null, start: place.date ?? null,
+  lang: place.lang, names: place.names, descs: place.descs,
   type: 'other', kind: 'waypoint', visitedPlace: true, source: `place-${place.id}`,
   points: 1, distance: null, bbox: [place.lon, place.lat, place.lon, place.lat],
   lon: place.lon, lat: place.lat,
 }));
-visitedPlaces.forEach((place) => geomCache.set(place.id, Promise.resolve({ waypoints: [{ name: place.name, lon: place.lon, lat: place.lat, ele: null, desc: place.desc }] })));
+visitedPlaces.forEach((place) => geomCache.set(place.id, Promise.resolve({ waypoints: [{ name: place.name, lang: place.lang, names: place.names, lon: place.lon, lat: place.lat, ele: null, desc: place.desc }] })));
 function loadGeometry(id) {
   if (!geomCache.has(id)) geomCache.set(id, fetch(`/tracks-data/${id}.json`).then((r) => r.json()));
   return geomCache.get(id);
+}
+
+// Every item and waypoint keeps its own name, its translations and the language of each; the
+// page shows one, picked per language, and searches all of them.
+// A project or a place in its JSON also translates its `desc`, in `descs`; `lang` covers both.
+// A GPX `<desc>` has no translations.
+function localize(it, lang) {
+  const { name, lang: nameLang } = pickName(it, lang);
+  const desc = it.desc && it.descs ? pickName({ name: it.desc, lang: it.lang, names: it.descs }, lang) : null;
+  return {
+    ...it, name, nameLang, search: allNames(it).join(' '),
+    ...(desc && { desc: desc.name, descLang: desc.lang }),
+  };
+}
+function localizeGeoms(geoms, lang) {
+  return Object.fromEntries(Object.entries(geoms).map(([id, g]) => [id, g.waypoints ? { ...g, waypoints: g.waypoints.map((w) => localize(w, lang)) } : g]));
 }
 
 function useGeometries(items) {
@@ -478,7 +521,7 @@ function photoViewer(name, list) {
   let at = 0;
   const el = document.createElement('div');
   el.className = 'tracks-photo';
-  el.innerHTML = '<a target="_blank" rel="noopener"><img alt=""></a><div class="tracks-photo-bar"><button type="button" aria-label="Previous photo">‹</button><span></span><button type="button" aria-label="Next photo">›</button></div>';
+  el.innerHTML = `<a target="_blank" rel="noopener"><img alt=""></a><div class="tracks-photo-bar"><button type="button" aria-label="${t('Previous photo')}">‹</button><span></span><button type="button" aria-label="${t('Next photo')}">›</button></div>`;
   const [link, img, prev, label, next] = ['a', 'img', 'button', 'span', 'button:last-of-type'].map((q) => el.querySelector(q));
   const render = () => {
     const url = `/tracks-data/${list[at]}`;
@@ -526,7 +569,7 @@ function photoPopup(map) {
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'tracks-photo-close';
-    close.setAttribute('aria-label', 'Close photos');
+    close.setAttribute('aria-label', t('Close photos'));
     close.textContent = '×';
     const done = () => { box.remove(); window.removeEventListener('keydown', key); };
     const key = (e) => { if (e.key === 'Escape') done(); };
@@ -1180,33 +1223,34 @@ function Chips({ options, value, onChange, colors }) {
 const HIDDEN_CHIPS = ['flight', 'run', 'ship', 'track'];
 const ADVANCED = ['from', 'to', 'dmin', 'dmax', 'altmin'];
 
+// `lang` is not read here; it is a prop so a language switch re-renders the memoised panel.
 const Filters = memo(function Filters({ filters, setFilters, counts }) {
   const set = (patch) => setFilters((f) => ({ ...f, ...patch }));
-  const typeLabels = Object.fromEntries(Object.entries(TYPES).filter(([k]) => counts[k] && !HIDDEN_CHIPS.includes(k)).map(([k, v]) => [k, `${v.label} ${counts[k]}`]));
+  const typeLabels = Object.fromEntries(Object.entries(TYPES).filter(([k]) => counts[k] && !HIDDEN_CHIPS.includes(k)).map(([k, v]) => [k, `${t(v.label)} ${counts[k]}`]));
   const typeColors = Object.fromEntries(Object.entries(TYPES).map(([k, v]) => [k, v.color]));
   const dirty = filtersDirty(filters);
   const advancedCount = ADVANCED.filter((k) => filters[k]).length;
   const [open, setOpen] = useState(advancedCount > 0);
   const input = (k, props) => <input className="tracks-input" value={filters[k]} onChange={(e) => set({ [k]: e.target.value })} {...props} />;
   return <div className="tracks-filters">
-    {dirty && <button className="btn tracks-reset" onClick={() => setFilters(DEFAULT_FILTERS)}>reset all filters</button>}
+    {dirty && <button className="btn tracks-reset" onClick={() => setFilters(DEFAULT_FILTERS)}>{t('reset all filters')}</button>}
     <div className="tracks-chip-rows">
       <Chips options={typeLabels} value={filters.types} onChange={(types) => set({ types })} colors={typeColors} />
       <div className="tracks-chips">
-        <Chips options={Object.fromEntries(Object.entries(KINDS).filter(([k]) => !HIDDEN_CHIPS.includes(k)))} value={filters.kinds} onChange={(kinds) => set({ kinds })} />
-        <button className={`tracks-chip ${filters.inView ? 'active' : ''}`} onClick={() => set({ inView: !filters.inView })} title="only tracks inside the current map view">◎ in view</button>
+        <Chips options={Object.fromEntries(Object.entries(KINDS).filter(([k]) => !HIDDEN_CHIPS.includes(k)).map(([k, v]) => [k, t(v)]))} value={filters.kinds} onChange={(kinds) => set({ kinds })} />
+        <button className={`tracks-chip ${filters.inView ? 'active' : ''}`} onClick={() => set({ inView: !filters.inView })} title={t('only tracks inside the current map view')}>{t('◎ in view')}</button>
     </div>
     </div>
     <button className="tracks-more mono" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-      {open ? '▾' : '▸'} more filters{advancedCount > 0 && <span className="tracks-badge">{advancedCount}</span>}
+      {open ? '▾' : '▸'} {t('more filters')}{advancedCount > 0 && <span className="tracks-badge">{advancedCount}</span>}
     </button>
     {open && <div className="tracks-grid">
-      <span className="tracks-label mono">date</span>
-      <div className="tracks-row">{input('from', { type: 'date', 'aria-label': 'from date' })}<span className="tracks-dash">→</span>{input('to', { type: 'date', 'aria-label': 'to date' })}</div>
-      <span className="tracks-label mono">km</span>
-      <div className="tracks-row">{input('dmin', { type: 'number', min: 0, placeholder: 'min' })}<span className="tracks-dash">→</span>{input('dmax', { type: 'number', min: 0, placeholder: 'max' })}</div>
-      <span className="tracks-label mono">alt ≥ m</span>
-      {input('altmin', { type: 'number', placeholder: 'any' })}
+      <span className="tracks-label mono">{t('date')}</span>
+      <div className="tracks-row">{input('from', { type: 'date', 'aria-label': t('from date') })}<span className="tracks-dash">→</span>{input('to', { type: 'date', 'aria-label': t('to date') })}</div>
+      <span className="tracks-label mono">{t('km')}</span>
+      <div className="tracks-row">{input('dmin', { type: 'number', min: 0, placeholder: t('min') })}<span className="tracks-dash">→</span>{input('dmax', { type: 'number', min: 0, placeholder: t('max') })}</div>
+      <span className="tracks-label mono">{t('alt ≥ m')}</span>
+      {input('altmin', { type: 'number', placeholder: t('any') })}
     </div>}
   </div>;
 });
@@ -1217,23 +1261,64 @@ const MAX_BULK = 30;
 // Newest first, undated last: the default order for "which tracks would you want first".
 const byRecent = (list) => [...list].sort((a, b) => (b.start ? Date.parse(b.start) : -Infinity) - (a.start ? Date.parse(a.start) : -Infinity));
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTHS = Array.from({ length: 12 }, (_, m) => m);
+const monthName = (m) => new Date(2000, m, 15).toLocaleDateString(LOCALE(), { month: 'short' });
+const yearName = (y) => (y === 'undated' ? t('undated') : y);
+const monthYear = (m, y) => t('{month} {year}', { month: monthName(m), year: yearName(y) });
 const monthOf = (it) => (it.start ? new Date(it.start).getMonth() : null);
 
-function TrackRow({ it, selected, onSelect, inWorkspace, onToggleWorkspace }) {
+// Five-pointed star centred on (x, y) with outer radius r, as an SVG path.
+const star = (x, y, r, turn = 0) => `M${Array.from({ length: 10 }, (_, i) => {
+  const a = turn + (i * Math.PI) / 5 - Math.PI / 2;
+  const d = i % 2 ? r * 0.382 : r;
+  return `${(x + d * Math.cos(a)).toFixed(2)},${(y + d * Math.sin(a)).toFixed(2)}`;
+}).join('L')}Z`;
+// Small flags drawn here rather than as emoji: emoji flags do not render on Windows, and a drawn
+// flag can be toned down to sit in the dark theme (see .tracks-flag). Both share a 3:2 box.
+const FLAGS = {
+  CN: { label: 'China', art: <>
+    <rect width="30" height="20" fill="#de2910" />
+    <path fill="#ffde00" d={[star(5, 5, 3), star(10, 2, 1), star(12, 4, 1, 0.6), star(12, 7, 1, 0.3), star(10, 9, 1)].join('')} />
+  </> },
+  AU: { label: 'Australia', art: <>
+    <rect width="30" height="20" fill="#012169" />
+    <svg width="15" height="10" viewBox="0 0 15 10">
+      <path d="M0,0L15,10M15,0L0,10" stroke="#fff" strokeWidth="2.4" />
+      <path d="M0,0L15,10M15,0L0,10" stroke="#c8102e" strokeWidth="0.9" />
+      <path d="M7.5,0V10M0,5H15" stroke="#fff" strokeWidth="3" />
+      <path d="M7.5,0V10M0,5H15" stroke="#c8102e" strokeWidth="1.6" />
+    </svg>
+    <path fill="#fff" d={[star(7.5, 15, 2.4), star(22.5, 16.5, 1.2), star(19, 9.5, 1.2), star(22.5, 4, 1.2), star(26, 8.5, 1.2), star(24.3, 11.5, 0.7)].join('')} />
+  </> },
+};
+
+// A track name opens with a country code. Shown as its flag it stops reading as a word of the
+// name, which is what the eye looks for in a list. Only codes with a flag count, so a name that
+// merely starts with two capitals ("OK Corral") stays as it is.
+// A day number such as D27 is tied to the word after it, so a wrap never strands it alone.
+function TrackName({ name }) {
+  const m = /^([A-Z]{2}) (.+)$/.exec(name);
+  const flag = m && FLAGS[m[1]];
+  const rest = (flag ? m[2] : name).replace(/^(D\d+) /, '$1\u00a0');
+  if (!flag) return rest;
+  return <><svg className="tracks-flag" viewBox="0 0 30 20" role="img" aria-label={t(flag.label)}><title>{t(flag.label)}</title>{flag.art}</svg>{rest}</>;
+}
+
+// `caretSpace` keeps a top-level row as wide as the file rows beside it, which end in a caret.
+function TrackRow({ it, selected, onSelect, inWorkspace, onToggleWorkspace, caretSpace = false }) {
   const isSel = it.id === selected;
   return <li className={`tracks-item-row ${isSel ? 'selected' : ''}`}>
-    <label className={`tracks-ws-toggle ${inWorkspace ? 'active' : ''}`} title={inWorkspace ? 'take off the map' : 'add to the map'}>
-      <input type="checkbox" checked={inWorkspace} onChange={() => onToggleWorkspace(it.id)} aria-label={`${inWorkspace ? 'take' : 'add'} ${it.name} ${inWorkspace ? 'off' : 'to'} the map`} />
+    <label className={`tracks-ws-toggle ${inWorkspace ? 'active' : ''}`} title={t(inWorkspace ? 'take off the map' : 'add to the map')}>
+      <input type="checkbox" checked={inWorkspace} onChange={() => onToggleWorkspace(it.id)} aria-label={t(inWorkspace ? 'take {name} off the map' : 'add {name} to the map', { name: it.name })} />
     </label>
-    <button className={`tracks-item ${isSel ? 'active' : ''}`} onClick={() => onSelect(it.id === selected ? null : it.id)} style={{ '--chip': typeOf(it.type).color }}>
-      <span className="tracks-swatch" />
+    <button className={`tracks-item ${isSel ? 'active' : ''}`} onClick={() => onSelect(it.id === selected ? null : it.id)}>
       <span className="tracks-item-main">
-        <span className="tracks-item-name">{it.name}{it.featured && <span className="tracks-star" title="featured">★</span>}</span>
-        <span className="tracks-item-meta mono">{it.visitedPlace ? 'place' : `${typeOf(it.type).label.toLowerCase()} · ${KINDS[it.kind].toLowerCase()}`} · {fmtDate(it.start)}</span>
+        <span className="tracks-item-name" lang={it.nameLang ?? undefined} title={it.name}><TrackName name={it.name} />{it.featured && <span className="tracks-star" title={t('featured')}>★</span>}</span>
+        <span className="tracks-item-meta mono">{fmtDate(it.start)} · {it.visitedPlace ? t('place') : [t(typeOf(it.type).label).toLowerCase(), it.kind !== 'track' && t(KINDS[it.kind]).toLowerCase()].filter(Boolean).join(' · ')}</span>
       </span>
-      <span className="tracks-item-dist mono">{it.kind === 'waypoint' ? `${it.points} pts` : fmtDist(it.distance)}</span>
+      <span className="tracks-item-dist mono">{it.kind === 'waypoint' ? t('{n} pts', { n: it.points }) : fmtDist(it.distance)}</span>
     </button>
+    {caretSpace && <span className="tracks-file-caret" aria-hidden="true" />}
   </li>;
 }
 
@@ -1251,7 +1336,8 @@ function FileGroup({ items, selected, onSelect, onOpenFile, focusSource, workspa
   const lines = items.filter((it) => it.kind !== 'waypoint');
   const wpts = items.filter((it) => it.kind === 'waypoint');
   // A track name labels the file. Waypoint-only files use a waypoint name.
-  const label = lines[0]?.name || wpts[0]?.name || 'Untitled track';
+  const head = lines[0] ?? wpts[0];
+  const label = head?.name || t('Untitled track');
   // A file of one recording has nothing to choose between: picking it picks that recording, so
   // the submenu would only repeat the row. It opens on the caret, and on nothing else. A file
   // of several tracks does open, because there the submenu is how you get at one of them.
@@ -1259,22 +1345,22 @@ function FileGroup({ items, selected, onSelect, onOpenFile, focusSource, workspa
   const shown = open || (many && (hasSelected || isFocused));
   const distance = lines.reduce((sum, it) => sum + (it.distance ?? 0), 0);
   const parts = [];
-  if (lines.length) parts.push(`${lines.length} ${lines.length === 1 ? 'track' : 'tracks'}`);
-  wpts.forEach((it) => parts.push(`${it.points} ${it.points === 1 ? 'waypoint' : 'waypoints'}`));
+  // One track is what a row already is; only a count above one says something.
+  if (lines.length > 1) parts.push(t('{n} tracks', { n: lines.length }));
+  wpts.forEach((it) => parts.push(t(it.points === 1 ? '{n} wpt' : '{n} wpts', { n: it.points })));
   return <li className={`tracks-file ${shown ? 'open' : ''} ${hasSelected ? 'selected' : ''}`}>
     <div className="tracks-item-row tracks-file-head">
-      <label className={`tracks-ws-toggle ${on ? 'active' : ''}`} title={on === ids.length ? 'take the file off the map' : 'add the whole file to the map'}>
-        <TriCheck on={on} total={ids.length} onChange={(next) => onSetMany(ids, next)} label={`${on === ids.length ? 'take' : 'add'} all ${ids.length} items of ${label} ${on === ids.length ? 'off' : 'to'} the map`} />
+      <label className={`tracks-ws-toggle ${on ? 'active' : ''}`} title={t(on === ids.length ? 'take the file off the map' : 'add the whole file to the map')}>
+        <TriCheck on={on} total={ids.length} onChange={(next) => onSetMany(ids, next)} label={t(on === ids.length ? 'take all {n} items of {name} off the map' : 'add all {n} items of {name} to the map', { n: ids.length, name: label })} />
       </label>
-      <button className={`tracks-item tracks-file-btn ${isFocused ? 'active' : ''}`} onClick={() => { if (many) setOpen(true); onOpenFile(items); }} title="draw the whole file and zoom to it" style={{ '--chip': typeOf(items[0].type).color }}>
-        <span className="tracks-swatch" />
+      <button className={`tracks-item tracks-file-btn ${isFocused ? 'active' : ''}`} onClick={() => { if (many) setOpen(true); onOpenFile(items); }} title={t('draw the whole file and zoom to it')}>
         <span className="tracks-item-main">
-          <span className="tracks-item-name">{label}</span>
-          <span className="tracks-item-meta mono">{typeOf(items[0].type).label.toLowerCase()} · {parts.join(' · ')} · {fmtDate(items[0].start)}</span>
+          <span className="tracks-item-name" lang={head?.nameLang ?? undefined} title={label}><TrackName name={label} /></span>
+          <span className="tracks-item-meta mono">{fmtDate(items[0].start)} · {t(typeOf(items[0].type).label).toLowerCase()} · {parts.join(' · ')}</span>
         </span>
         <span className="tracks-item-dist mono">{distance ? fmtDist(distance) : ''}</span>
       </button>
-      <button className="tracks-file-caret mono" onClick={() => setOpen((o) => !o)} aria-expanded={shown} aria-label={`${shown ? 'hide' : 'show'} what is in ${label}`} title={shown ? 'hide the items in this file' : 'show the items in this file'}>{shown ? '▾' : '▸'}</button>
+      <button className="tracks-file-caret mono" onClick={() => setOpen((o) => !o)} aria-expanded={shown} aria-label={t(shown ? 'hide what is in {name}' : 'show what is in {name}', { name: label })} title={t(shown ? 'hide the items in this file' : 'show the items in this file')}>{shown ? '▾' : '▸'}</button>
     </div>
     {shown && <ul className="tracks-list tracks-sublist">
       {items.map((it) => <TrackRow key={it.id} it={it} selected={selected} onSelect={onSelect} inWorkspace={workspace.has(it.id)} onToggleWorkspace={onToggleWorkspace} />)}
@@ -1315,6 +1401,7 @@ function TriCheck({ on, total, onChange, label }) {
 }
 
 // Year tabs + month strip narrow the list, so any track is two clicks away instead of a long scroll.
+// `lang` is not read here; it is a prop so a language switch re-renders the memoised list.
 const TrackList = memo(function TrackList({ items, selected, onSelect, onOpenFile, focusSource, workspace, onSetMany, onToggleWorkspace, year, setYear, month, setMonth }) {
   const years = useMemo(() => {
     const counts = new Map();
@@ -1352,41 +1439,41 @@ const TrackList = memo(function TrackList({ items, selected, onSelect, onOpenFil
   const allShownOn = shownIds.length > 0 && shownOn === shownIds.length;
   const pending = shownIds.length - shownOn;
 
-  if (!items.length) return <div className="tracks-empty mono">no tracks match</div>;
+  if (!items.length) return <div className="tracks-empty mono">{t('no tracks match')}</div>;
   return <div className="tracks-browse">
     <div className="tracks-nav">
       <div className="tracks-years-bar">
         {years.map(([y, c]) => {
           const on = c.ids.filter((id) => workspace.has(id)).length;
           return <span key={y} className={`tracks-year-tab ${y === activeYear ? 'active' : ''} ${on ? 'on' : ''}`}>
-            <TriCheck on={on} total={c.total} onChange={(next) => onSetMany(c.ids, next)} label={c.total - on > MAX_BULK ? `add ${MAX_BULK} more tracks from ${y} to the map` : `${on === c.total ? 'take' : 'add'} ${y} ${on === c.total ? 'off' : 'to'} the map`} />
+            <TriCheck on={on} total={c.total} onChange={(next) => onSetMany(c.ids, next)} label={c.total - on > MAX_BULK ? t('add {n} more tracks from {year} to the map', { n: MAX_BULK, year: yearName(y) }) : t(on === c.total ? 'take {year} off the map' : 'add {year} to the map', { year: yearName(y) })} />
             <button className="tracks-year-btn" onClick={() => { setYear(y); setMonth(null); }}>
-              {y}<span className="mono">{on}/{c.total}</span>
+              {yearName(y)}<span className="mono">{on}/{c.total}</span>
             </button>
           </span>;
         })}
       </div>
       {activeYear !== 'undated' && <div className="tracks-months">
-        {MONTHS.map((label, m) => (
-          <button key={label} disabled={!monthCounts[m]} className={`tracks-month ${month === m ? 'active' : ''}`} onClick={() => setMonth(month === m ? null : m)} title={`${monthCounts[m]} ${monthCounts[m] === 1 ? 'file' : 'files'}`}>
-            <span>{label}</span><span className="mono">{monthCounts[m] || ''}</span>
+        {MONTHS.map((m) => (
+          <button key={m} disabled={!monthCounts[m]} className={`tracks-month ${month === m ? 'active' : ''}`} onClick={() => setMonth(month === m ? null : m)} title={t(monthCounts[m] === 1 ? '{n} file' : '{n} files', { n: monthCounts[m] })}>
+            <span>{monthName(m)}</span><span className="mono">{monthCounts[m] || ''}</span>
           </button>
         ))}
       </div>}
       <div className="tracks-nav-foot mono">
-        <label className="tracks-selectall" title={allShownOn ? 'take these tracks off the map' : 'add these tracks to the map'}>
-          <TriCheck on={shownOn} total={shownIds.length} onChange={(next) => onSetMany(shownIds, next)} label={`${allShownOn ? 'take' : 'add'} all ${shownIds.length} listed tracks ${allShownOn ? 'off' : 'to'} the map`} />
-          <span>{allShownOn ? `remove all ${shownIds.length}` : pending > MAX_BULK ? `add ${MAX_BULK} of ${pending}` : `add all ${shownIds.length}`}</span>
+        <label className="tracks-selectall" title={t(allShownOn ? 'take these tracks off the map' : 'add these tracks to the map')}>
+          <TriCheck on={shownOn} total={shownIds.length} onChange={(next) => onSetMany(shownIds, next)} label={t(allShownOn ? 'take all {n} listed tracks off the map' : 'add all {n} listed tracks to the map', { n: shownIds.length })} />
+          <span>{allShownOn ? t('remove all {n}', { n: shownIds.length }) : pending > MAX_BULK ? t('add {max} of {n}', { max: MAX_BULK, n: pending }) : t('add all {n}', { n: shownIds.length })}</span>
         </label>
-        <span>{month == null ? `${activeYear} · all months` : `${MONTHS[month]} ${activeYear}`}</span>
+        <span>{month == null ? t('{year} · all months', { year: yearName(activeYear) }) : monthYear(month, activeYear)}</span>
       </div>
     </div>
     <div className="tracks-groups">
       {byMonth.map(([m, list]) => (
         <section key={m ?? 'none'}>
-          {month == null && m != null && <div className="tracks-month-head mono">{MONTHS[m]}</div>}
+          {month == null && m != null && <div className="tracks-month-head mono">{monthName(m)}</div>}
           <ul className="tracks-list">{groupBySource(list).map((group) => (group.length === 1
-            ? <TrackRow key={group[0].id} it={group[0]} selected={selected} onSelect={onSelect} inWorkspace={workspace.has(group[0].id)} onToggleWorkspace={onToggleWorkspace} />
+            ? <TrackRow key={group[0].id} it={group[0]} selected={selected} onSelect={onSelect} inWorkspace={workspace.has(group[0].id)} onToggleWorkspace={onToggleWorkspace} caretSpace />
             : <FileGroup key={group[0].source} items={group} selected={selected} onSelect={onSelect} onOpenFile={onOpenFile} focusSource={focusSource} workspace={workspace} onSetMany={onSetMany} onToggleWorkspace={onToggleWorkspace} />))}</ul>
         </section>
       ))}
@@ -1482,7 +1569,7 @@ function Profile({ geom, playT, onScrub, spans = [] }) {
   const ticks = [maxE, midE, minE];
   return <div className="tracks-profile-wrap">
     <div className="tracks-profile-plot">
-      <svg className={`tracks-profile${onScrub ? ' scrub' : ''}`} onPointerDown={track} onPointerMove={track} onPointerLeave={() => setHover(null)} onPointerCancel={() => setHover(null)} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-label="elevation profile">
+      <svg className={`tracks-profile${onScrub ? ' scrub' : ''}`} onPointerDown={track} onPointerMove={track} onPointerLeave={() => setHover(null)} onPointerCancel={() => setHover(null)} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-label={t('elevation profile')}>
         {ticks.map((e, i) => <line key={i} x1="0" x2={W} y1={y(e)} y2={y(e)} className="tracks-profile-grid" vectorEffect="non-scaling-stroke" />)}
         <path d={`${line}L${W},${H}L0,${H}Z`} className="tracks-profile-fill" />
         {bands.map((b) => <rect key={b.key} x={b.x} y="0" width={b.w} height={H} className="tracks-profile-idle" />)}
@@ -1513,33 +1600,33 @@ function Detail({ item, geom, onClose, onGoTo, playT, setPlayT, playing, setPlay
   return <div className="tracks-detail">
     <div className="tracks-detail-head">
       <div>
-        <div className="tracks-item-meta mono" style={{ color: typeOf(item.type).color }}>{item.visitedPlace ? 'Place' : `${typeOf(item.type).label} · ${KINDS[item.kind]}`}</div>
-        <h2>{item.name}</h2>
+        <div className="tracks-item-meta mono" style={{ color: typeOf(item.type).color }}>{item.visitedPlace ? t('Place') : `${t(typeOf(item.type).label)} · ${t(KINDS[item.kind])}`}</div>
+        <h2 lang={item.nameLang ?? undefined} title={item.name}><TrackName name={item.name} /></h2>
       </div>
       <div className="tracks-detail-actions">
-        {!item.visitedPlace && <button className={`btn ${inWorkspace ? 'active' : ''}`} onClick={() => onToggleWorkspace(item.id)} aria-pressed={inWorkspace}>{inWorkspace ? '× off map' : '+ on map'}</button>}
-        <button className="btn" onClick={onClose} aria-label="close">✕</button>
+        {!item.visitedPlace && <button className={`btn ${inWorkspace ? 'active' : ''}`} onClick={() => onToggleWorkspace(item.id)} aria-pressed={inWorkspace}>{t(inWorkspace ? '× off map' : '+ on map')}</button>}
+        <button className="btn" onClick={onClose} aria-label={t('close')}>✕</button>
       </div>
     </div>
     <div className="tracks-item-meta tracks-detail-sub mono">{fmtDate(item.start)}</div>
-    {item.desc && <p className="tracks-place-desc">{item.desc}</p>}
+    {item.desc && <p className="tracks-place-desc" lang={item.descLang ?? undefined}>{item.desc}</p>}
     {/* On a phone the card shares the screen with the map, and six figures at reading size take
         more of it than the map can spare. They fold into one line there, which still carries the
         two that answer "what is this track" — the button is hidden at desk width, where the
         grid always shows. */}
     <button className="tracks-stats-toggle mono" onClick={() => setStatsOpen((o) => !o)} aria-expanded={statsOpen}>
       <span>{stats.slice(0, 2).map(([, v]) => v).join(' · ')}</span>
-      <span>{statsOpen ? '▾ less' : '▸ more'}</span>
+      <span>{t(statsOpen ? '▾ less' : '▸ more')}</span>
     </button>
-    <dl className={`tracks-stats ${statsOpen ? 'open' : ''}`}>{stats.map(([k, v]) => <div key={k}><dt className="mono">{k}</dt><dd>{v}</dd></div>)}</dl>
-    {geom?.waypoints && <ol className="tracks-wpts">{geom.waypoints.map((w, i) => <li key={i}><button type="button" onClick={() => onGoTo(w)}><span>{w.name}</span><span className="mono">{fmtEle(w.ele)}</span></button></li>)}</ol>}
+    <dl className={`tracks-stats ${statsOpen ? 'open' : ''}`}>{stats.map(([k, v]) => <div key={k}><dt className="mono">{t(k)}</dt><dd>{v}</dd></div>)}</dl>
+    {geom?.waypoints && <ol className="tracks-wpts">{geom.waypoints.map((w, i) => <li key={i}><button type="button" onClick={() => onGoTo(w)}><span lang={w.nameLang ?? undefined}>{w.name}</span><span className="mono">{fmtEle(w.ele)}</span></button></li>)}</ol>}
     {canPlay && <div className="tracks-play">
-      <button className="btn" onClick={() => { if (playT == null || playT >= item.duration) setPlayT(0); setPlaying((p) => !p); }} aria-label={playing ? 'pause' : 'play'}>{playing ? '❚❚' : '▶'}</button>
-      <select className="tracks-input" value={rate} onChange={(e) => setRate(Number(e.target.value))} aria-label="playback speed">
+      <button className="btn" onClick={() => { if (playT == null || playT >= item.duration) setPlayT(0); setPlaying((p) => !p); }} aria-label={t(playing ? 'pause' : 'play')}>{playing ? '❚❚' : '▶'}</button>
+      <select className="tracks-input" value={rate} onChange={(e) => setRate(Number(e.target.value))} aria-label={t('playback speed')}>
         {[10, 60, 300, 1000].map((r) => <option key={r} value={r}>{r}×</option>)}
       </select>
-      {idle && <span className="tracks-play-idle mono">■ stopped {fmtDur(Math.round(idle.duration))}</span>}
-      {!hasProfile && <input type="range" min="0" max={item.duration} value={playT ?? 0} onChange={(e) => scrubTo(Number(e.target.value))} aria-label="playback position" />}
+      {idle && <span className="tracks-play-idle mono">{t('■ stopped {d}', { d: fmtDur(Math.round(idle.duration)) })}</span>}
+      {!hasProfile && <input type="range" min="0" max={item.duration} value={playT ?? 0} onChange={(e) => scrubTo(Number(e.target.value))} aria-label={t('playback position')} />}
       <span className="mono tracks-play-time">{fmtDur(Math.round(playT ?? 0))} / {fmtDur(item.duration)}</span>
     </div>}
     <Profile geom={geom} playT={playT} onScrub={canPlay ? scrubTo : undefined} spans={spans} />
@@ -1551,51 +1638,37 @@ function Detail({ item, geom, onClose, onGoTo, playT, setPlayT, playing, setPlay
   </div>;
 }
 
-// The map's contents get their own place in the panel. One chip represents one GPX file,
-// even when that file contains several tracks or waypoints.
-// That leaves the list below free to be the library, with one job: add tracks.
-// Filters live behind a button: on a phone they would otherwise push the list off-screen.
-const mapFileName = (file) => file.find((it) => it.kind !== 'waypoint')?.name || file[0].name;
+// The panel head says how many files are on the map and clears them; the list's own boxes say
+// which. Filters live behind a button: on a phone they would otherwise push the list off-screen.
 
 function PanelHead({
-  mapItems, onOpenFile, filterCount, filterOpen, setFilterOpen,
-  onClearWorkspace, onSetMany, starter, onStart, q, setQ, browseMode, setBrowseMode, placeCount,
+  mapItems, filterCount, filterOpen, setFilterOpen,
+  onClearWorkspace, starter, onStart, q, setQ, browseMode, setBrowseMode, placeCount,
 }) {
   const mapFiles = groupBySource(mapItems);
   return <>
     <div className="tracks-mapbar">
       <div className="tracks-scope mono">
-        <span className="tracks-scope-label">{browseMode === 'places' ? `● places ${placeCount}` : `✦ map ${mapFiles.length || ''}`}</span>
+        <span className="tracks-scope-label">{browseMode === 'places' ? t('● places {n}', { n: placeCount }) : t('✦ map {n}', { n: mapFiles.length || '' })}</span>
         <span className="tracks-scope-actions tracks-modes">
-          {browseMode !== 'places' && mapItems.length > 0 && <button className="btn" onClick={onClearWorkspace} title="take every track off the map">clear</button>}
+          {browseMode !== 'places' && mapItems.length > 0 && <button className="btn" onClick={onClearWorkspace} title={t('take every track off the map')}>{t('clear')}</button>}
           {browseMode === 'library' && <button className={`btn ${filterOpen ? 'active' : ''}`} onClick={() => setFilterOpen(!filterOpen)} aria-expanded={filterOpen}>
-            filter{filterCount > 0 && <span className="tracks-badge">{filterCount}</span>}
+            {t('filter')}{filterCount > 0 && <span className="tracks-badge">{filterCount}</span>}
           </button>}
         </span>
       </div>
-      {browseMode === 'places' ? null : mapItems.length
-        ? <div className="tracks-chipstrip">
-            {mapFiles.map((file) => (
-              <span key={file[0].source ?? file[0].id} className="tracks-mapchip" style={{ '--chip': typeOf(file[0].type).color }}>
-                <button className="tracks-mapchip-name" onClick={() => onOpenFile(file)} title={mapFileName(file)}>
-                  <span className="tracks-swatch" /><span className="tracks-mapchip-label">{mapFileName(file)}</span>
-                </button>
-                <button className="tracks-mapchip-x" onClick={() => onSetMany(file.map((it) => it.id), false)} aria-label={`take ${mapFileName(file)} off the map`} title="take file off the map">×</button>
-              </span>
-            ))}
-          </div>
-        : <div className="tracks-mapempty mono">
-            <span>nothing on the map yet</span>
-            {starter && <button className="btn" onClick={onStart}>{starter.label}</button>}
-          </div>}
+      {browseMode !== 'places' && !mapItems.length && <div className="tracks-mapempty mono">
+        <span>{t('nothing on the map yet')}</span>
+        {starter && <button className="btn" onClick={onStart}>{starter.label}</button>}
+      </div>}
     </div>
-    <div className="tracks-view-switch mono" role="group" aria-label="browse tracks">
-      <button className={browseMode === 'library' ? 'active' : ''} onClick={() => setBrowseMode('library')}>library</button>
-      <button className={browseMode === 'projects' ? 'active' : ''} onClick={() => setBrowseMode('projects')}>projects</button>
-      <button className={browseMode === 'places' ? 'active' : ''} onClick={() => setBrowseMode('places')}>places</button>
+    <div className="tracks-view-switch mono" role="group" aria-label={t('browse tracks')}>
+      <button className={browseMode === 'library' ? 'active' : ''} onClick={() => setBrowseMode('library')}>{t('library')}</button>
+      <button className={browseMode === 'projects' ? 'active' : ''} onClick={() => setBrowseMode('projects')}>{t('projects')}</button>
+      <button className={browseMode === 'places' ? 'active' : ''} onClick={() => setBrowseMode('places')}>{t('places')}</button>
     </div>
     {browseMode === 'library' && <div className="tracks-row tracks-search">
-      <input className="tracks-input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="search track name…" aria-label="search tracks" />
+      <input className="tracks-input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search track name…')} aria-label={t('search tracks')} />
     </div>}
   </>;
 }
@@ -1603,7 +1676,7 @@ function PanelHead({
 const projectDay = (it) => it.start ? it.start.slice(0, 10) : null;
 const projectVisible = (it, visibility, day) => (it.kind === 'waypoint' ? visibility.waypoints : visibility.tracks) && (!day || projectDay(it) === day);
 
-function ProjectsView({ activeProject, workspace, items, visibility, setVisibility, day, setDay, onOpen, onBack, selected, onSelect, onOpenFile, focusSource, onSetMany, onToggleWorkspace }) {
+function ProjectsView({ projects, activeProject, workspace, items, visibility, setVisibility, day, setDay, onOpen, onBack, selected, onSelect, onOpenFile, focusSource, onSetMany, onToggleWorkspace }) {
   const project = projects.find((p) => p.id === activeProject);
   const projectItems = project ? items.filter((it) => project.trackIds.includes(it.id)) : [];
   const visibleItems = projectItems.filter((it) => projectVisible(it, visibility, day));
@@ -1614,36 +1687,36 @@ function ProjectsView({ activeProject, workspace, items, visibility, setVisibili
   if (firstDay && lastDay) {
     for (let date = new Date(`${firstDay}T12:00:00Z`); date.toISOString().slice(0, 10) <= lastDay; date.setUTCDate(date.getUTCDate() + 1)) {
       const value = date.toISOString().slice(0, 10);
-      days.push({ value, month: date.toLocaleDateString(undefined, { month: 'short', timeZone: 'UTC' }), date: date.getUTCDate(), count: projectItems.filter((it) => projectDay(it) === value).length });
+      days.push({ value, month: !days.length || date.getUTCDate() === 1 ? date.toLocaleDateString(LOCALE(), { month: 'short', timeZone: 'UTC' }) : '', date: date.getUTCDate(), count: projectItems.filter((it) => projectDay(it) === value).length });
     }
   }
   const period = (p) => {
-    const display = (value) => value && new Date(`${value}T12:00:00Z`).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+    const display = (value) => value && new Date(`${value}T12:00:00Z`).toLocaleDateString(LOCALE(), { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
     return p.startDate && p.endDate ? `${display(p.startDate)} — ${display(p.endDate)}` : display(p.startDate || p.endDate);
   };
   return <div className="tracks-projects">
     {project ? <>
-      <div className="tracks-project-actions"><button className="btn" onClick={onBack}>‹ all projects</button><span className="mono">curated project</span></div>
-      <div className="tracks-project-heading"><div><strong>{project.name}</strong>{period(project) && <span className="mono">{period(project)}</span>}<span className="mono">{projectItems.length} items · {fmtDist(projectItems.reduce((sum, it) => sum + (it.distance ?? 0), 0))}</span>{project.desc && <p className="tracks-project-desc">{project.desc}</p>}</div></div>
+      <div className="tracks-project-actions"><button className="btn" onClick={onBack}>{t('‹ all projects')}</button><span className="mono">{t('curated project')}</span></div>
+      <div className="tracks-project-heading"><div><strong lang={project.nameLang ?? undefined}>{project.name}</strong>{period(project) && <span className="mono">{period(project)}</span>}<span className="mono">{t(projectItems.length === 1 ? '{n} item' : '{n} items', { n: projectItems.length })} · {fmtDist(projectItems.reduce((sum, it) => sum + (it.distance ?? 0), 0))}</span>{project.desc && <p className="tracks-project-desc" lang={project.descLang ?? undefined}>{project.desc}</p>}</div></div>
       <div className="tracks-project-filters">
-        <div className="tracks-project-toggles" role="group" aria-label="project layers">
-          <button className={visibility.tracks ? 'active' : ''} aria-pressed={visibility.tracks} onClick={() => setVisibility((v) => ({ ...v, tracks: !v.tracks }))}>tracks</button>
-          <button className={visibility.waypoints ? 'active' : ''} aria-pressed={visibility.waypoints} onClick={() => setVisibility((v) => ({ ...v, waypoints: !v.waypoints }))}>waypoints</button>
+        <div className="tracks-project-toggles" role="group" aria-label={t('project layers')}>
+          <button className={visibility.tracks ? 'active' : ''} aria-pressed={visibility.tracks} onClick={() => setVisibility((v) => ({ ...v, tracks: !v.tracks }))}>{t('tracks')}</button>
+          <button className={visibility.waypoints ? 'active' : ''} aria-pressed={visibility.waypoints} onClick={() => setVisibility((v) => ({ ...v, waypoints: !v.waypoints }))}>{t('waypoints')}</button>
         </div>
-        {days.length > 0 && <div className="tracks-project-calendar" aria-label="project days">
-          <button className={`tracks-project-day all ${!day ? 'active' : ''}`} onClick={() => setDay(null)} aria-pressed={!day}>all days</button>
+        {days.length > 0 && <div className="tracks-project-calendar" aria-label={t('project days')}>
+          <button className={`tracks-project-day all ${!day ? 'active' : ''}`} onClick={() => setDay(null)} aria-pressed={!day}>{t('all days')}</button>
           {days.map((entry) => <button key={entry.value} className={`tracks-project-day ${day === entry.value ? 'active' : ''}`} onClick={() => setDay(day === entry.value ? null : entry.value)} aria-pressed={day === entry.value} aria-label={entry.value}>
-            <strong>{entry.date}</strong><span className="mono">{entry.month}</span>{entry.count > 0 && <i aria-label={`${entry.count} items`} />}
+            <strong>{entry.date}</strong>{entry.month && <span className="mono">{entry.month}</span>}{entry.count > 0 && <i aria-label={t(entry.count === 1 ? '{n} item' : '{n} items', { n: entry.count })} />}
           </button>)}
         </div>}
-        <div className="mono tracks-project-result">{visibleItems.length} items shown</div>
+        <div className="mono tracks-project-result">{t(visibleItems.length === 1 ? '{n} item shown' : '{n} items shown', { n: visibleItems.length })}</div>
       </div>
       <div className="tracks-project-list">{visibleItems.length ? <ul className="tracks-list">{groupBySource(visibleItems).map((group) => group.length === 1
-        ? <TrackRow key={group[0].id} it={group[0]} selected={selected} onSelect={onSelect} inWorkspace={workspace.includes(group[0].id)} onToggleWorkspace={onToggleWorkspace} />
-        : <FileGroup key={group[0].source} items={group} selected={selected} onSelect={onSelect} onOpenFile={onOpenFile} focusSource={focusSource} workspace={new Set(workspace)} onSetMany={onSetMany} onToggleWorkspace={onToggleWorkspace} />)}</ul> : <div className="tracks-empty mono">no items for this day and layer selection</div>}</div>
+        ? <TrackRow key={group[0].id} it={group[0]} selected={selected} onSelect={onSelect} inWorkspace={workspace.includes(group[0].id)} onToggleWorkspace={onToggleWorkspace} caretSpace />
+        : <FileGroup key={group[0].source} items={group} selected={selected} onSelect={onSelect} onOpenFile={onOpenFile} focusSource={focusSource} workspace={new Set(workspace)} onSetMany={onSetMany} onToggleWorkspace={onToggleWorkspace} />)}</ul> : <div className="tracks-empty mono">{t('no items for this day and layer selection')}</div>}</div>
     </> : <div className="tracks-project-list">{projects.length ? projects.map((p) => <button className="tracks-project-card" key={p.id} onClick={() => onOpen(p.id)}>
-      <span className="tracks-project-card-body"><strong>{p.name}</strong>{period(p) && <span className="tracks-project-period mono">{period(p)}</span>}{p.desc && <span className="tracks-project-desc">{p.desc}</span>}<span className="tracks-project-count mono">{p.trackIds.length} tracks</span></span><span className="tracks-project-arrow" aria-hidden="true">›</span>
-    </button>) : <div className="tracks-empty mono">no projects published yet</div>}</div>}
+      <span className="tracks-project-card-body"><strong lang={p.nameLang ?? undefined}>{p.name}</strong>{period(p) && <span className="tracks-project-period mono">{period(p)}</span>}{p.desc && <span className="tracks-project-desc" lang={p.descLang ?? undefined}>{p.desc}</span>}<span className="tracks-project-count mono">{t(p.trackIds.length === 1 ? '{n} track' : '{n} tracks', { n: p.trackIds.length })}</span></span><span className="tracks-project-arrow" aria-hidden="true">›</span>
+    </button>) : <div className="tracks-empty mono">{t('no projects published yet')}</div>}</div>}
   </div>;
 }
 
@@ -1662,19 +1735,19 @@ function PlacesView({ items, selected, onSelect, year, setYear, month, setMonth 
     {items.length > 0 && <div className="tracks-nav">
       <div className="tracks-years-bar">
         {years.map(([y, count]) => <span key={y} className={`tracks-year-tab ${y === activeYear ? 'active' : ''}`}>
-          <button className="tracks-year-btn" onClick={() => { setYear(y); setMonth(null); }}>{y}<span className="mono">{count}</span></button>
+          <button className="tracks-year-btn" onClick={() => { setYear(y); setMonth(null); }}>{yearName(y)}<span className="mono">{count}</span></button>
         </span>)}
       </div>
       {activeYear !== 'undated' && <div className="tracks-months">
-        {MONTHS.map((label, m) => <button key={label} disabled={!monthCounts[m]} className={`tracks-month ${month === m ? 'active' : ''}`} onClick={() => setMonth(month === m ? null : m)} title={`${monthCounts[m]} places`}>
-          <span>{label}</span><span className="mono">{monthCounts[m] || ''}</span>
+        {MONTHS.map((m) => <button key={m} disabled={!monthCounts[m]} className={`tracks-month ${month === m ? 'active' : ''}`} onClick={() => setMonth(month === m ? null : m)} title={t(monthCounts[m] === 1 ? '{n} place' : '{n} places', { n: monthCounts[m] })}>
+          <span>{monthName(m)}</span><span className="mono">{monthCounts[m] || ''}</span>
         </button>)}
       </div>}
-      <div className="tracks-nav-foot mono">{month == null ? `${activeYear} · all months` : `${MONTHS[month]} ${activeYear}`} · {shown.length} places</div>
+      <div className="tracks-nav-foot mono">{month == null ? t('{year} · all months', { year: yearName(activeYear) }) : monthYear(month, activeYear)} · {t(shown.length === 1 ? '{n} place' : '{n} places', { n: shown.length })}</div>
     </div>}
     <div className="tracks-groups"><ul className="tracks-list">{shown.map((it) => <li key={it.id}>
       <button className={`tracks-item ${selected === it.id ? 'active' : ''}`} onClick={() => onSelect(it.id)}>
-        <span className="tracks-swatch" /><span className="tracks-item-main"><span className="tracks-item-name">{it.name}</span><span className="tracks-item-meta mono">{fmtDate(it.start)}</span></span>
+        <span className="tracks-swatch" /><span className="tracks-item-main"><span className="tracks-item-name" lang={it.nameLang ?? undefined} title={it.name}>{it.name}</span><span className="tracks-item-meta mono">{fmtDate(it.start)}</span></span>
       </button>
     </li>)}</ul></div>
   </div>;
@@ -1683,7 +1756,13 @@ function PlacesView({ items, selected, onSelect, year, setYear, month, setMonth 
 
 function TracksApp() {
   const initial = useMemo(readUrl, []);
-  const [items, setItems] = useState(null);
+  const [lang, setLangState] = useState(initial.lang);
+  // Set during render, so every string the children render this pass is in the new language.
+  setLang(lang);
+  useEffect(() => { document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en'; }, [lang]);
+  const [rawItems, setItems] = useState(null);
+  const items = useMemo(() => rawItems && rawItems.map((it) => localize(it, lang)), [rawItems, lang]);
+  const projects = useMemo(() => allProjects.map((p) => localize(p, lang)), [lang]);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState(initial.filters);
   const [selected, setSelected] = useState(initial.selected);
@@ -1730,26 +1809,27 @@ function TracksApp() {
   // else the newest year. Featured is one source of a starting set now, not the only one.
   const starter = useMemo(() => {
     if (!libraryItems.length) return null;
-    if (featured.length) return { label: `★ add ${Math.min(featured.length, MAX_BULK)} featured`, items: featured.slice(0, MAX_BULK) };
-    if (libraryItems.length <= 20) return { label: `add all ${libraryItems.length}`, items: libraryItems };
+    if (featured.length) return { label: t('★ add {n} featured', { n: Math.min(featured.length, MAX_BULK) }), items: featured.slice(0, MAX_BULK) };
+    if (libraryItems.length <= 20) return { label: t('add all {n}', { n: libraryItems.length }), items: libraryItems };
     const y = yearOf(byRecent(libraryItems)[0]);
     const inYear = byRecent(libraryItems.filter((it) => yearOf(it) === y)).slice(0, MAX_BULK);
-    return { label: `add ${y} · ${inYear.length}`, items: inYear };
-  }, [libraryItems, featured]);
+    return { label: t('add {year} · {n}', { year: yearName(y), n: inYear.length }), items: inYear };
+  }, [libraryItems, featured, lang]);
   // One rule for the map: it draws the workspace, nothing else. The list browses everything.
   // Geometry is fetched for what the map draws, so browsing a large library costs no requests.
   const onMap = useMemo(() => (items ? items.filter((it) => inWorkspace.has(it.id)) : []), [items, inWorkspace]);
   const projectMap = useMemo(() => {
     const project = projects.find((p) => p.id === activeProject);
     return project ? libraryItems.filter((it) => project.trackIds.includes(it.id) && projectVisible(it, projectVisibility, projectDayFilter)) : [];
-  }, [activeProject, libraryItems, projectVisibility, projectDayFilter]);
+  }, [activeProject, libraryItems, projectVisibility, projectDayFilter, projects]);
   // The selected track is drawn even when it is not in the workspace, so a list tap always shows something.
   const shown = useMemo(() => {
     const sel = items?.find((it) => it.id === selected);
     const base = browseMode === 'places' ? placeItems : browseMode === 'projects' && activeProject ? projectMap : onMap;
     return sel && !base.includes(sel) ? [...base, sel] : base;
   }, [onMap, selected, items, browseMode, placeItems, activeProject, projectMap]);
-  const geoms = useGeometries(shown);
+  const rawGeoms = useGeometries(shown);
+  const geoms = useMemo(() => localizeGeoms(rawGeoms, lang), [rawGeoms, lang]);
   const selItem = items?.find((it) => it.id === selected) ?? null;
   const selGeom = selected ? geoms[selected] : null;
 
@@ -1765,7 +1845,7 @@ function TracksApp() {
     return () => clearTimeout(timeout);
   }, [playing, playT]);
   const play = useMemo(() => ({ t: selected ? linkT : null, playing, rate }), [selected, linkT, playing, rate]);
-  useEffect(() => { writeUrl(filters, selected, is3d, amap, workspace, camera, play, snap, browseMode, activeProject, projectDayFilter, projectVisibility, libraryCalendar, placesCalendar, filterOpen); }, [filters, selected, is3d, amap, workspace, camera, play, snap, browseMode, activeProject, projectDayFilter, projectVisibility, libraryCalendar, placesCalendar, filterOpen]);
+  useEffect(() => { writeUrl(filters, selected, is3d, amap, workspace, camera, play, snap, browseMode, activeProject, projectDayFilter, projectVisibility, libraryCalendar, placesCalendar, filterOpen, lang); }, [filters, selected, is3d, amap, workspace, camera, play, snap, browseMode, activeProject, projectDayFilter, projectVisibility, libraryCalendar, placesCalendar, filterOpen, lang]);
 
   // A link's workspace is the sender's, not the visitor's: it is kept only once the visitor
   // changes it, so opening a shared link does not wipe the set they had saved.
@@ -1780,11 +1860,11 @@ function TracksApp() {
   // than leaving a button that looks like it did nothing.
   const onCopyLink = useCallback(async () => {
     let ok = false;
-    writeUrl(filters, selected, is3d, amap, workspace, camera, { t: selected ? playT : null, playing, rate }, snap, browseMode, activeProject, projectDayFilter, projectVisibility, libraryCalendar, placesCalendar, filterOpen);
+    writeUrl(filters, selected, is3d, amap, workspace, camera, { t: selected ? playT : null, playing, rate }, snap, browseMode, activeProject, projectDayFilter, projectVisibility, libraryCalendar, placesCalendar, filterOpen, lang);
     try { await navigator.clipboard.writeText(location.href); ok = true; } catch { ok = copyFallback(location.href); }
     setCopied(ok ? 'ok' : 'fail');
     setTimeout(() => setCopied(null), 1600);
-  }, [filters, selected, is3d, amap, workspace, camera, playT, playing, rate, snap, browseMode, activeProject, projectDayFilter, projectVisibility, libraryCalendar, placesCalendar, filterOpen]);
+  }, [filters, selected, is3d, amap, workspace, camera, playT, playing, rate, snap, browseMode, activeProject, projectDayFilter, projectVisibility, libraryCalendar, placesCalendar, filterOpen, lang]);
 
   // Picking a file is its own kind of selection: every item of it goes on the map and the
   // camera frames the lot. A single track picked afterwards takes over, so the two never
@@ -1826,7 +1906,7 @@ function TracksApp() {
     setFocus(null);
     setFitAllKey((n) => n + 1);
     setSnap('half');
-  }, []);
+  }, [projects]);
   // First visit only: start from the same set the empty state offers, so a library with no
   // featured.json still opens on something. A cleared workspace stays cleared.
   const seeded = useRef(initial.seeded);
@@ -1919,7 +1999,7 @@ function TracksApp() {
 
   return <div className="tracks-shell">
     <div className="tracks-top">
-      <PageHeader section="tracks" status={items ? (browseMode === 'places' ? `${placeItems.length} places` : `${onMap.length} / ${libraryItems.length} on map`) : 'loading'} />
+      <PageHeader section="tracks" status={items ? (browseMode === 'places' ? t(placeItems.length === 1 ? '{n} place' : '{n} places', { n: placeItems.length }) : t('{a} / {b} on map', { a: onMap.length, b: libraryItems.length })) : t('loading')} />
     </div>
     <div className={`tracks-body ${panelOpen ? '' : 'panel-closed'} sheet-${snap}`}>
       <aside className="tracks-panel">
@@ -1931,19 +2011,17 @@ function TracksApp() {
           aria-expanded={panelOpen}
         >
           <span className="tracks-grip" />
-          {snap === 'peek' ? `▴ ${browseMode === 'places' ? `${placeItems.length} places` : browseMode === 'projects' ? (projects.find((p) => p.id === activeProject)?.name ?? 'projects') : `${filtered.length} tracks`}` : snap === 'half' ? '▴ full · ▾ hide' : '▾ swipe down'}
+          {snap === 'peek' ? `▴ ${browseMode === 'places' ? t(placeItems.length === 1 ? '{n} place' : '{n} places', { n: placeItems.length }) : browseMode === 'projects' ? (projects.find((p) => p.id === activeProject)?.name ?? t('projects')) : t('{n} tracks', { n: filtered.length })}` : t(snap === 'half' ? '▴ full · ▾ hide' : '▾ swipe down')}
         </button>
-        {error ? <div className="tracks-empty mono">{error}</div> : <>
+        {error ? <div className="tracks-empty mono">{t(error)}</div> : <>
           {dropped > 0 && <button className="tracks-notice mono" onClick={() => setDropped(0)}>
-            {dropped} {dropped === 1 ? 'track in this link is' : 'tracks in this link are'} no longer in the library · dismiss
+            {t(dropped === 1 ? '{n} track in this link is no longer in the library · dismiss' : '{n} tracks in this link are no longer in the library · dismiss', { n: dropped })}
           </button>}
           <PanelHead
             filterCount={activeFilterCount}
             filterOpen={filterOpen}
             setFilterOpen={setFilterOpen}
             mapItems={onMap}
-            onOpenFile={(file) => onOpenFile(items.filter((it) => it.source === file[0].source))}
-            onSetMany={onSetMany}
             onClearWorkspace={onClearWorkspace}
             starter={starter}
             onStart={() => onAddAllToWorkspace(starter.items)}
@@ -1954,24 +2032,25 @@ function TracksApp() {
             placeCount={placeItems.length}
           />
           {browseMode === 'library' && filterOpen && <div className="tracks-filter-layer">
-            <Filters filters={filters} setFilters={setFilters} counts={counts} />
-            <button className="btn tracks-filter-done" onClick={() => setFilterOpen(false)}>done · {filtered.length} tracks</button>
+            <Filters filters={filters} setFilters={setFilters} counts={counts} lang={lang} />
+            <button className="btn tracks-filter-done" onClick={() => setFilterOpen(false)}>{t('done · {n} tracks', { n: filtered.length })}</button>
           </div>}
           {browseMode === 'library'
-            ? <TrackList items={filtered} selected={selected} onSelect={selectItem} onOpenFile={onOpenFile} focusSource={focus?.source ?? null} workspace={inWorkspace} onSetMany={onSetMany} onToggleWorkspace={onToggleWorkspace} year={libraryCalendar.year} setYear={(year) => setLibraryCalendar((state) => ({ ...state, year }))} month={libraryCalendar.month} setMonth={(month) => setLibraryCalendar((state) => ({ ...state, month }))} />
+            ? <TrackList lang={lang} items={filtered} selected={selected} onSelect={selectItem} onOpenFile={onOpenFile} focusSource={focus?.source ?? null} workspace={inWorkspace} onSetMany={onSetMany} onToggleWorkspace={onToggleWorkspace} year={libraryCalendar.year} setYear={(year) => setLibraryCalendar((state) => ({ ...state, year }))} month={libraryCalendar.month} setMonth={(month) => setLibraryCalendar((state) => ({ ...state, month }))} />
             : browseMode === 'projects'
-              ? <ProjectsView activeProject={activeProject} workspace={workspace} items={libraryItems} visibility={projectVisibility} setVisibility={(next) => { setProjectVisibility(next); setSelected(null); setFitAllKey((n) => n + 1); }} day={projectDayFilter} setDay={(next) => { setProjectDayFilter(next); setSelected(null); setFocus(null); setFitAllKey((n) => n + 1); }} onOpen={openProject} onBack={() => setActiveProject(null)} selected={selected} onSelect={selectItem} onOpenFile={onOpenFile} focusSource={focus?.source ?? null} onSetMany={onSetMany} onToggleWorkspace={onToggleWorkspace} />
+              ? <ProjectsView projects={projects} activeProject={activeProject} workspace={workspace} items={libraryItems} visibility={projectVisibility} setVisibility={(next) => { setProjectVisibility(next); setSelected(null); setFitAllKey((n) => n + 1); }} day={projectDayFilter} setDay={(next) => { setProjectDayFilter(next); setSelected(null); setFocus(null); setFitAllKey((n) => n + 1); }} onOpen={openProject} onBack={() => setActiveProject(null)} selected={selected} onSelect={selectItem} onOpenFile={onOpenFile} focusSource={focus?.source ?? null} onSetMany={onSetMany} onToggleWorkspace={onToggleWorkspace} />
               : <PlacesView items={placeItems} selected={selected} onSelect={selectItem} year={placesCalendar.year} setYear={(year) => setPlacesCalendar((state) => ({ ...state, year }))} month={placesCalendar.month} setMonth={(month) => setPlacesCalendar((state) => ({ ...state, month }))} />}
         </>}
       </aside>
       <section className="tracks-stage">
         <TrackMap items={shown} geoms={geoms} selected={selected} onSelect={selectItem} is3d={is3d} amap={amap} marker={marker} inView={filters.inView} onViewChange={onViewChange} fitKey={fitKey} fitAllKey={fitAllKey} focusSource={focus?.source ?? null} focusKey={focus?.key ?? 0} goTo={goTo} initialCamera={initial.camera} onCamera={setCamera} />
         <div className="tracks-toolbar">
-          <button className="btn tracks-panel-btn" onClick={() => setSnap(panelOpen ? 'peek' : 'half')}>{panelOpen ? '◂ panel' : '▸ panel'}</button>
-          <button className="btn" onClick={onCopyLink} title="copy a link to exactly this view">{copied === 'ok' ? '✓ copied' : copied === 'fail' ? '✗ copy it from the address bar' : '⧉ link'}</button>
-          <button className="btn" onClick={() => setFitAllKey((n) => n + 1)} disabled={!shown.length} title="zoom to fit every track on the map">⤢ fit</button>
+          <button className="btn tracks-panel-btn" onClick={() => setSnap(panelOpen ? 'peek' : 'half')}>{t(panelOpen ? '◂ panel' : '▸ panel')}</button>
+          <button className="btn" onClick={onCopyLink} title={t('copy a link to exactly this view')}>{t(copied === 'ok' ? '✓ copied' : copied === 'fail' ? '✗ copy it from the address bar' : '⧉ link')}</button>
+          <button className="btn" onClick={() => setFitAllKey((n) => n + 1)} disabled={!shown.length} title={t('zoom to fit every track on the map')}>{t('⤢ fit')}</button>
           <button className={`btn ${is3d ? 'active' : ''}`} onClick={() => setIs3d((v) => !v)}>{is3d ? '3D' : '2D'}</button>
-          <button className={`btn ${amap ? 'active' : ''}`} onClick={() => setAmap((v) => !v)} title="switch basemap">{amap ? '高德' : 'OSM'}</button>
+          <button className={`btn ${amap ? 'active' : ''}`} onClick={() => setAmap((v) => !v)} title={t('switch basemap')}>{amap ? '高德' : 'OSM'}</button>
+          <button className="btn" onClick={() => { const next = lang === 'zh' ? 'en' : 'zh'; storeLang(next); setLangState(next); }} title={t('switch language')} lang={lang === 'zh' ? 'en' : 'zh-CN'}>{lang === 'zh' ? 'EN' : '中文'}</button>
         </div>
         {selItem && <Detail item={selItem} geom={selGeom} onClose={() => setSelected(null)} onGoTo={(w) => setGoTo({ ...w, key: Date.now() })} playT={playT} setPlayT={setPlayT} playing={playing} setPlaying={setPlaying} rate={rate} setRate={setRate} inWorkspace={inWorkspace.has(selItem.id)} onToggleWorkspace={onToggleWorkspace} spans={spans} idle={idle} />}
       </section>

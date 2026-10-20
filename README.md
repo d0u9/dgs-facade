@@ -62,7 +62,7 @@ can set the same value for one build without changing the file.
 
 ## Tracks
 
-`/tracks/` draws GPX, KML and GeoJSON files from `data/tracks/<type>/` on a
+`/tracks/` draws GPX, KML and GeoJSON files from `data/tracks/` on a
 MapLibre basemap. The build turns them into static JSON under
 `public/tracks-data/`, which is generated and not committed; the dev server
 rebuilds on any change under `data/tracks`.

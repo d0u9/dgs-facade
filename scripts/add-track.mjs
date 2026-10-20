@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Files a track into data/tracks/<type>/ and rebuilds, so adding one does not mean
+// Files a track into data/tracks/ and rebuilds, so adding one does not mean
 // remembering which folder names the build recognises or what the ids file is for.
 //
 //   node scripts/add-track.mjs ~/Downloads/ride.gpx --type bike
@@ -46,13 +46,20 @@ function rename(text, name) {
   return head + tail.replace(/(<trk>|<rte>)/, `$1<name>${escaped}</name>`);
 }
 
+// --type goes into the file, as the GPX <type> of each track or route that has none. GPX 1.1
+// puts <type> after the name, description and links and before <extensions> and the points.
+// A <link> carries a <type> of its own (the linked file's media type), so it does not count.
+function setType(text, type) {
+  return text.replace(/<(trk|rte)>([\s\S]*?)(?=<extensions|<trkseg|<rtept|<\/trk>|<\/rte>)/g,
+    (m, tag, head) => (/<type>/.test(head.replace(/<link[\s\S]*?<\/link>/g, '')) ? m : `<${tag}>${head}<type>${type}</type>`));
+}
+
 const { files, opts } = parseArgs(process.argv.slice(2));
 if (!files.length) fail(`usage: node scripts/add-track.mjs <file…> [--type ${TRACK_TYPES.join('|')}] [--name "…"] [--featured]`);
 if (opts.type && !TRACK_TYPES.includes(opts.type)) fail(`unknown --type ${opts.type}; one of ${TRACK_TYPES.join(', ')}`);
 if (opts.name && files.length > 1) fail('--name takes one file at a time');
 
-const type = opts.type ?? 'other';
-if (!opts.type) console.log(`add-track: no --type given, filing under ${type}/`);
+if (!opts.type) console.log('add-track: no --type given, tracks without a <type> show as other');
 
 const added = [];
 files.forEach((file) => {
@@ -61,7 +68,7 @@ files.forEach((file) => {
   const ext = extname(from).toLowerCase();
   if (!EXTENSIONS.includes(ext)) fail(`${file} is not one of ${EXTENSIONS.join(', ')}`);
 
-  const dir = join(SRC_DIR, type);
+  const dir = SRC_DIR;
   mkdirSync(dir, { recursive: true });
   const stem = fileSlug(opts.name ?? basename(from, extname(from)));
   let to = join(dir, `${stem}${ext}`);
@@ -73,8 +80,10 @@ files.forEach((file) => {
     if (renamed) writeFileSync(to, renamed);
     else console.warn(`add-track: no track to rename in ${basename(to)}, --name only set the file name`);
   }
-  added.push(`${type}/${basename(to)}`);
-  console.log(`add-track: ${file} -> data/tracks/${type}/${basename(to)}`);
+  if (opts.type && ext === '.gpx') writeFileSync(to, setType(readFileSync(to, 'utf8'), opts.type));
+  else if (opts.type) console.warn(`add-track: --type is only written into GPX files; set the type inside ${basename(to)} by hand`);
+  added.push(basename(to));
+  console.log(`add-track: ${file} -> data/tracks/${basename(to)}`);
 });
 
 if (opts.featured) {

@@ -76,8 +76,13 @@ function trackData() {
       // The build writes ids.json back into the source directory; rebuilding on that write
       // would loop.
       const ledger = join(tracksSrc, 'ids.json');
+      // Moving a folder of tracks fires an event per file. Each one used to run a whole build in
+      // turn, which held the dev server up for minutes; one build after the burst settles is enough.
+      let timer = null;
       const rebuild = (file) => {
-        if (file.startsWith(tracksSrc) && file !== ledger) buildTracks({ srcDir: tracksSrc, outDir: tracksOut });
+        if (!file.startsWith(tracksSrc) || file === ledger) return;
+        clearTimeout(timer);
+        timer = setTimeout(() => buildTracks({ srcDir: tracksSrc, outDir: tracksOut }), 300);
       };
       server.watcher.on('add', rebuild).on('change', rebuild).on('unlink', rebuild);
     }

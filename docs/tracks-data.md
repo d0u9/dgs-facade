@@ -1,6 +1,6 @@
 # Tracks data
 
-Track files live in `data/tracks/<type>/`. `scripts/build-tracks.mjs` reads
+Track files live anywhere under `data/tracks/`. `scripts/build-tracks.mjs` reads
 them into static JSON under `public/tracks-data/`: `index.json` holds the
 metadata the page filters on, and `<id>.json` holds one track's geometry,
 fetched only when the map draws it. That output is generated and not
@@ -16,18 +16,35 @@ pnpm add-track ~/Downloads/ride.gpx --type bike
 pnpm add-track ride.gpx --type bike --name "Morning loop" --featured
 ```
 
-That copies the file into `data/tracks/bike/`, optionally renames the track
-inside it, rebuilds, and prints a link to the new track. `--type` is one of
-`drive drone flight ship hike run bike other`; without it the file is filed
-under `other`.
+That copies the file into `data/tracks/`, writes `--type` into each track
+without a `<type>`, optionally renames the track inside it, rebuilds, and
+prints a link to the new track. `--type` is one of
+`drive drone flight ship hike run bike other`.
 
-Copying a file into `data/tracks/<type>/` by hand does the same thing. The
+Copying a file into `data/tracks/` by hand does the same thing, with the type
+taken from the file. The
 dev server rebuilds on any change under `data/tracks`, and `pnpm tracks`
 rebuilds without starting it.
 
 `.gpx`, `.kml`, `.geojson` and `.json` are all read. A file with several
 tracks in it becomes several tracks on the page; its `<wpt>` points are
 collected into one waypoint entry.
+
+A track's type is its GPX `<trk><type>` (or `<rte><type>`), read through the
+aliases in `scripts/build-tracks.mjs`; a track without one is `other`. Folders
+under `data/tracks/` mean nothing to the build, so one project folder can hold
+drives and walks alike. GPX 1.1 leaves the values free; use one of
+`drive drone flight ship hike run bike other`.
+
+## Names in other languages
+
+A GPX names its `<trk>`, `<rte>` and `<wpt>` elements in other languages with
+the dgs-toolbox extension described in its `docs/apps/geo/gpx-names.md`:
+`<dgs:name xml:lang="en">` translations and a `<dgs:lang>` for the language of
+`<name>`, defaulting to the one in `<metadata>`. The build copies them into
+the index and geometry as `lang` and `names`; the page picks one per visitor
+language (`src/tracks-names.js`) and searches all of them. The page's own
+wording is in `src/tracks-i18n.js`.
 
 `data/tracks/featured.json` lists source paths, names or ids. Featured tracks
 are the ones the page offers before the visitor has picked anything.
